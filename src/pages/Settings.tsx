@@ -39,6 +39,7 @@ import { OrganizationLogo } from '../components/shared/OrganizationLogo';
 import { ThemeSelector } from '../components/shared/ThemeSelector';
 import { ThemeSwitcher } from '../components/shared/ThemeSwitcher';
 import type { UpdateOrganizationData } from '../types/organizations';
+import { toast } from 'sonner';
 
 export function Settings() {
   const { currentOrganization, updateOrganization } = useOrganization();
@@ -86,8 +87,40 @@ export function Settings() {
     }
   }, [currentOrganization]);
 
+  // Helper function to compare organization data
+  const hasOrganizationDataChanged = () => {
+    if (!currentOrganization) return false;
+    
+    return (
+      orgData.name !== (currentOrganization.name || '') ||
+      orgData.email !== (currentOrganization.email || '') ||
+      orgData.phone !== (currentOrganization.phone || '') ||
+      orgData.address !== (currentOrganization.address || '') ||
+      orgData.currency !== (currentOrganization.currency || 'GHS')
+    );
+  };
+
+  // Helper function to compare notification settings
+  const hasNotificationSettingsChanged = () => {
+    if (!currentOrganization?.notification_settings) return true;
+    
+    const current = currentOrganization.notification_settings;
+    return (
+      notificationSettings.roleChanges !== (current.roleChanges ?? true) ||
+      notificationSettings.securityAlerts !== (current.securityAlerts ?? true) ||
+      notificationSettings.appUpdates !== (current.appUpdates ?? true) ||
+      notificationSettings.newUserAdded !== (current.newUserAdded ?? true)
+    );
+  };
+
   const handleSaveOrganizationDetails = async () => {
     if (!currentOrganization) return;
+
+    // Check if data has actually changed
+    if (!hasOrganizationDataChanged()) {
+      toast.info('No new changes detected');
+      return;
+    }
 
     setIsSavingOrgData(true);
     try {
@@ -97,8 +130,36 @@ export function Settings() {
       };
 
       await updateOrganization(updateData);
+      toast.success('Organization details updated successfully');
     } catch (error) {
       console.error('Error updating organization:', error);
+      toast.error('Failed to update organization details');
+    } finally {
+      setIsSavingOrgData(false);
+    }
+  };
+
+  const handleUpdateNotificationSettings = async () => {
+    if (!currentOrganization) return;
+
+    // Check if notification settings have actually changed
+    if (!hasNotificationSettingsChanged()) {
+      toast.info('No changes made');
+      return;
+    }
+
+    setIsSavingOrgData(true);
+    try {
+      const updateData: UpdateOrganizationData = {
+        id: currentOrganization.id,
+        notification_settings: notificationSettings,
+      };
+
+      await updateOrganization(updateData);
+      toast.success('Notification settings updated successfully');
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+      toast.error('Failed to update notification settings');
     } finally {
       setIsSavingOrgData(false);
     }
@@ -512,6 +573,19 @@ export function Settings() {
                     }))
                   }
                 />
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleUpdateNotificationSettings}
+                  disabled={isSavingOrgData}
+                  className="flex items-center space-x-2"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>
+                    {isSavingOrgData ? 'Updating...' : 'Update Settings'}
+                  </span>
+                </Button>
               </div>
             </CardContent>
           </Card>
