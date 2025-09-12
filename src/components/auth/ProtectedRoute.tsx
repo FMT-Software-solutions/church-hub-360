@@ -1,8 +1,9 @@
+import { useOrganization } from '@/contexts/OrganizationContext';
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LoadingSpinner } from '../shared/LoadingSpinner';
 import supabase from '../../utils/supabase';
+import { LoadingSpinner } from '../shared/LoadingSpinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,6 +11,8 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, session, setSession, initializeUser } = useAuth();
+  const { userOrganizations, isLoading: orgLoading } = useOrganization();
+
   const location = useLocation();
   const [initializing, setInitializing] = useState(true);
 
@@ -18,12 +21,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       // Initialize session first
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
-      
+
       // Then initialize user if session exists
       if (data.session) {
         await initializeUser();
       }
-      
+
       setInitializing(false);
     }
 
@@ -31,30 +34,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [setSession, initializeUser]);
 
   // Show loading while initializing
-  if (initializing) {
+  if (initializing || orgLoading) {
     return <LoadingSpinner />;
   }
 
   // If no session, redirect to login
-  if (!session) {
-    return (
-      <Navigate
-        to="/login"
-        state={{ from: location }}
-        replace
-      />
-    );
-  }
-
-  // If no user data but session exists, redirect to login
-  if (!user) {
-    return (
-      <Navigate
-        to="/login"
-        state={{ from: location }}
-        replace
-      />
-    );
+  if (!session || !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Check if user account is active
@@ -62,7 +48,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return (
       <Navigate
         to="/login"
-        state={{ from: location, message: 'Your account has been deactivated. Please contact support.' }}
+        state={{
+          from: location,
+          message: 'Your account has been deactivated. Please contact support.',
+        }}
         replace
       />
     );
@@ -77,6 +66,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         replace
       />
     );
+  }
+
+  if (
+    userOrganizations.length === 1 &&
+    location.pathname === '/select-organization'
+  ) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   // User is authenticated and active, allow access

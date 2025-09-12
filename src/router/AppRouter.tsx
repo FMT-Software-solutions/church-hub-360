@@ -1,20 +1,27 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '../contexts/AuthContext';
-import { ProtectedRoute } from '../components/auth/ProtectedRoute';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthRoute } from '../components/auth/AuthRoute';
+import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 import { MainLayout } from '../components/layout/MainLayout';
+import { AuthProvider } from '../contexts/AuthContext';
+import { OrganizationProvider } from '../contexts/OrganizationContext';
+import { PaletteProvider } from '../contexts/PaletteContext';
 
 // Auth pages
 import { Login } from '../pages/auth/Login';
-import { PasswordReset } from '../pages/auth/PasswordReset';
 import { NewPassword } from '../pages/auth/NewPassword';
+import { PasswordReset } from '../pages/auth/PasswordReset';
+
+// Organization pages
+import { OrganizationSelection } from '../pages/OrganizationSelection';
 
 // Protected pages
-import { Dashboard } from '../pages/Dashboard';
-import { Users } from '../pages/Users';
 import { AppVersions } from '../pages/AppVersions';
+import { Dashboard } from '../pages/Dashboard';
+import { Profile } from '../pages/Profile';
 import { Settings } from '../pages/Settings';
 import { TestRoutes } from '../pages/TestRoutes';
+import { Users } from '../pages/Users';
+import { OrganizationSelectionProtectedRoute } from '@/components/auth/OrganizationSelectionProtectedRoute';
 
 function AppRoutes() {
   const isDev = import.meta.env.DEV;
@@ -47,12 +54,24 @@ function AppRoutes() {
         }
       />
 
-      {/* Protected routes with layout */}
+      {/* Organization selection route */}
+      <Route
+        path="/select-organization"
+        element={
+          <ProtectedRoute>
+            <OrganizationSelection />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Protected routes with layout - requires organization */}
       <Route
         path="/"
         element={
           <ProtectedRoute>
-            <MainLayout />
+            <OrganizationSelectionProtectedRoute>
+              <MainLayout />
+            </OrganizationSelectionProtectedRoute>
           </ProtectedRoute>
         }
       >
@@ -63,6 +82,7 @@ function AppRoutes() {
         {/* Main application routes */}
         <Route path="users" element={<Users />} />
         <Route path="app-versions" element={<AppVersions />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="settings" element={<Settings />} />
 
         {/* Development-only test routes */}
@@ -79,7 +99,11 @@ export function AppRouter() {
   return (
     <HashRouter>
       <AuthProvider>
-        <AppRoutes />
+        <OrganizationProvider>
+          <PaletteProvider>
+            <AppRoutes />
+          </PaletteProvider>
+        </OrganizationProvider>
       </AuthProvider>
     </HashRouter>
   );

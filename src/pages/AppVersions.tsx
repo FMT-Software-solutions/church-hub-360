@@ -45,26 +45,26 @@ export function AppVersions() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Published':
-        return 'bg-green-100 text-green-700';
+        return 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300';
       case 'Draft':
-        return 'bg-yellow-100 text-yellow-700';
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300';
       case 'Deprecated':
-        return 'bg-red-100 text-red-700';
+        return 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300';
     }
   };
 
   const getPlatformColor = (platform: string) => {
     switch (platform) {
       case 'Windows':
-        return 'bg-blue-100 text-blue-700';
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300';
       case 'macOS':
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300';
       case 'Linux':
-        return 'bg-orange-100 text-orange-700';
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300';
     }
   };
 
@@ -72,8 +72,8 @@ export function AppVersions() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">App Versions</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-foreground">App Versions</h1>
+          <p className="text-muted-foreground mt-2">
             Manage application releases and versions
           </p>
         </div>
@@ -89,8 +89,8 @@ export function AppVersions() {
             <CardTitle className="text-lg">Total Versions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">12</div>
-            <p className="text-sm text-gray-500">Across all platforms</p>
+            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">12</div>
+            <p className="text-sm text-muted-foreground">Across all platforms</p>
           </CardContent>
         </Card>
         
@@ -99,8 +99,8 @@ export function AppVersions() {
             <CardTitle className="text-lg">Total Downloads</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">4,246</div>
-            <p className="text-sm text-gray-500">All time downloads</p>
+            <div className="text-3xl font-bold text-green-600 dark:text-green-400">4,246</div>
+            <p className="text-sm text-muted-foreground">All time downloads</p>
           </CardContent>
         </Card>
         
@@ -109,8 +109,8 @@ export function AppVersions() {
             <CardTitle className="text-lg">Latest Version</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-600">1.2.3</div>
-            <p className="text-sm text-gray-500">Released Jan 15, 2024</p>
+            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">1.2.3</div>
+            <p className="text-sm text-muted-foreground">Released Jan 15, 2024</p>
           </CardContent>
         </Card>
       </div>
@@ -124,7 +124,7 @@ export function AppVersions() {
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg">
-            <div className="grid grid-cols-7 gap-4 p-4 bg-gray-50 border-b font-medium text-sm text-gray-600">
+            <div className="grid grid-cols-7 gap-4 p-4 bg-muted/50 border-b font-medium text-sm text-muted-foreground">
               <div>Version</div>
               <div>Platform</div>
               <div>Status</div>
@@ -135,7 +135,7 @@ export function AppVersions() {
             </div>
             
             {versions.map((version) => (
-              <div key={version.id} className="grid grid-cols-7 gap-4 p-4 border-b last:border-b-0 hover:bg-gray-50">
+              <div key={version.id} className="grid grid-cols-7 gap-4 p-4 border-b last:border-b-0 hover:bg-muted/50">
                 <div className="font-medium">{version.version}</div>
                 <div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPlatformColor(version.platform)}`}>
@@ -147,13 +147,13 @@ export function AppVersions() {
                     {version.status}
                   </span>
                 </div>
-                <div className="text-gray-600">
+                <div className="text-muted-foreground">
                   {version.releaseDate || 'Not released'}
                 </div>
-                <div className="text-gray-600">
+                <div className="text-muted-foreground">
                   {version.downloads.toLocaleString()}
                 </div>
-                <div className="text-gray-600">{version.size}</div>
+                <div className="text-muted-foreground">{version.size}</div>
                 <div className="flex items-center space-x-2">
                   <Button variant="ghost" size="sm">
                     <Eye className="h-4 w-4" />

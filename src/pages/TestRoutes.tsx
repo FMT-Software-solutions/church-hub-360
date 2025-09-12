@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { TestTube, Code, Database, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function TestRoutes() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export function TestRoutes() {
           description: 'Display current user authentication state',
           action: () => {
             console.log('User:', user);
-            alert(`User ID: ${user?.id}\nEmail: ${user?.profile?.email}\nProfile: ${user?.profile?.first_name} ${user?.profile?.last_name}`);
+            toast.info(`User ID: ${user?.id}\nEmail: ${user?.profile?.email}\nProfile: ${user?.profile?.first_name} ${user?.profile?.last_name}`);
           },
         },
         {
@@ -42,7 +43,7 @@ export function TestRoutes() {
           description: 'Verify connection to Supabase database',
           action: () => {
             console.log('Testing Supabase connection...');
-            alert('Check console for Supabase connection test results');
+            toast.info('Check console for Supabase connection test results');
           },
         },
         {
@@ -51,7 +52,7 @@ export function TestRoutes() {
           action: () => {
             console.log('Testing user profile query...');
             console.log('Current user profile:', user);
-            alert('Check console for user profile query results');
+            toast.info('Check console for user profile query results');
           },
         },
       ],
@@ -65,7 +66,7 @@ export function TestRoutes() {
           name: 'Test Notifications',
           description: 'Test notification system',
           action: () => {
-            alert('This is a test notification!');
+            toast.success('This is a test notification!');
           },
         },
         {
@@ -82,7 +83,7 @@ export function TestRoutes() {
           action: () => {
             const email = prompt('Enter an email to validate:');
             const isValid = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-            alert(`Email "${email}" is ${isValid ? 'valid' : 'invalid'}`);
+            toast.info(`Email "${email}" is ${isValid ? 'valid' : 'invalid'}`);
           },
         },
       ],

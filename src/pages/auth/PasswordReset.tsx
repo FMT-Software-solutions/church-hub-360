@@ -134,11 +134,11 @@ export function PasswordReset() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Reset Password</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground">Reset Password</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             {step === 'email' &&
               'Enter your email to receive a verification code'}
             {step === 'otp' && 'Enter the verification code sent to your email'}
@@ -202,7 +202,7 @@ export function PasswordReset() {
                 <div className="text-center">
                   <Link
                     to="/login"
-                    className="text-sm text-blue-600 hover:text-blue-500 flex items-center justify-center space-x-1 transition-colors"
+                    className="text-sm text-primary hover:text-primary/80 flex items-center justify-center space-x-1 transition-colors"
                   >
                     <ArrowLeft className="h-3 w-3" />
                     <span>Back to login</span>
@@ -237,7 +237,7 @@ export function PasswordReset() {
                   />
                 </div>
 
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   <p>Remaining requests: {remainingRequests}</p>
                 </div>
 
@@ -261,7 +261,7 @@ export function PasswordReset() {
                     disabled={
                       cooldownSeconds > 0 || remainingRequests <= 0 || loading
                     }
-                    className="text-blue-600 hover:text-blue-500 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                    className="text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed transition-colors"
                   >
                     Resend Code
                   </button>
@@ -269,7 +269,7 @@ export function PasswordReset() {
                     type="button"
                     onClick={() => setStep('email')}
                     disabled={loading}
-                    className="text-gray-600 hover:text-gray-500 flex items-center space-x-1 transition-colors disabled:opacity-50"
+                    className="text-muted-foreground hover:text-foreground flex items-center space-x-1 transition-colors disabled:opacity-50"
                   >
                     <ArrowLeft className="h-3 w-3" />
                     <span>Change Email</span>

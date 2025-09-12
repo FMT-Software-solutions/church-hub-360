@@ -31,7 +31,7 @@ export function AuthRoute({ children }: AuthRouteProps) {
     ) {
       return <Navigate to={from} replace />;
     }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/select-organization" replace />;
   }
 
   // Allow unauthenticated users to access auth pages

@@ -39,10 +39,14 @@ function ValidationItem({ isValid, text }: ValidationItemProps) {
   return (
     <div className="flex items-center space-x-2">
       <CheckCircle
-        className={`h-4 w-4 ${isValid ? 'text-green-500' : 'text-gray-300'}`}
+        className={`h-4 w-4 ${
+          isValid ? 'text-green-500' : 'text-muted-foreground'
+        }`}
       />
       <span
-        className={`text-sm ${isValid ? 'text-green-700' : 'text-gray-500'}`}
+        className={`text-sm ${
+          isValid ? 'text-green-600' : 'text-muted-foreground'
+        }`}
       >
         {text}
       </span>
@@ -103,7 +107,7 @@ export function NewPassword() {
         setSuccess(true);
         // Redirect based on context
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/select-organization');
         }, 2000);
       } else {
         setError(result.message);
@@ -118,24 +122,26 @@ export function NewPassword() {
   // Success step
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
               <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              <h2 className="text-xl font-semibold text-foreground mb-2">
                 Password Updated Successfully!
               </h2>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 {isFirstLogin
-                  ? 'Welcome! Redirecting to dashboard...'
-                  : 'Your password has been updated. Redirecting to dashboard...'}
+                  ? 'Welcome! Redirecting...'
+                  : 'Your password has been updated. Redirecting...'}
               </p>
               <Button
                 variant="outline"
-                onClick={() => navigate('/dashboard', { replace: true })}
+                onClick={() =>
+                  navigate('/select-organization', { replace: true })
+                }
               >
-                Continue to Dashboard
+                Continue now
               </Button>
             </div>
           </CardContent>
@@ -145,13 +151,13 @@ export function NewPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-foreground">
             {isFirstLogin ? 'Set Your Password' : 'Create New Password'}
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             {isFirstLogin
               ? 'Welcome! Please set a secure password for your account'
               : 'Choose a strong password for your account'}
@@ -201,9 +207,9 @@ export function NewPassword() {
                     disabled={loading}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                   </button>
                 </div>
@@ -211,8 +217,8 @@ export function NewPassword() {
 
               {/* Password Validation */}
               {newPassword && (
-                <div className="space-y-2 p-3 bg-gray-50 rounded-md">
-                  <p className="text-sm font-medium text-gray-700">
+                <div className="space-y-2 p-3 bg-muted/50 rounded-md">
+                  <p className="text-sm font-medium text-foreground">
                     Password Requirements:
                   </p>
                   <ValidationItem
@@ -257,14 +263,16 @@ export function NewPassword() {
                     disabled={loading}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                   </button>
                 </div>
                 {confirmPassword && !passwordsMatch && (
-                  <p className="text-sm text-red-600">Passwords do not match</p>
+                  <p className="text-sm text-destructive">
+                    Passwords do not match
+                  </p>
                 )}
               </div>
 
@@ -287,7 +295,7 @@ export function NewPassword() {
                     type="button"
                     onClick={() => navigate('/login')}
                     disabled={loading}
-                    className="text-sm text-gray-600 hover:text-gray-500 flex items-center justify-center space-x-1 transition-colors disabled:opacity-50"
+                    className="text-sm text-muted-foreground hover:text-foreground flex items-center justify-center space-x-1 transition-colors disabled:opacity-50"
                   >
                     <ArrowLeft className="h-3 w-3" />
                     <span>Back to login</span>

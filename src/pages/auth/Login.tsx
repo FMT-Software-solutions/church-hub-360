@@ -24,7 +24,8 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+  const from =
+    (location.state as any)?.from?.pathname || '/select-organization';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,11 +63,13 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Login</h1>
-          <p className="mt-2 text-sm text-gray-600">Sign in to your account</p>
+          <h1 className="text-3xl font-bold text-foreground">Login</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Sign in to your account
+          </p>
         </div>
 
         <Card>
@@ -79,7 +82,7 @@ export function Login() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
+                <div className="flex items-center space-x-2 text-destructive bg-destructive/10 p-3 rounded-lg">
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm">{error}</span>
                 </div>
@@ -119,9 +122,9 @@ export function Login() {
                     disabled={loading}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                   </button>
                 </div>
@@ -141,7 +144,7 @@ export function Login() {
               <div className="text-center">
                 <Link
                   to="/password-reset"
-                  className="text-sm text-blue-600 hover:text-blue-500 transition-colors"
+                  className="text-sm text-primary hover:text-primary/80 transition-colors"
                 >
                   Forgot your password?
                 </Link>
