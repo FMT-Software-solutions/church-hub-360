@@ -219,6 +219,11 @@ src/
 │   └── ui/             # shadcn/ui components
 ├── contexts/           # React contexts
 │   └── AuthContext.tsx # Authentication state management
+├── hooks/              # Custom React hooks
+│   ├── queries.ts             # React Query hooks
+│   ├── useDebounce.ts         # Debounce hook
+│   ├── useLocalStorage.ts     # LocalStorage hook
+│   └── useBranchesPreferences.ts # Organization-specific branch preferences
 ├── pages/              # Application pages
 │   ├── auth/          # Authentication pages
 │   │   ├── Login.tsx          # Login page
@@ -290,6 +295,37 @@ Protected routes use a consistent layout:
 - **Fixed Header** - User info, notifications, sign-out
 - **Fixed Sidebar** - Navigation menu with active state
 - **Main Content** - Page content with proper spacing
+
+### Custom Hooks
+
+#### useBranchesPreferences
+
+Manages organization-specific display preferences for the Branches page:
+
+```typescript
+import { useBranchesPreferences } from '@/hooks/useBranchesPreferences';
+
+function BranchesPage() {
+  const { displayMode, setDisplayMode, pageSize, setPageSize } = useBranchesPreferences();
+  
+  // Preferences are automatically:
+  // - Loaded when organization changes
+  // - Saved to localStorage with organization-specific keys
+  // - Synced across browser sessions
+  
+  return (
+    <div>
+      <button onClick={() => setDisplayMode('grid')}>Grid View</button>
+      <button onClick={() => setDisplayMode('table')}>Table View</button>
+      <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+        <option value={10}>10 per page</option>
+        <option value={25}>25 per page</option>
+        <option value={50}>50 per page</option>
+      </select>
+    </div>
+  );
+}
+```
 
 ### User Management
 

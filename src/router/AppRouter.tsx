@@ -16,6 +16,7 @@ import { OrganizationSelection } from '../pages/OrganizationSelection';
 
 // Protected pages
 import { AppVersions } from '../pages/AppVersions';
+import { Branches } from '../pages/Branches';
 import { Dashboard } from '../pages/Dashboard';
 import { Profile } from '../pages/Profile';
 import { Settings } from '../pages/Settings';
@@ -81,6 +82,7 @@ function AppRoutes() {
 
         {/* Main application routes */}
         <Route path="users" element={<Users />} />
+        <Route path="branches" element={<Branches />} />
         <Route path="app-versions" element={<AppVersions />} />
         <Route path="profile" element={<Profile />} />
         <Route path="settings" element={<Settings />} />

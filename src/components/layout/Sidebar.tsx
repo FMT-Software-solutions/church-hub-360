@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Settings, Users, Package, TestTube, LogOut } from 'lucide-react';
+import { Home, Settings, Users, Package, TestTube, LogOut, MapPin } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +22,11 @@ const navItems: NavItem[] = [
     to: '/users',
     icon: Users,
     label: 'Users',
+  },
+  {
+    to: '/branches',
+    icon: MapPin,
+    label: 'Branches',
   },
   {
     to: '/app-versions',
