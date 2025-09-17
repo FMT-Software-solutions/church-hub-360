@@ -22,11 +22,13 @@ import { UserActionDialogs } from '@/components/user-management/UserActionDialog
 import { useUsersPreferences } from '@/hooks/useUsersPreferences';
 import { useUserQueries } from '@/hooks/useUserQueries';
 import { useUserActions } from '@/hooks/useUserActions';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { detectUserChanges, transformUserUpdateData, logUserChanges } from '@/utils/user-update-utils';
 import type { UserAction, UserWithRelations } from '@/types/user-management';
 
 export default function UserManagement() {
   const { canManageBranchData } = useRoleCheck();
+  const { currentOrganization } = useOrganization();
 
   // State for dialogs and forms
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -68,8 +70,23 @@ export default function UserManagement() {
         setEditingUser(user);
         setIsEditDialogOpen(true);
         break;
+      case 'deactivate':
+        // Show confirmation dialog for deactivation
+        if ((window as any).userActionDialogs) {
+          (window as any).userActionDialogs.openDeactivateDialog({
+            id: user.id,
+            email: user.profile?.email || '',
+            full_name: `${user.profile?.first_name || ''} ${user.profile?.last_name || ''}`.trim(),
+            role: user.user_organizations?.[0]?.role || 'read',
+            is_active: user.is_active
+          });
+        } else {
+          // Fallback to direct action if dialog not available
+          userActions.handleUserAction(action, user, currentOrganization?.id);
+        }
+        break;
       default:
-        userActions.handleUserAction(action, user);
+        userActions.handleUserAction(action, user, currentOrganization?.id);
         break;
     }
   };

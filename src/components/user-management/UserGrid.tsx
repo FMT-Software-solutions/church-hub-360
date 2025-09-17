@@ -1,37 +1,21 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useRoleCheck } from '@/components/auth/RoleGuard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ROLE_DISPLAY_NAMES } from '@/types/organizations';
+import type { UserAction, UserWithRelations } from '@/types/user-management';
+import { getFullName } from '@/types/user-management';
+import { format } from 'date-fns';
 import {
-  MoreHorizontal,
-  Edit,
-  UserCheck,
-  UserX,
-  Key,
-  Trash2,
+  Calendar,
   Lock,
   Mail,
   MapPin,
-  Calendar,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { useRoleCheck } from '@/components/auth/RoleGuard';
-import { ROLE_DISPLAY_NAMES } from '@/types/organizations';
-import type { UserWithRelations, UserAction } from '@/types/user-management';
-import { getFullName } from '@/types/user-management';
+import { UserActionsDropdown } from './UserActionsDropdown';
 
 interface UserGridProps {
   users: UserWithRelations[];
@@ -137,7 +121,7 @@ export function UserGrid({
                 isInactive ? 'opacity-60 bg-muted/30' : ''
               }`}
             >
-              <CardHeader className="pb-3">
+              <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
@@ -146,7 +130,7 @@ export function UserGrid({
                         {getUserInitials(user)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 gap-1">
                       <div className="flex items-center space-x-2">
                         <h3 className="font-medium text-sm truncate">
                           {fullName}
@@ -165,77 +149,11 @@ export function UserGrid({
                       </Badge>
                     </div>
                   </div>
-                  {isAdmin ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleAction('edit', user)}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handleAction('regenerate-password', user)
-                          }
-                        >
-                          <Key className="mr-2 h-4 w-4" />
-                          Regenerate Password
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {user.is_active ? (
-                          <DropdownMenuItem
-                            onClick={() => handleAction('deactivate', user)}
-                            className="text-orange-600"
-                          >
-                            <UserX className="mr-2 h-4 w-4" />
-                            Deactivate
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => handleAction('reactivate', user)}
-                            className="text-green-600"
-                          >
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Reactivate
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleAction('delete', user)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Permanently
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled
-                          className="h-8 w-8 p-0 cursor-not-allowed"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Only owners and admins can manage users</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
+                  <UserActionsDropdown
+                    user={user}
+                    isAdmin={isAdmin}
+                    onAction={handleAction}
+                  />
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

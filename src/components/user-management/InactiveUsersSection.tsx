@@ -17,44 +17,41 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '../ui/badge';
-import {
-  Eye,
-  EyeOff,
-  UserCheck,
-  Users,
-} from 'lucide-react';
+import { Eye, EyeOff, UserCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserRole } from '@/lib/auth';
 import { useRoleCheck } from '@/components/auth/RoleGuard';
 
-interface User {
+interface InactiveUser {
   id: string;
   email: string;
-  full_name: string;
-  role: UserRole;
-  branch_id?: string;
-  is_active?: boolean;
-  branches?: { name: string };
+  first_name: string | null;
+  last_name: string | null;
+  avatar: string | null;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
   user_organizations?: Array<{
     organization_id: string;
     role: UserRole;
     is_active: boolean;
     organizations: { name: string };
   }>;
+  user_branches?: Array<{
+    branch_id: string;
+    branch: {
+      name: string;
+    };
+  }>;
 }
 
 export default function InactiveUsersSection() {
-
   const { currentOrganization } = useOrganization();
   const queryClient = useQueryClient();
 
-  const {
-
-    isOwner,
-    hasRole,
-  } = useRoleCheck();
+  const { isOwner, hasRole } = useRoleCheck();
   const [showInactiveUsers, setShowInactiveUsers] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<InactiveUser | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Fetch inactive users (owner only)
@@ -76,16 +73,36 @@ export default function InactiveUsersSection() {
 
       const userIds = orgUsers?.map((ou) => ou.user_id) || [];
 
-      // Build query for inactive profiles
+      // Build query for inactive profiles with organization and branch data
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*')
+        .select(
+          `
+          *,
+          user_organizations!inner(
+            organization_id,
+            role,
+            is_active,
+            organizations(
+              name
+            )
+          ),
+          user_branches(
+            branch_id,
+            branches(
+              name
+            )
+          )
+        `
+        )
         .in('id', userIds)
+        .eq('user_organizations.organization_id', currentOrganization.id)
+        .eq('user_organizations.is_active', false)
         .order('first_name');
 
       if (profilesError) throw profilesError;
 
-      return profilesData as User[];
+      return profilesData as InactiveUser[];
     },
     enabled: isOwner() && !!currentOrganization,
   });
@@ -93,8 +110,6 @@ export default function InactiveUsersSection() {
   // Reactivate user mutation
   const reactivateUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-
-
       // Get current session for authorization
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) throw new Error('No access token');
@@ -110,6 +125,7 @@ export default function InactiveUsersSection() {
           },
           body: JSON.stringify({
             userId,
+            organizationId: currentOrganization?.id || '',
           }),
         }
       );
@@ -183,15 +199,17 @@ export default function InactiveUsersSection() {
                   key={user.id}
                   className="border-dashed border-muted-foreground/30"
                 >
-                  <CardContent className="pt-6">
+                  <CardContent>
                     <div className="flex justify-between items-start">
                       <div className="space-y-2 flex-1">
                         <div className="flex flex-col md:flex-row md:items-center items-start md:space-x-2">
                           <h3 className="font-semibold text-muted-foreground">
-                            {user.full_name}
+                            {user.first_name && user.last_name
+                              ? `${user.first_name} ${user.last_name}`
+                              : user.email}
                           </h3>
                           <Badge variant="secondary" className="bg-muted">
-                            {user.role}
+                            {user.user_organizations?.[0]?.role || 'User'}
                           </Badge>
                           <Badge variant="destructive" className="text-xs">
                             Inactive
@@ -200,11 +218,13 @@ export default function InactiveUsersSection() {
                         <p className="text-sm text-muted-foreground">
                           {user.email}
                         </p>
-                        {user.branches && (
-                          <p className="text-sm text-muted-foreground">
-                            Branch: {user.branches.name}
-                          </p>
-                        )}
+                        {user.user_branches &&
+                          user.user_branches.length > 0 &&
+                          user.user_branches[0].branch && (
+                            <p className="text-sm text-muted-foreground">
+                              Branch: {user.user_branches[0].branch.name}
+                            </p>
+                          )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <Button
@@ -238,21 +258,24 @@ export default function InactiveUsersSection() {
       <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Reactivate User
-            </AlertDialogTitle>
+            <AlertDialogTitle>Reactivate User</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to reactivate "
-              {selectedUser?.full_name}"? This will restore their
-              access to the system and they will be able
-              to log in again.
+              {selectedUser?.first_name && selectedUser?.last_name
+                ? `${selectedUser.first_name} ${selectedUser.last_name}`
+                : selectedUser?.email}
+              "? This will restore their access to this organization again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setIsDialogOpen(false);
-              setSelectedUser(null);
-            }}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setIsDialogOpen(false);
+                setSelectedUser(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (selectedUser) {

@@ -7,30 +7,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  MoreHorizontal,
-  Edit,
-  UserCheck,
-  UserX,
-  Key,
-  Trash2,
   Lock,
 } from 'lucide-react';
+import { UserActionsDropdown } from './UserActionsDropdown';
 import { format } from 'date-fns';
 import { useRoleCheck } from '@/components/auth/RoleGuard';
 import { ROLE_DISPLAY_NAMES } from '@/types/organizations';
@@ -246,77 +230,11 @@ export function UserTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    {isAdmin ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleAction('edit', user)}
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleAction('regenerate-password', user)
-                            }
-                          >
-                            <Key className="mr-2 h-4 w-4" />
-                            Regenerate Password
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {user.is_active ? (
-                            <DropdownMenuItem
-                              onClick={() => handleAction('deactivate', user)}
-                              className="text-orange-600"
-                            >
-                              <UserX className="mr-2 h-4 w-4" />
-                              Deactivate
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() => handleAction('reactivate', user)}
-                              className="text-green-600"
-                            >
-                              <UserCheck className="mr-2 h-4 w-4" />
-                              Reactivate
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleAction('delete', user)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Permanently
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled
-                            className="h-8 w-8 p-0 cursor-not-allowed"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Only owners and admins can manage users</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                    <UserActionsDropdown
+                      user={user}
+                      isAdmin={isAdmin}
+                      onAction={handleAction}
+                    />
                   </TableCell>
                 </TableRow>
               );

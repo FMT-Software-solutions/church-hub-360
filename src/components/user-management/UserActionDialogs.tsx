@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../utils/supabase';
-
+import { useUserActions } from '@/hooks/useUserActions';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 import {
   AlertDialog,
@@ -36,24 +37,54 @@ interface UserActionDialogsProps {
   onPasswordRegenerated: (tempPassword: string) => void;
 }
 
-export function UserActionDialogs({ onPasswordRegenerated }: UserActionDialogsProps) {
+export interface UserActionDialogsRef {
+  openPasswordDialog: (user: User) => void;
+  openDeactivateDialog: (user: User) => void;
+}
 
+export function UserActionDialogs({
+  onPasswordRegenerated,
+}: UserActionDialogsProps) {
   const queryClient = useQueryClient();
+  const userActions = useUserActions();
+  const { currentOrganization } = useOrganization();
 
-  
+  // Expose functions to parent component
+  const openPasswordDialog = (user: User) => {
+    setSelectedUserForPassword(user);
+    setIsPasswordDialogOpen(true);
+  };
+
+  const openDeactivateDialog = (user: User) => {
+    setSelectedUserForDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Expose these functions via a ref or callback
+  if (typeof window !== 'undefined') {
+    (window as any).userActionDialogs = {
+      openPasswordDialog,
+      openDeactivateDialog,
+    };
+  }
+
   // State for regenerate password dialog
-  const [selectedUserForPassword, setSelectedUserForPassword] = useState<User | null>(null);
+  const [
+    selectedUserForPassword,
+    setSelectedUserForPassword,
+  ] = useState<User | null>(null);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  
+
   // State for delete/deactivate user dialog
-  const [selectedUserForDelete, setSelectedUserForDelete] = useState<User | null>(null);
+  const [
+    selectedUserForDelete,
+    setSelectedUserForDelete,
+  ] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Regenerate password mutation
   const regeneratePasswordMutation = useMutation({
     mutationFn: async (userId: string) => {
-
-
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) throw new Error('No access token');
 
@@ -92,51 +123,21 @@ export function UserActionDialogs({ onPasswordRegenerated }: UserActionDialogsPr
     },
   });
 
-  // Delete user mutation
-  const deleteUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-
-
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.access_token) throw new Error('No access token');
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to deactivate user');
+  // Use the deactivate user action from useUserActions
+  const handleDeactivateUser = async () => {
+    if (selectedUserForDelete && currentOrganization) {
+      try {
+        await userActions.deactivateUser.mutateAsync({
+          userId: selectedUserForDelete.id,
+          organizationId: currentOrganization.id,
+        });
+        setIsDeleteDialogOpen(false);
+        setSelectedUserForDelete(null);
+      } catch (error) {
+        // Error handling is done by the mutation
       }
-
-      const result = await response.json();
-
-      // Activity logging would be handled by edge function
-
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['inactive-users'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
-      setIsDeleteDialogOpen(false);
-      setSelectedUserForDelete(null);
-      toast.success('User deactivated successfully!');
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-
+    }
+  };
 
   const handleRegeneratePassword = () => {
     if (selectedUserForPassword) {
@@ -144,29 +145,32 @@ export function UserActionDialogs({ onPasswordRegenerated }: UserActionDialogsPr
     }
   };
 
-  const handleDeleteUser = () => {
-    if (selectedUserForDelete) {
-      deleteUserMutation.mutate(selectedUserForDelete.id);
-    }
-  };
-
   return (
     <>
       {/* Regenerate Password Dialog */}
-      <AlertDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+      <AlertDialog
+        open={isPasswordDialogOpen}
+        onOpenChange={setIsPasswordDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Regenerate Password</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to regenerate the password for "{selectedUserForPassword?.full_name}"? 
-              This will invalidate their current password and they will need to use the new temporary password to log in.
+              Are you sure you want to regenerate the password for "
+              {selectedUserForPassword?.full_name}"? This will invalidate their
+              current password and they will need to use the new temporary
+              password to log in.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setIsPasswordDialogOpen(false);
-              setSelectedUserForPassword(null);
-            }}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setIsPasswordDialogOpen(false);
+                setSelectedUserForPassword(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleRegeneratePassword}>
               Regenerate Password
             </AlertDialogAction>
@@ -175,22 +179,30 @@ export function UserActionDialogs({ onPasswordRegenerated }: UserActionDialogsPr
       </AlertDialog>
 
       {/* Delete/Deactivate User Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to deactivate user "{selectedUserForDelete?.full_name}"? 
-              They will no longer be able to log in. You will need to contact your admin if you decide to reactive this user.
+              Are you sure you want to deactivate user "
+              {selectedUserForDelete?.full_name}"? They will no longer be able
+              to access this organization.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setIsDeleteDialogOpen(false);
-              setSelectedUserForDelete(null);
-            }}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setSelectedUserForDelete(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteUser}
+              onClick={handleDeactivateUser}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Deactivate
