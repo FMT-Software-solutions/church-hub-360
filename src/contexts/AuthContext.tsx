@@ -73,13 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Fetch user profile
+      // Fetch user profile using the dual foreign key relationship
       const { data: authUserProfile, error } = await supabase
         .from('auth_users')
         .select(
           `
           *,
-          profile:profiles(*)
+          profile:profiles!auth_users_id_fkey1(*)
         `
         )
         .eq('id', session.user.id)

@@ -4,8 +4,20 @@ import { supabase } from '../utils/supabase';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { AvatarPicker } from '../components/shared/AvatarPicker';
 import { DateOfBirthPicker } from '../components/shared/DateOfBirthPicker';
 import { toast } from 'sonner';
@@ -40,14 +52,14 @@ export function Profile() {
   }, [user]);
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
   const handleAvatarChange = (avatarUrl: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       avatar: avatarUrl,
     }));
@@ -163,9 +175,7 @@ export function Profile() {
         <Card>
           <CardHeader>
             <CardTitle>Personal Information</CardTitle>
-            <CardDescription>
-              Update your personal details
-            </CardDescription>
+            <CardDescription>Update your personal details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -174,7 +184,9 @@ export function Profile() {
                 <Input
                   id="first_name"
                   value={formData.first_name}
-                  onChange={(e) => handleInputChange('first_name', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange('first_name', e.target.value)
+                  }
                   placeholder="Enter your first name"
                 />
               </div>
@@ -183,7 +195,9 @@ export function Profile() {
                 <Input
                   id="last_name"
                   value={formData.last_name}
-                  onChange={(e) => handleInputChange('last_name', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange('last_name', e.target.value)
+                  }
                   placeholder="Enter your last name"
                 />
               </div>
@@ -198,9 +212,6 @@ export function Profile() {
                 disabled
                 className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">
-                Email cannot be changed from this page
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -228,19 +239,21 @@ export function Profile() {
                     <SelectItem value="male">Male</SelectItem>
                     <SelectItem value="female">Female</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
-                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                    <SelectItem value="prefer_not_to_say">
+                      Prefer not to say
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                 <DateOfBirthPicker
-                   value={formData.date_of_birth}
-                   onChange={(date) => handleInputChange('date_of_birth', date)}
-                   label="Date of Birth"
-                   placeholder="Select date"
-                 />
-               </div>
+                <DateOfBirthPicker
+                  value={formData.date_of_birth}
+                  onChange={(date) => handleInputChange('date_of_birth', date)}
+                  label="Date of Birth"
+                  placeholder="Select date"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

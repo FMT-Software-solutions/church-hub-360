@@ -21,8 +21,9 @@ import { Dashboard } from '../pages/Dashboard';
 import { Profile } from '../pages/Profile';
 import { Settings } from '../pages/Settings';
 import { TestRoutes } from '../pages/TestRoutes';
-import { Users } from '../pages/Users';
+// import { Users } from '../pages/Users';
 import { OrganizationSelectionProtectedRoute } from '@/components/auth/OrganizationSelectionProtectedRoute';
+import UserManagement from '@/pages/UserManagement';
 
 function AppRoutes() {
   const isDev = import.meta.env.DEV;
@@ -81,10 +82,10 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
 
         {/* Main application routes */}
-        <Route path="users" element={<Users />} />
         <Route path="branches" element={<Branches />} />
         <Route path="app-versions" element={<AppVersions />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="user-management" element={<UserManagement />} />
         <Route path="settings" element={<Settings />} />
 
         {/* Development-only test routes */}

@@ -1,7 +1,10 @@
+import { ROLE_HIERARCHY, type UserRole } from "@/lib/auth";
 import type { CompleteTheme } from "./theme";
 
-// Organization role types
-export type OrganizationRole = 'owner' | 'admin' | 'write' | 'read';
+// Use UserRole from auth.ts for consistency
+export type { UserRole as OrganizationRole } from "@/lib/auth";
+export { USER_ROLE_DISPLAY_NAMES as ROLE_DISPLAY_NAMES } from "@/lib/auth";
+
 
 // Logo settings simplified - always square orientation
 export interface LogoSettings {
@@ -51,7 +54,7 @@ export interface UserOrganization {
   id: string;
   user_id: string;
   organization_id: string;
-  role: OrganizationRole;
+  role: UserRole;
   created_at: string;
   updated_at: string;
   organization?: Organization; // Optional populated organization data
@@ -59,7 +62,7 @@ export interface UserOrganization {
 
 // Organization with user role (for context)
 export interface OrganizationWithRole extends Organization {
-  user_role: OrganizationRole;
+  user_role: UserRole;
 }
 
 // Organization creation/update types
@@ -92,8 +95,8 @@ export interface OrganizationContextType {
   createOrganization: (data: CreateOrganizationData) => Promise<Organization>;
   updateOrganization: (data: UpdateOrganizationData) => Promise<Organization>;
   refreshOrganizations: () => Promise<void>;
-  inviteUser: (organizationId: string, email: string, role: OrganizationRole) => Promise<void>;
-  updateUserRole: (userOrganizationId: string, role: OrganizationRole) => Promise<void>;
+  inviteUser: (organizationId: string, email: string, role: UserRole) => Promise<void>;
+  updateUserRole: (userOrganizationId: string, role: UserRole) => Promise<void>;
   removeUser: (userOrganizationId: string) => Promise<void>;
   clearOrganizationData: () => void;
 }
@@ -123,34 +126,12 @@ export const DEFAULT_LOGO_SETTINGS: LogoSettings = {
   // No default settings needed - always square orientation
 };
 
-// Role hierarchy for permission checking
-export const ROLE_HIERARCHY: Record<OrganizationRole, number> = {
-  owner: 4,
-  admin: 3,
-  write: 2,
-  read: 1,
-};
+
 
 // Helper function to check if user has permission
 export const hasPermission = (
-  userRole: OrganizationRole,
-  requiredRole: OrganizationRole
+  userRole: UserRole,
+  requiredRole: UserRole
 ): boolean => {
   return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
-};
-
-// Role display names
-export const ROLE_DISPLAY_NAMES: Record<OrganizationRole, string> = {
-  owner: 'Owner',
-  admin: 'Administrator',
-  write: 'Editor',
-  read: 'Viewer',
-};
-
-// Role descriptions
-export const ROLE_DESCRIPTIONS: Record<OrganizationRole, string> = {
-  owner: 'Full access to all organization settings and data',
-  admin: 'Manage users and organization settings',
-  write: 'Create and edit content',
-  read: 'View-only access',
 };

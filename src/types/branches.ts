@@ -19,7 +19,6 @@ export interface UserBranch {
   user_id: string;
   branch_id?: string;
   organization_id: string;
-  has_all_branches: boolean;
   created_at: string;
   updated_at: string;
   branch?: Branch; // Optional populated branch data
@@ -50,7 +49,6 @@ export interface CreateUserBranchData {
   user_id: string;
   branch_id?: string;
   organization_id: string;
-  has_all_branches: boolean;
 }
 
 export interface UpdateUserBranchData extends Partial<Omit<CreateUserBranchData, 'user_id' | 'organization_id'>> {

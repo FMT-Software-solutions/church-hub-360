@@ -8,7 +8,11 @@ interface RoleGuardProps {
   fallback?: ReactNode;
 }
 
-export function RoleGuard({ children, allowedRoles, fallback = null }: RoleGuardProps) {
+export function RoleGuard({
+  children,
+  allowedRoles,
+  fallback = null,
+}: RoleGuardProps) {
   const { currentOrganization } = useOrganization();
 
   if (!currentOrganization) {
@@ -34,18 +38,24 @@ export function useRoleCheck() {
   };
 
   const canManageAllData = () => hasRole(['owner', 'admin']);
-  const canWrite = () => hasRole(['owner', 'admin', 'write']);
-  const canRead = () => hasRole(['owner', 'admin', 'write', 'read']);
+  const canViewAllData = () => hasRole(['owner', 'admin', 'branch_admin', 'write']);
+  const canManageBranchData = () => hasRole(['owner', 'admin', 'branch_admin', 'write']);
+  const canWrite = () => hasRole(['owner', 'admin', 'branch_admin', 'write']);
+  const canRead = () => hasRole(['owner', 'admin', 'branch_admin', 'write', 'read']);
   const isOwner = () => hasRole(['owner']);
   const isAdmin = () => hasRole(['admin']);
+  const isBranchAdmin = () => hasRole(['branch_admin']);
 
   return {
     hasRole,
     canManageAllData,
+    canViewAllData,
+    canManageBranchData,
     canWrite,
     canRead,
     isOwner,
     isAdmin,
+    isBranchAdmin,
     currentRole: currentOrganization?.user_role,
   };
 }

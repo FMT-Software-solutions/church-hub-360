@@ -50,10 +50,10 @@ export function useUserBranches(userId: string | undefined, organizationId: stri
         .from('user_branches')
         .select(`
           *,
-          branch:branches(*)
+          branch:branches!inner(*)
         `)
         .eq('user_id', userId)
-        .eq('organization_id', organizationId);
+        .eq('branch.organization_id', organizationId);
 
       if (error) throw error;
       return data || [];

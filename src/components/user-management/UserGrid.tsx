@@ -1,0 +1,313 @@
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  MoreHorizontal,
+  Edit,
+  UserCheck,
+  UserX,
+  Key,
+  Trash2,
+  Lock,
+  Mail,
+  MapPin,
+  Calendar,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { useRoleCheck } from '@/components/auth/RoleGuard';
+import { ROLE_DISPLAY_NAMES } from '@/types/organizations';
+import type { UserWithRelations, UserAction } from '@/types/user-management';
+import { getFullName } from '@/types/user-management';
+
+interface UserGridProps {
+  users: UserWithRelations[];
+  isLoading?: boolean;
+  onUserAction?: (action: UserAction, user: UserWithRelations) => void;
+  branches?: any[]; // Available branches for comparison
+}
+
+export function UserGrid({
+  users,
+  isLoading,
+  onUserAction,
+  branches = [],
+}: UserGridProps) {
+  const { canManageAllData } = useRoleCheck();
+  const isAdmin = canManageAllData();
+
+  const handleAction = (action: UserAction, user: UserWithRelations) => {
+    onUserAction?.(action, user);
+  };
+
+  const getUserInitials = (user: UserWithRelations) => {
+    const fullName = getFullName(user.profile);
+    return fullName
+      .split(' ')
+      .map((name) => name.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getUserRole = (user: UserWithRelations) => {
+    const userOrg = user.user_organizations?.[0];
+    return userOrg?.role || 'read';
+  };
+
+  const getUserBranches = (user: UserWithRelations) => {
+    const userBranches = user.user_branches || [];
+    const activeBranches = branches.filter((b) => b.is_active);
+
+    // Check if user has all active branches assigned
+    if (
+      activeBranches.length > 0 &&
+      userBranches.length === activeBranches.length
+    ) {
+      const userBranchIds = new Set(userBranches.map((ub) => ub.branch_id));
+      const hasAllBranches = activeBranches.every((b) =>
+        userBranchIds.has(b.id)
+      );
+
+      if (hasAllBranches) {
+        return 'All Branches';
+      }
+    }
+
+    const branchNames = userBranches
+      .filter((ub) => ub.branch)
+      .map((ub) => ub.branch!.name);
+    return branchNames;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-gray-100 rounded-full" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 bg-gray-100 rounded" />
+                    <div className="h-3 w-16 bg-gray-100 rounded" />
+                  </div>
+                </div>
+                <div className="h-8 w-8 bg-gray-100 rounded" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-3 w-32 bg-gray-100 rounded" />
+              <div className="h-3 w-20 bg-gray-100 rounded" />
+              <div className="h-3 w-24 bg-gray-100 rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {users.map((user) => {
+          const isInactive = !user.is_active;
+          const userRole = getUserRole(user);
+          const userBranches = getUserBranches(user);
+          const fullName = getFullName(user.profile);
+
+          return (
+            <Card
+              key={user.id}
+              className={`transition-all hover:shadow-md ${
+                isInactive ? 'opacity-60 bg-muted/30' : ''
+              }`}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.profile.avatar || undefined} />
+                      <AvatarFallback className="text-sm">
+                        {getUserInitials(user)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium text-sm truncate">
+                          {fullName}
+                        </h3>
+                        {isInactive && (
+                          <Lock className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                        )}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-xs w-fit ${
+                          isInactive ? 'text-gray-400 border-gray-300' : ''
+                        }`}
+                      >
+                        {ROLE_DISPLAY_NAMES[userRole]}
+                      </Badge>
+                    </div>
+                  </div>
+                  {isAdmin ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => handleAction('edit', user)}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleAction('regenerate-password', user)
+                          }
+                        >
+                          <Key className="mr-2 h-4 w-4" />
+                          Regenerate Password
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {user.is_active ? (
+                          <DropdownMenuItem
+                            onClick={() => handleAction('deactivate', user)}
+                            className="text-orange-600"
+                          >
+                            <UserX className="mr-2 h-4 w-4" />
+                            Deactivate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => handleAction('reactivate', user)}
+                            className="text-green-600"
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Reactivate
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleAction('delete', user)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Permanently
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled
+                          className="h-8 w-8 p-0 cursor-not-allowed"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Only owners and admins can manage users</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                  <Mail className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{user.profile.email}</span>
+                </div>
+
+                {(Array.isArray(userBranches)
+                  ? userBranches.length > 0
+                  : userBranches) && (
+                  <div className="flex items-start space-x-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      {userBranches === 'All Branches' ? (
+                        <span>All Branches</span>
+                      ) : (
+                        <div className="space-y-1">
+                          {Array.isArray(userBranches) &&
+                            userBranches
+                              .slice(0, 2)
+                              .map((branch: string, index: number) => (
+                                <div key={index} className="truncate">
+                                  {branch}
+                                </div>
+                              ))}
+                          {Array.isArray(userBranches) &&
+                            userBranches.length > 2 && (
+                              <div className="text-xs text-muted-foreground">
+                                +{userBranches.length - 2} more
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={user.is_active ? 'default' : 'secondary'}
+                    className={`text-xs ${
+                      isInactive ? 'bg-muted text-muted-foreground' : ''
+                    }`}
+                  >
+                    {user.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+
+                  {user.is_first_login && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-orange-600"
+                    >
+                      First login pending
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>
+                    Last login:{' '}
+                    {user.last_login
+                      ? format(new Date(user.last_login), 'MMM d, yyyy')
+                      : 'Never'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </TooltipProvider>
+  );
+}

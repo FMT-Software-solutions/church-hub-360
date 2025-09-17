@@ -6,18 +6,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import type { UserDisplayMode } from '@/types/user-management';
 
-export type DisplayMode = 'grid' | 'table';
-
-interface BranchDisplayControlsProps {
-  displayMode: DisplayMode;
-  onDisplayModeChange: (mode: DisplayMode) => void;
+interface UserDisplayControlsProps {
+  displayMode: UserDisplayMode;
+  onDisplayModeChange: (mode: UserDisplayMode) => void;
 }
 
-export function BranchDisplayControls({
+export function UserDisplayControls({
   displayMode,
   onDisplayModeChange,
-}: BranchDisplayControlsProps) {
+}: UserDisplayControlsProps) {
   return (
     <TooltipProvider>
       <div className="flex items-center gap-[2px] border rounded-md p-[2px]">
@@ -27,7 +26,7 @@ export function BranchDisplayControls({
               variant={displayMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => onDisplayModeChange('grid')}
-              className="p-2"
+              className="p-1"
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -43,7 +42,7 @@ export function BranchDisplayControls({
               variant={displayMode === 'table' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => onDisplayModeChange('table')}
-              className="p-2"
+              className="p-1"
             >
               <Table className="h-4 w-4" />
             </Button>

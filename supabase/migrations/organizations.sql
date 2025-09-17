@@ -18,17 +18,23 @@ CREATE TABLE organizations (
 -- Create user_organizations table
 CREATE TABLE user_organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'write', 'read')),
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'branch_admin' 'write', 'read')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, organization_id)
+  is_active BOOLEAN DEFAULT TRUE,
+  UNIQUE(user_id, organization_id),
+  CONSTRAINT user_organizations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
+  CONSTRAINT user_organizations_user_id_fkey1 FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  CONSTRAINT user_organizations_user_id_fkey2 FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE SET NULL
 );
 
 -- Create indexes for better performance
 CREATE INDEX idx_user_organizations_user_id ON user_organizations(user_id);
 CREATE INDEX idx_user_organizations_organization_id ON user_organizations(organization_id);
+CREATE INDEX idx_user_organizations_user_id_profiles ON user_organizations(user_id); -- For profiles relationship
+CREATE INDEX idx_user_organizations_user_id_auth_users ON user_organizations(user_id); -- For auth_users relationship
 CREATE INDEX idx_organizations_name ON organizations(name);
 
 -- Enable RLS

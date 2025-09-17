@@ -25,6 +25,14 @@ export function Users() {
       id: 3,
       name: 'Bob Johnson',
       email: 'bob@example.com',
+      role: 'Branch Admin',
+      status: 'Active',
+      lastLogin: '3 hours ago',
+    },
+    {
+      id: 4,
+      name: 'Alice Wilson',
+      email: 'alice@example.com',
       role: 'User',
       status: 'Inactive',
       lastLogin: '1 week ago',
@@ -83,7 +91,9 @@ export function Users() {
                   <div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       user.role === 'Admin' 
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' 
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300'
+                        : user.role === 'Branch Admin'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' 
                         : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
                     }`}>
                       {user.role}

@@ -173,7 +173,7 @@ serve(async (req) => {
 
     const { data: authUser } = await supabaseAdmin
         .from('auth_users')
-        .select('id, profile_id, email, is_active, otp_requests_count, last_otp_request')
+        .select('id, email, is_active, otp_requests_count, last_otp_request')
         .eq('email', email)
         .single();
 
@@ -240,7 +240,7 @@ serve(async (req) => {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
-      .eq('id', authUser.profile_id)
+      .eq('id', authUser.id)
       .single();
       
     // Prepare user name for email

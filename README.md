@@ -339,7 +339,7 @@ import {
 // Type-safe user operations
 const user: AuthUserWithProfile = {
   id: 'uuid',
-  profile_id: 'uuid',
+  // profile_id removed - now using unified IDs where auth.users.id matches profiles.id
   is_first_login: false,
   profile: {
     id: 'uuid',
