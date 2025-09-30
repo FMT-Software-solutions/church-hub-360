@@ -197,6 +197,106 @@ function updateReadme(projectName, description) {
   console.log('✅ Updated README.md');
 }
 
+function updateAutoUpdateFiles(projectName) {
+  const nameFormats = generateNameFormats(projectName);
+  
+  // Update updateConfigManager.ts
+  const updateConfigPath = join(__dirname, '../electron-app/updateConfigManager.ts');
+  if (existsSync(updateConfigPath)) {
+    let content = readFileSync(updateConfigPath, 'utf8');
+    content = content.replace(
+      /path\.join\(os\.homedir\(\), 'AppData', 'Roaming', 'FMT Template'\)/,
+      `path.join(os.homedir(), 'AppData', 'Roaming', '${nameFormats.original}')`
+    );
+    writeFileSync(updateConfigPath, content);
+    console.log('✅ Updated updateConfigManager.ts');
+  }
+  
+  // Update release/README.md
+  const releaseReadmePath = join(__dirname, '../release/README.md');
+  if (existsSync(releaseReadmePath)) {
+    let content = readFileSync(releaseReadmePath, 'utf8');
+    content = content.replace(
+      /# FMT Template Release Process/,
+      `# ${projectName} Release Process`
+    );
+    content = content.replace(
+      /FMT Template Electron application/,
+      `${projectName} Electron application`
+    );
+    writeFileSync(releaseReadmePath, content);
+    console.log('✅ Updated release/README.md');
+  }
+  
+  // Update release/release-config.js
+  const releaseConfigPath = join(__dirname, '../release/release-config.js');
+  if (existsSync(releaseConfigPath)) {
+    let content = readFileSync(releaseConfigPath, 'utf8');
+    content = content.replace(
+      /appName: "FMT Template"/,
+      `appName: "${nameFormats.original}"`
+    );
+    writeFileSync(releaseConfigPath, content);
+    console.log('✅ Updated release/release-config.js');
+  }
+  
+  // Update release/scripts/release-manifest.js
+  const releaseManifestPath = join(__dirname, '../release/scripts/release-manifest.js');
+  if (existsSync(releaseManifestPath)) {
+    let content = readFileSync(releaseManifestPath, 'utf8');
+    content = content.replace(
+      /project: 'FMT Template'/,
+      `project: '${nameFormats.original}'`
+    );
+    content = content.replace(
+      /description: 'Release manifest for FMT Template application'/,
+      `description: 'Release manifest for ${nameFormats.original} application'`
+    );
+    writeFileSync(releaseManifestPath, content);
+    console.log('✅ Updated release/scripts/release-manifest.js');
+  }
+  
+  // Update release scripts
+  const releaseScripts = [
+    '../release/scripts/release.bat',
+    '../release/scripts/release.ps1',
+    '../release/scripts/release.sh'
+  ];
+  
+  releaseScripts.forEach(scriptPath => {
+    const fullPath = join(__dirname, scriptPath);
+    if (existsSync(fullPath)) {
+      let content = readFileSync(fullPath, 'utf8');
+      content = content.replace(
+        /FMT Template Release Script/,
+        `${nameFormats.original} Release Script`
+      );
+      writeFileSync(fullPath, content);
+    }
+  });
+  console.log('✅ Updated release scripts');
+  
+  // Update React components
+  const reactComponents = [
+    '../src/modules/auto-update/RestartToUpdateButton.tsx',
+    '../src/modules/auto-update/hooks/useAutoUpdateCheck.ts',
+    '../src/modules/auto-update/UpdateSettings.tsx'
+  ];
+  
+  reactComponents.forEach(componentPath => {
+    const fullPath = join(__dirname, componentPath);
+    if (existsSync(fullPath)) {
+      let content = readFileSync(fullPath, 'utf8');
+      content = content.replace(
+        /FMT-Template-/g,
+        `${nameFormats.kebabCase}-`
+      );
+      writeFileSync(fullPath, content);
+    }
+  });
+  console.log('✅ Updated auto-update React components');
+}
+
 async function main() {
   console.log('🚀 FMT Template Setup');
   console.log('This script will help you customize the template for your project.\n');
@@ -213,6 +313,7 @@ async function main() {
   updateErrorHtml(projectName);
   updateMainTs(projectName);
   updateReadme(projectName, description);
+  updateAutoUpdateFiles(projectName);
 
   console.log('\n✨ Setup complete!');
   console.log('All template references have been updated with your project details.');

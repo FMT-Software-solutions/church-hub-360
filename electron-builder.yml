@@ -34,6 +34,7 @@ nsis:
   installerIcon: release/assets/favicon.ico
   uninstallerIcon: release/assets/favicon.ico
   installerHeaderIcon: release/assets/favicon.ico
+  installerSidebar: release/assets/fmt-sidebar-banner.bmp
   deleteAppDataOnUninstall: false
   runAfterFinish: true
   menuCategory: 'FMT Template'
@@ -53,9 +54,9 @@ linux:
     - rpm
   category: Finance
   icon: release/assets/icons
-  appImage:
-    artifactName: '${productName}-${version}.AppImage'
-    blockMap: true
+
+appImage:
+  artifactName: '${productName}-${version}.AppImage'
 
 publish:
   provider: generic

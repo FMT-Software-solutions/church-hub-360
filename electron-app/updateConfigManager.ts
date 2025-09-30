@@ -39,7 +39,7 @@ class UpdateConfigManager {
 
   constructor() {
     // Use app data directory for persistent config
-    const appDataDir = path.join(os.homedir(), 'AppData', 'Roaming', 'SalesTrack Pro');
+    const appDataDir = path.join(os.homedir(), 'AppData', 'Roaming', 'FMT Template');
     if (!fs.existsSync(appDataDir)) {
       fs.mkdirSync(appDataDir, { recursive: true });
     }

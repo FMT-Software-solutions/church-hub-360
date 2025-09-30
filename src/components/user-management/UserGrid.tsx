@@ -9,6 +9,7 @@ import { getFullName } from '@/types/user-management';
 import { format } from 'date-fns';
 import { Calendar, Lock, Mail, MapPin } from 'lucide-react';
 import { UserActionsDropdown } from './UserActionsDropdown';
+import { processAvatarUrl } from '@/utils/asset-path';
 
 interface UserGridProps {
   users: UserWithRelations[];
@@ -120,7 +121,7 @@ export function UserGrid({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={user.profile.avatar || undefined} />
+                      <AvatarImage src={processAvatarUrl(user.profile.avatar)} />
                       <AvatarFallback className="text-sm">
                         {getUserInitials(user)}
                       </AvatarFallback>

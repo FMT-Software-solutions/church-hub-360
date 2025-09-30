@@ -16,6 +16,7 @@ import { useRoleCheck } from '@/components/auth/RoleGuard';
 import { ROLE_DISPLAY_NAMES } from '@/types/organizations';
 import type { UserWithRelations, UserAction } from '@/types/user-management';
 import { getFullName } from '@/types/user-management';
+import { processAvatarUrl } from '@/utils/asset-path';
 
 interface UserTableProps {
   users: UserWithRelations[];
@@ -160,7 +161,7 @@ export function UserTable({
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.profile.avatar || undefined} />
+                        <AvatarImage src={processAvatarUrl(user.profile.avatar)} />
                         <AvatarFallback className="text-xs">
                           {getUserInitials(user)}
                         </AvatarFallback>

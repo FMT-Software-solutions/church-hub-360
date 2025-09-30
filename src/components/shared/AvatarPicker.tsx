@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getAvatarPath, processAvatarUrl } from '@/utils/asset-path';
 
 interface AvatarPickerProps {
   value?: string | null;
@@ -156,7 +157,7 @@ const maleAvatarIds = [
 // Generate avatar URLs for the picker using local images
 const generateAvatarList = (gender: 'male' | 'female') => {
   const avatarIds = gender === 'male' ? maleAvatarIds : femaleAvatarIds;
-  return avatarIds.map((id) => `/avatars/AV${id.replace('#', '')}.png`);
+  return avatarIds.map((id) => getAvatarPath(id));
 };
 
 export function AvatarPicker({
@@ -205,7 +206,7 @@ export function AvatarPicker({
     const allAvatarIds = [...maleAvatarIds, ...femaleAvatarIds];
     const randomId =
       allAvatarIds[Math.floor(Math.random() * allAvatarIds.length)];
-    const randomAvatar = `/avatars/AV${randomId.replace('#', '')}.png`;
+    const randomAvatar = getAvatarPath(randomId);
     setSelectedAvatar(randomAvatar);
   };
 
@@ -254,7 +255,7 @@ export function AvatarPicker({
     <div className="relative inline-block">
       {/* Main Avatar */}
       <Avatar className={cn(AVATAR_SIZES[size], 'cursor-pointer')}>
-        <AvatarImage src={selectedAvatar || value || ''} />
+        <AvatarImage src={selectedAvatar || processAvatarUrl(value) || ''} />
         <AvatarFallback>
           {fallbackText ||
             (firstName && lastName ? `${firstName[0]}${lastName[0]}` : 'U')}
