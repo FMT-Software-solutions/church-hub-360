@@ -68,40 +68,28 @@ bun install
 
 ### 5. Database Setup
 
-**Important:** Run the migration files in the correct order:
-
-1. **User Profiles** (first):
-
-   ```sql
-   -- Run: supabase/migrations/user_profiles.sql
-   ```
-
-2. **Auth Users** (second):
-
-   ```sql
-   -- Run: supabase/migrations/auth_users.sql
-   ```
-
-3. **App Versions** (third):
-   ```sql
-   -- Run: supabase/migrations/app_versions.sql
-   ```
-
-**Using Supabase CLI:**
+**Simple Setup:** This template includes a complete database snapshot that sets up everything in one go.
 
 ```bash
-# Link your project
-supabase link --project-ref your-project-ref
-
-# Apply migrations
-supabase db push
+# Using Supabase CLI (Recommended)
+supabase db reset
 ```
 
 **Using Supabase Dashboard:**
 
 1. Go to your Supabase project dashboard
 2. Navigate to SQL Editor
-3. Run each migration file in the order specified above
+3. Copy and paste the contents of `supabase/dump.sql`
+4. Execute the SQL
+
+**What's Included in dump.sql:**
+- All database tables (user_profiles, auth_users, app_versions, etc.)
+- Row Level Security (RLS) policies
+- Database functions and triggers
+- Indexes and constraints
+- Sample data (if any)
+
+**Note:** The `supabase/dump.sql` file contains the complete database schema and replaces the need for individual migration files.
 
 ### 6. Edge Function Authentication
 
@@ -116,14 +104,22 @@ Edge functions in this template use **Supabase Auth tokens** for security:
 
 #### Setup Steps:
 
-1. **Deploy Edge Functions:**
+1. **Deploy All Edge Functions:**
 
    ```bash
-   # Deploy the send-otp function
+   # Deploy all edge functions
    supabase functions deploy send-otp
+   supabase functions deploy submit-issue
+   supabase functions deploy publish-releases
    ```
 
-2. **Configure Email Service (Required for OTP):**
+2. **Create Storage Bucket:**
+   - Go to your Supabase project dashboard
+   - Navigate to Storage
+   - Create a new bucket (e.g., "app-storage" or as needed by your application)
+   - Configure bucket policies as required
+
+3. **Configure Email Service (Required for OTP):**
    - Go to your Supabase project dashboard
    - Navigate to Edge Functions → Settings
    - Add a new secret: `RESEND_API_KEY`
@@ -139,6 +135,7 @@ Edge functions in this template use **Supabase Auth tokens** for security:
 #### Edge Functions Included:
 
 - **send-otp:** Secure OTP generation and email delivery for authentication
+- **submit-issue:** Issue reporting with optional image upload via Cloudinary
 - **publish-releases:** Application release management (if applicable)
 
 #### How It Works:
@@ -285,11 +282,11 @@ src/
 
 supabase/
 ├── functions/          # Edge functions
+│   ├── send-otp/       # OTP email delivery
+│   ├── submit-issue/   # Issue reporting with Cloudinary
 │   └── publish-releases/ # Release publishing API
-└── migrations/         # Database migrations
-    ├── user_profiles.sql
-    ├── auth_users.sql
-    └── app_versions.sql
+├── migrations/         # Individual migration files (legacy)
+└── dump.sql           # Complete database snapshot (recommended)
 ```
 
 ## 🧭 Routing System
