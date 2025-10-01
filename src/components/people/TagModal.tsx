@@ -1,13 +1,22 @@
+import { componentStyleOptions } from '@/constants/people-configurations';
 import React from 'react';
-import { Save } from 'lucide-react';
+import type {
+  ComponentStyle,
+  TagCategoryFormData,
+} from '../../types/people-configurations';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { Switch } from '../ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import type { TagCategoryFormData, ComponentStyle } from '../../types/people-configurations';
+import { Textarea } from '../ui/textarea';
 
 interface TagModalProps {
   isOpen: boolean;
@@ -18,14 +27,6 @@ interface TagModalProps {
   isEditing: boolean;
   loading?: boolean;
 }
-
-const componentStyleOptions: { value: ComponentStyle; label: string; description: string }[] = [
-  { value: 'dropdown', label: 'Dropdown', description: 'Single selection dropdown' },
-  { value: 'multiselect', label: 'Multi-select', description: 'Multiple selection dropdown' },
-  { value: 'checkbox', label: 'Checkboxes', description: 'Multiple checkboxes' },
-  { value: 'radio', label: 'Radio buttons', description: 'Single selection radio buttons' },
-  { value: 'list', label: 'List', description: 'Simple list display' },
-];
 
 export function TagModal({
   isOpen,
@@ -44,18 +45,16 @@ export function TagModal({
   };
 
   const updateFormData = (field: keyof TagCategoryFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? 'Edit Tag' : 'Add New Tag'}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Tag' : 'Add New Tag'}</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Tag Name */}
           <div className="space-y-2">
@@ -86,21 +85,29 @@ export function TagModal({
             <Label htmlFor="component_style">Component Style</Label>
             <Select
               value={formData.component_style}
-              onValueChange={(value: ComponentStyle) => updateFormData('component_style', value)}
+              onValueChange={(value: ComponentStyle) =>
+                updateFormData('component_style', value)
+              }
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select component style">
-                  {formData.component_style && 
-                    componentStyleOptions.find(opt => opt.value === formData.component_style)?.label
-                  }
+                  {formData.component_style &&
+                    componentStyleOptions.find(
+                      (opt) => opt.value === formData.component_style
+                    )?.label}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {componentStyleOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="dark:hover:text-accent-foreground"
+                  >
+                    <option.icon className="hover:text-accent-foreground" />
                     <div>
                       <div className="font-medium">{option.label}</div>
-                      <div className="text-sm text-muted-foreground">{option.description}</div>
+                      <div className="text-sm">{option.description}</div>
                     </div>
                   </SelectItem>
                 ))}
@@ -119,7 +126,9 @@ export function TagModal({
               </div>
               <Switch
                 checked={formData.is_required}
-                onCheckedChange={(checked) => updateFormData('is_required', checked)}
+                onCheckedChange={(checked) =>
+                  updateFormData('is_required', checked)
+                }
               />
             </div>
 
@@ -132,7 +141,9 @@ export function TagModal({
               </div>
               <Switch
                 checked={formData.is_active}
-                onCheckedChange={(checked) => updateFormData('is_active', checked)}
+                onCheckedChange={(checked) =>
+                  updateFormData('is_active', checked)
+                }
               />
             </div>
           </div>
@@ -149,10 +160,7 @@ export function TagModal({
                   Saving...
                 </>
               ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditing ? 'Update' : 'Create'} Category
-                </>
+                <>{isEditing ? 'Keep Changes' : 'Add Tag'}</>
               )}
             </Button>
           </div>

@@ -1,12 +1,12 @@
+import { Palette } from 'lucide-react';
 import React from 'react';
-import { Save, Palette } from 'lucide-react';
+import type { TagItemFormData } from '../../types/people-configurations';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import type { TagItemFormData } from '../../types/people-configurations';
+import { Textarea } from '../ui/textarea';
 
 interface TagItemModalProps {
   isOpen: boolean;
@@ -53,7 +53,7 @@ export function TagItemModal({
   };
 
   const updateFormData = (field: keyof TagItemFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -61,10 +61,10 @@ export function TagItemModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-          {isEditing ? 'Edit Tag Item' : `Add New Item to ${tagName}`}
-        </DialogTitle>
+            {isEditing ? 'Edit Tag Item' : `Add New Item to ${tagName}`}
+          </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Item Name */}
           <div className="space-y-2">
@@ -100,8 +100,8 @@ export function TagItemModal({
                     key={color}
                     type="button"
                     className={`w-8 h-8 rounded-full border-2 transition-all ${
-                      formData.color === color 
-                        ? 'border-foreground scale-110' 
+                      formData.color === color
+                        ? 'border-foreground scale-110'
                         : 'border-border hover:scale-105'
                     }`}
                     style={{ backgroundColor: color }}
@@ -134,7 +134,9 @@ export function TagItemModal({
             </div>
             <Switch
               checked={formData.is_active}
-              onCheckedChange={(checked) => updateFormData('is_active', checked)}
+              onCheckedChange={(checked) =>
+                updateFormData('is_active', checked)
+              }
             />
           </div>
 
@@ -150,10 +152,7 @@ export function TagItemModal({
                   Saving...
                 </>
               ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditing ? 'Update' : 'Create'} Item
-                </>
+                <>{isEditing ? 'Keep Changes' : 'Add Item'}</>
               )}
             </Button>
           </div>

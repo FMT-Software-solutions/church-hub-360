@@ -410,6 +410,7 @@ export function useTagsManagement(organizationId: string | undefined): UseTagsMa
     loading: loading, // Only initial loading, not operation loading
     operationLoading: updateConfiguration.isPending || createConfiguration.isPending,
     error: error || (updateConfiguration.error ? updateConfiguration.error.message : null) || (createConfiguration.error ? createConfiguration.error.message : null),
+    updateTagsSchema,
     createCategory,
     updateCategory,
     deleteCategory,

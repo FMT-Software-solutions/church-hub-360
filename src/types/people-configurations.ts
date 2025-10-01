@@ -150,6 +150,7 @@ export interface UseTagsManagementReturn {
   loading: boolean;
   operationLoading: boolean;
   error: string | null;
+  updateTagsSchema: (newTagsSchema: TagsSchema, skipOptimistic?: boolean) => Promise<void>;
   createCategory: (categoryKey: string, category: TagCategoryFormData) => Promise<void>;
   updateCategory: (categoryKey: string, category: Partial<TagCategoryFormData>) => Promise<void>;
   deleteCategory: (categoryKey: string) => Promise<void>;
