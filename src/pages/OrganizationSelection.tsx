@@ -54,12 +54,12 @@ export function OrganizationSelection() {
             trigger={
               <Button variant="outline" className="w-full">
                 <Plus className="h-4 w-4 mr-2" />
-                Create New Organization
+                Create New Church
               </Button>
             }
             onSuccess={handleCreateSuccess}
-            dialogTitle="Create Your First Organization"
-            dialogDescription="Create your organization to get started with the platform."
+            dialogTitle="Create Your First Church"
+            dialogDescription="Create your church to get started with the platform."
           />
         </div>
       </Card>
@@ -82,9 +82,7 @@ export function OrganizationSelection() {
               trigger={
                 <Button variant="outline">
                   <Plus className="h-4 w-4 mr-1" />
-                  <span className="hidden md:inline">
-                    Create New Organization
-                  </span>
+                  <span className="hidden md:inline">Create New Church</span>
                   <span className="md:hidden">Create New</span>
                 </Button>
               }

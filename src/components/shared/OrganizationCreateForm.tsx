@@ -26,8 +26,8 @@ interface OrganizationCreateFormProps {
 export function OrganizationCreateForm({
   trigger,
   onSuccess,
-  dialogTitle = 'Create New Organization',
-  dialogDescription = 'Add a new organization to your account.',
+  dialogTitle = 'Create New Church',
+  dialogDescription = 'Add a new church to your account.',
 }: OrganizationCreateFormProps) {
   const { createOrganization } = useOrganization();
   const [isOpen, setIsOpen] = useState(false);
@@ -44,6 +44,8 @@ export function OrganizationCreateForm({
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.name.trim()) return;
+
+    console.log(createForm);
 
     try {
       setIsCreating(true);
@@ -79,7 +81,7 @@ export function OrganizationCreateForm({
   const defaultTrigger = (
     <Button variant="outline">
       <Plus className="h-4 w-4 mr-2" />
-      <span className="hidden md:inline">Create New Organization</span>
+      <span className="hidden md:inline">Create New Church</span>
       <span className="md:hidden">Create New</span>
     </Button>
   );
@@ -103,7 +105,7 @@ export function OrganizationCreateForm({
                 value={createForm.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 className="col-span-3"
-                placeholder="Organization name"
+                placeholder="Church name"
                 required
               />
             </div>
@@ -117,7 +119,7 @@ export function OrganizationCreateForm({
                 value={createForm.email || ''}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 className="col-span-3"
-                placeholder="contact@organization.com"
+                placeholder="contact@church.com"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -129,19 +131,19 @@ export function OrganizationCreateForm({
                 value={createForm.phone || ''}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 className="col-span-3"
-                placeholder="+233 (0) 551234567"
+                placeholder="+233 (0) xxxxxxxxx"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="currency" className="text-right">
-                Currency
+              <Label htmlFor="address" className="text-right">
+                Address
               </Label>
               <Input
-                id="currency"
-                value={createForm.currency}
-                onChange={(e) => handleInputChange('currency', e.target.value)}
+                id="address"
+                value={createForm.address || ''}
+                onChange={(e) => handleInputChange('address', e.target.value)}
                 className="col-span-3"
-                placeholder="GHS"
+                placeholder="123 Main St, Accra, Ghana"
               />
             </div>
           </div>
@@ -158,7 +160,7 @@ export function OrganizationCreateForm({
               type="submit"
               disabled={isCreating || !createForm.name.trim()}
             >
-              {isCreating ? 'Creating...' : 'Create Organization'}
+              {isCreating ? 'Creating...' : 'Create Church'}
             </Button>
           </DialogFooter>
         </form>

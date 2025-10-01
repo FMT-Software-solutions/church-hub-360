@@ -23,7 +23,7 @@ export function OrganizationSelector() {
   };
 
   const handleCreateSuccess = () => {
-    // Organization is automatically selected after creation
+    // Church is automatically selected after creation
     // No additional action needed
   };
 
@@ -42,7 +42,7 @@ export function OrganizationSelector() {
         trigger={
           <Button variant="outline" className="flex items-center space-x-2">
             <Plus className="h-4 w-4" />
-            <span>Create Organization</span>
+            <span>Create Church</span>
           </Button>
         }
         onSuccess={handleCreateSuccess}
@@ -112,7 +112,7 @@ export function OrganizationSelector() {
                 className="cursor-pointer"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Create New Organization
+                Create New Church
               </DropdownMenuItem>
             }
             onSuccess={handleCreateSuccess}

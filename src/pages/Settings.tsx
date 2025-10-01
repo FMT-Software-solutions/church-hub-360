@@ -396,6 +396,17 @@ export function Settings() {
                   rows={3}
                 />
               </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSaveOrganizationDetails}
+                  disabled={isSavingOrgData}
+                  className="flex items-center space-x-2"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>{isSavingOrgData ? 'Saving...' : 'Save Changes'}</span>
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -467,17 +478,6 @@ export function Settings() {
               </div>
             </CardContent>
           </Card>
-
-          <div className="flex justify-end">
-            <Button
-              onClick={handleSaveOrganizationDetails}
-              disabled={isSavingOrgData}
-              className="flex items-center space-x-2"
-            >
-              <Save className="h-4 w-4" />
-              <span>{isSavingOrgData ? 'Saving...' : 'Save Changes'}</span>
-            </Button>
-          </div>
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-6">

@@ -26,7 +26,11 @@ export function ThemeSelector() {
     updateThemeColor,
     resetToOrganizationTheme,
   } = usePalette();
-  const { updateOrganization, selectedOrgId, currentOrganization } = useOrganization();
+  const {
+    updateOrganization,
+    selectedOrgId,
+    currentOrganization,
+  } = useOrganization();
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [themeError, setThemeError] = useState<string | null>(null);
 
@@ -308,14 +312,15 @@ export function ThemeSelector() {
         </div>
         <div className="flex justify-between items-center">
           {/* Reset button - show when theme is custom or different from org theme */}
-          {(selectedThemeKey === 'custom' || 
-            (currentOrganization?.brand_colors && selectedThemeKey !== currentOrganization.brand_colors.id)) && (
+          {(selectedThemeKey === 'custom' ||
+            (currentOrganization?.brand_colors &&
+              selectedThemeKey !== currentOrganization.brand_colors.id)) && (
             <Button
               variant="outline"
               onClick={resetToOrganizationTheme}
               className="mt-4"
             >
-              Reset to Organization Theme
+              Reset to Church Theme
             </Button>
           )}
           <div className="flex-1" />

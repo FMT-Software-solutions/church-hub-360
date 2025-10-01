@@ -89,6 +89,10 @@ export function useCreateBranch() {
       queryClient.invalidateQueries({
         queryKey: branchKeys.organizationBranches(data.organization_id),
       });
+      // Also invalidate the query key used by UserManagement page
+      queryClient.invalidateQueries({
+        queryKey: ['branches', data.organization_id],
+      });
     },
   });
 }
@@ -117,6 +121,10 @@ export function useUpdateBranch() {
       });
       queryClient.invalidateQueries({
         queryKey: branchKeys.branch(data.id),
+      });
+      // Also invalidate the query key used by UserManagement page
+      queryClient.invalidateQueries({
+        queryKey: ['branches', data.organization_id],
       });
     },
   });
