@@ -114,8 +114,8 @@ function initializeManifest() {
       releases: [],
       metadata: {
         created: new Date().toISOString(),
-        project: 'FMT Template',
-      description: 'Release manifest for FMT Template application',
+        project: 'Church-Hub-360',
+      description: 'Release manifest for Church-Hub-360 application',
       },
     };
     

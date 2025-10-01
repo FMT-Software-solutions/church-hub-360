@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -27,6 +27,26 @@ interface HelpDrawerProps {
 export function HelpDrawer({ children }: HelpDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showIssueReport, setShowIssueReport] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>('Loading...');
+
+  useEffect(() => {
+    const fetchAppVersion = async () => {
+      try {
+        if (window.electron?.getAppVersion) {
+          const version = await window.electron.getAppVersion();
+          setAppVersion(version);
+        } else {
+          // Fallback for non-Electron environments (e.g., web browser)
+          setAppVersion('1.0.0');
+        }
+      } catch (error) {
+        console.error('Failed to fetch app version:', error);
+        setAppVersion('1.0.0');
+      }
+    };
+
+    fetchAppVersion();
+  }, []);
 
   const handleContactFMT = () => {
     openExternalUrl('https://fmtsoftware.com/contact');
@@ -74,17 +94,18 @@ export function HelpDrawer({ children }: HelpDrawerProps) {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <h4 className="font-medium">FMT Template Application</h4>
+                      <h4 className="font-medium">ChurchHub-360</h4>
                       <p className="text-sm text-muted-foreground">
-                        Version 1.0.0
+                        Version {appVersion}
                       </p>
                     </div>
                     <Separator />
                     <div>
                       <h4 className="font-medium">Description</h4>
                       <p className="text-sm text-muted-foreground">
-                        A reusable project template for FMT Software solutions.
-                        Built with React, Electron, and modern web technologies.
+                        ChurchHub360 is an all-in-one church management platform
+                        designed to simplify membership, finances, attendance,
+                        and communication.
                       </p>
                     </div>
                   </CardContent>

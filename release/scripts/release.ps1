@@ -2,7 +2,7 @@
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   FMT Template Release Script" -ForegroundColor Cyan
+Write-Host "   Church-Hub-360 Release Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

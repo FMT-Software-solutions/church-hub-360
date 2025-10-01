@@ -9,7 +9,7 @@ NC='\033[0m' # No Color
 
 echo ""
 echo -e "${CYAN}========================================"
-echo -e "   FMT Template Release Script"
+echo -e "   Church-Hub-360 Release Script"
 echo -e "========================================${NC}"
 echo ""
 

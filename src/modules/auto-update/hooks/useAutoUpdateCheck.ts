@@ -52,7 +52,7 @@ export function useAutoUpdateCheck() {
               
               // Extract filename from URL or use version info
               const url = new URL(result.latestVersion.download_url);
-              const fileName = url.pathname.split('/').pop() || `FMT-Template-${result.latestVersion.version}-Setup.exe`;
+              const fileName = url.pathname.split('/').pop() || `church-hub-360-setup-${result.latestVersion.version}.exe`;
               
               await window.electron.downloadUpdateToTemp(
                 result.latestVersion.download_url,

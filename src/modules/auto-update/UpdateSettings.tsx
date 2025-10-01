@@ -322,7 +322,7 @@ export function UpdateSettings({ className }: UpdateSettingsProps) {
       const url = new URL(versionInfo.download_url);
       const fileName =
         url.pathname.split('/').pop() ||
-        `FMT-Template-${versionInfo.version}-Setup.exe`;
+        `church-hub-360-setup-${versionInfo.version}.exe`;
 
       toast.info('Starting update download...');
 
@@ -473,7 +473,8 @@ export function UpdateSettings({ className }: UpdateSettingsProps) {
                   platformInfo.installType === 'package' ? (
                     <Button
                       onClick={() => {
-                        const downloadUrl = import.meta.env.VITE_DOWNLOADS_PAGE_URL || '';
+                        const downloadUrl =
+                          import.meta.env.VITE_DOWNLOADS_PAGE_URL || '';
                         if (downloadUrl) {
                           openExternalUrl(downloadUrl);
                         }

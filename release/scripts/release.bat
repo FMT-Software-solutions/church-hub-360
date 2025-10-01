@@ -1,7 +1,7 @@
 @echo off
 echo.
 echo ========================================
-echo   FMT Template Release Script
+echo   Church-Hub-360 Release Script
 echo ========================================
 echo.
 

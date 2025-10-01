@@ -185,7 +185,7 @@ export const RestartToUpdateButton: React.FC<RestartToUpdateButtonProps> = ({
       const url = new URL(updateInfo.download_url);
       const fileName =
         url.pathname.split('/').pop() ||
-        `FMT-Template-${updateInfo.version}-Setup.exe`;
+        `church-hub-360-setup-${updateInfo.version}.exe`;
 
       toast.info('Starting update download...');
 

@@ -1,8 +1,8 @@
-appId: com.fmtsoftware.appname
-productName: FMT Template
+appId: com.fmtsoftware.church-hub-360
+productName: ChurchHub-360
 copyright: Copyright © 2025 FMT Software Solutions
 
-artifactName: fmt-template-setup-${version}.${ext}
+artifactName: church-hub-360-setup-${version}.${ext}
 directories:
   output: release/build
 files:
@@ -30,14 +30,14 @@ nsis:
   allowElevation: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: FMT Template
+  shortcutName: ChurchHub-360
   installerIcon: release/assets/favicon.ico
   uninstallerIcon: release/assets/favicon.ico
   installerHeaderIcon: release/assets/favicon.ico
   installerSidebar: release/assets/fmt-sidebar-banner.bmp
   deleteAppDataOnUninstall: false
   runAfterFinish: true
-  menuCategory: 'FMT Template'
+  menuCategory: 'ChurchHub-360'
   displayLanguageSelector: false
   installerLanguages:
     - en_US
@@ -52,7 +52,7 @@ linux:
     - AppImage
     - deb
     - rpm
-  category: Finance
+  category: Utility
   icon: release/assets/icons
 
 appImage:

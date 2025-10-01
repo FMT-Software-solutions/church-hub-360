@@ -100,7 +100,7 @@ module.exports = {
 
   // Additional metadata
   metadata: {
-    appName: "FMT Template",
+    appName: "Church-Hub-360",
     description: "Professional Sales tracking application for businesses",
     author: "Shadrack Ankomahene",
     homepage: "https://fmtsoftware.com",

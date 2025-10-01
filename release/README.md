@@ -1,6 +1,6 @@
-# FMT Template Release Process
+# Church-Hub-360 Release Process
 
-This directory contains the automated release system for FMT Template Electron application.
+This directory contains the automated release system for Church-Hub-360 Electron application.
 
 ## Overview
 
