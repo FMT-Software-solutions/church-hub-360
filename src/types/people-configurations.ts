@@ -39,6 +39,14 @@ export interface TagsSchema {
   };
 }
 
+// Position interface for committee roles
+export interface CommitteePosition {
+  id: string;
+  name: string;
+  description?: string;
+  display_order?: number;
+}
+
 // Committees schema structure (for future use)
 export interface CommitteesSchema {
   committees: {
@@ -46,7 +54,7 @@ export interface CommitteesSchema {
       name: string;
       description: string;
       members: string[];
-      chair_person?: string;
+      positions: CommitteePosition[];
       is_active: boolean;
       created_date: string;
       end_date?: string;
@@ -117,6 +125,25 @@ export interface TagItemFormData {
   is_active: boolean;
 }
 
+// Committee form data types
+export interface CommitteeFormData {
+  name: string;
+  description: string;
+  is_active: boolean;
+  end_date?: string;
+}
+
+// Committee interface for local state management
+export interface Committee {
+  name: string;
+  description: string;
+  members: string[];
+  positions: CommitteePosition[];
+  is_active: boolean;
+  created_date: string;
+  end_date?: string;
+}
+
 // Utility types for tag management
 export interface TagCategoryWithKey extends TagCategory {
   key: string;
@@ -159,6 +186,19 @@ export interface UseTagsManagementReturn {
   deleteTagItem: (categoryKey: string, itemId: string) => Promise<void>;
   reorderCategories: (categoryKeys: string[]) => Promise<void>;
   reorderTagItems: (categoryKey: string, itemIds: string[]) => Promise<void>;
+}
+
+export interface UseCommitteesManagementReturn {
+  committeesSchema: CommitteesSchema | null;
+  loading: boolean;
+  operationLoading: boolean;
+  error: string | null;
+  updateCommitteesSchema: (newCommitteesSchema: CommitteesSchema, skipOptimistic?: boolean) => Promise<void>;
+  createCommittee: (committeeKey: string, committee: CommitteeFormData) => Promise<void>;
+  updateCommittee: (committeeKey: string, committee: Partial<CommitteeFormData>) => Promise<void>;
+  deleteCommittee: (committeeKey: string) => Promise<void>;
+  addMember: (committeeKey: string, memberId: string) => Promise<void>;
+  removeMember: (committeeKey: string, memberId: string) => Promise<void>;
 }
 
 // Validation types

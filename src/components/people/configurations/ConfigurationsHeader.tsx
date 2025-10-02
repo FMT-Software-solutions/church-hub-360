@@ -17,7 +17,7 @@ export function ConfigurationsHeader({ hasUnsavedChanges }: ConfigurationsHeader
         </div>
         <div className="space-y-1">
           <p className="text-muted-foreground">
-            Manage member tags and member groupings
+            Manage tags, committees and membership form 
           </p>
         </div>
       </div>

@@ -11,6 +11,10 @@ import type {
   TagItemFormData,
   UsePeopleConfigurationReturn,
   UseTagsManagementReturn,
+  CommitteesSchema,
+  Committee,
+  CommitteeFormData,
+  UseCommitteesManagementReturn,
 } from '../types/people-configurations';
 import { useState, useCallback } from 'react';
 
@@ -419,5 +423,196 @@ export function useTagsManagement(organizationId: string | undefined): UseTagsMa
     deleteTagItem,
     reorderCategories,
     reorderTagItems,
+  };
+}
+
+// Comprehensive hook for committees management
+export function useCommitteesManagement(organizationId: string | undefined): UseCommitteesManagementReturn {
+  const [error, setError] = useState<string | null>(null);
+  const [optimisticCommitteesSchema, setOptimisticCommitteesSchema] = useState<CommitteesSchema | null>(null);
+  const { configuration, loading, refetch } = usePeopleConfiguration(organizationId);
+  const updateConfiguration = useUpdatePeopleConfiguration();
+  const createConfiguration = useCreatePeopleConfiguration();
+
+  const committeesSchema = optimisticCommitteesSchema || configuration?.committees_schema || null;
+
+  // Helper function to update committees schema with optimistic updates
+  const updateCommitteesSchema = useCallback(async (newCommitteesSchema: CommitteesSchema, skipOptimistic = false) => {
+    if (!organizationId) {
+      setError('Organization ID is required');
+      return;
+    }
+
+    try {
+      setError(null);
+      
+      // Apply optimistic update immediately (unless skipped for initial creation)
+      if (!skipOptimistic) {
+        setOptimisticCommitteesSchema(newCommitteesSchema);
+      }
+      
+      if (configuration) {
+        // Update existing configuration
+        await updateConfiguration.mutateAsync({
+          id: configuration.id,
+          data: { committees_schema: newCommitteesSchema },
+        });
+      } else {
+        // Create new configuration
+        await createConfiguration.mutateAsync({
+          organization_id: organizationId,
+          committees_schema: newCommitteesSchema,
+        });
+      }
+      
+      // Refetch to sync with server, but don't wait for it
+      refetch().then(() => {
+        // Clear optimistic state once server data is loaded
+        setOptimisticCommitteesSchema(null);
+      });
+    } catch (err) {
+      // Revert optimistic update on error
+      setOptimisticCommitteesSchema(null);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      throw err;
+    }
+  }, [organizationId, configuration, updateConfiguration, createConfiguration, refetch]);
+
+  // Committee management functions
+  const createCommittee = useCallback(async (committeeKey: string, committee: CommitteeFormData) => {
+    if (!committeesSchema) {
+      // Create initial schema if it doesn't exist
+      const newCommittee: Committee = {
+        ...committee,
+        members: [],
+        positions: [],
+        created_date: new Date().toISOString(),
+      };
+
+      const newSchema: CommitteesSchema = {
+        committees: {
+          [committeeKey]: newCommittee,
+        },
+      };
+
+      await updateCommitteesSchema(newSchema, false);
+      return;
+    }
+
+    const newCommittee: Committee = {
+      ...committee,
+      members: [],
+      positions: [],
+      created_date: new Date().toISOString(),
+    };
+
+    const updatedSchema: CommitteesSchema = {
+      committees: {
+        ...committeesSchema.committees,
+        [committeeKey]: newCommittee,
+      },
+    };
+
+    await updateCommitteesSchema(updatedSchema, false);
+  }, [committeesSchema, updateCommitteesSchema]);
+
+  const updateCommittee = useCallback(async (committeeKey: string, committeeUpdates: Partial<Committee>) => {
+    if (!committeesSchema?.committees[committeeKey]) {
+      setError('Committee not found');
+      return;
+    }
+
+    const updatedCommittee: Committee = {
+      ...committeesSchema.committees[committeeKey],
+      ...committeeUpdates,
+    };
+
+    const updatedSchema: CommitteesSchema = {
+      committees: {
+        ...committeesSchema.committees,
+        [committeeKey]: updatedCommittee,
+      },
+    };
+
+    await updateCommitteesSchema(updatedSchema, false);
+  }, [committeesSchema, updateCommitteesSchema]);
+
+  const deleteCommittee = useCallback(async (committeeKey: string) => {
+    if (!committeesSchema?.committees[committeeKey]) {
+      setError('Committee not found');
+      return;
+    }
+
+    const { [committeeKey]: deletedCommittee, ...remainingCommittees } = committeesSchema.committees;
+
+    const updatedSchema: CommitteesSchema = {
+      committees: remainingCommittees,
+    };
+
+    await updateCommitteesSchema(updatedSchema, false);
+  }, [committeesSchema, updateCommitteesSchema]);
+
+  const addMember = useCallback(async (committeeKey: string, memberId: string) => {
+    if (!committeesSchema?.committees[committeeKey]) {
+      setError('Committee not found');
+      return;
+    }
+
+    const committee = committeesSchema.committees[committeeKey];
+    if (committee.members.includes(memberId)) {
+      setError('Member already in committee');
+      return;
+    }
+
+    const updatedCommittee: Committee = {
+      ...committee,
+      members: [...committee.members, memberId],
+    };
+
+    const updatedSchema: CommitteesSchema = {
+      committees: {
+        ...committeesSchema.committees,
+        [committeeKey]: updatedCommittee,
+      },
+    };
+
+    await updateCommitteesSchema(updatedSchema, false);
+  }, [committeesSchema, updateCommitteesSchema]);
+
+  const removeMember = useCallback(async (committeeKey: string, memberId: string) => {
+    if (!committeesSchema?.committees[committeeKey]) {
+      setError('Committee not found');
+      return;
+    }
+
+    const committee = committeesSchema.committees[committeeKey];
+    const updatedMembers = committee.members.filter(id => id !== memberId);
+
+    const updatedCommittee: Committee = {
+      ...committee,
+      members: updatedMembers,
+    };
+
+    const updatedSchema: CommitteesSchema = {
+      committees: {
+        ...committeesSchema.committees,
+        [committeeKey]: updatedCommittee,
+      },
+    };
+
+    await updateCommitteesSchema(updatedSchema, false);
+  }, [committeesSchema, updateCommitteesSchema]);
+
+  return {
+    committeesSchema,
+    loading: loading,
+    operationLoading: updateConfiguration.isPending || createConfiguration.isPending,
+    error: error || (updateConfiguration.error ? updateConfiguration.error.message : null) || (createConfiguration.error ? createConfiguration.error.message : null),
+    updateCommitteesSchema,
+    createCommittee,
+    updateCommittee,
+    deleteCommittee,
+    addMember,
+    removeMember,
   };
 }

@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
 import { useOrganization } from '../../contexts/OrganizationContext';
 import { useLocalTagsSchema } from '../../hooks/useLocalTagsSchema';
+import { useLocalCommitteesSchema } from '../../hooks/useLocalCommitteesSchema';
 import {
   ConfigurationsHeader,
   TagsListPanel,
   TagDetailsPanel,
   FixedUpdateButton,
 } from '../../components/people/configurations';
+import { CommitteesListPanel } from '../../components/people/configurations/CommitteesListPanel';
+import { CommitteeDetailsPanel } from '../../components/people/configurations/CommitteeDetailsPanel';
 import { TagModal } from '../../components/people/TagModal';
 import { TagItemModal } from '../../components/people/TagItemModal';
 import { TagTemplateModal } from '../../components/people/TagTemplateModal';
+import { CommitteeModal } from '../../components/people/CommitteeModal';
 import { DeleteConfirmationDialog } from '../../components/shared/DeleteConfirmationDialog';
 
 import type {
@@ -20,18 +25,21 @@ import type {
   TagItem,
   TagCategoryFormData,
   TagItemFormData,
+  Committee,
+  CommitteeFormData,
 } from '../../types/people-configurations';
 
 export function PeopleConfigurations() {
   const { currentOrganization } = useOrganization();
 
+  // Tags management
   const {
-    localSchema,
-    hasUnsavedChanges,
-    changes,
-    isLoading,
-    error,
-    isUpdating,
+    localSchema: tagsSchema,
+    hasUnsavedChanges: tagsHasChanges,
+    changes: tagsChanges,
+    isLoading: tagsIsLoading,
+    error: tagsError,
+    isUpdating: tagsIsUpdating,
     addCategory,
     addMultipleCategories,
     updateCategory,
@@ -39,15 +47,39 @@ export function PeopleConfigurations() {
     addItem,
     updateItem,
     deleteItem,
-    syncChangesToServer,
-    resetLocalChanges,
+    syncChangesToServer: syncTagsToServer,
+    resetLocalChanges: resetTagsChanges,
   } = useLocalTagsSchema();
 
+  // Committees management
+  const {
+    localSchema: committeesSchema,
+    hasUnsavedChanges: committeesHasChanges,
+    changes: committeesChanges,
+    isLoading: committeesIsLoading,
+    error: committeesError,
+    isUpdating: committeesIsUpdating,
+    addCommittee,
+    updateCommittee,
+    deleteCommittee,
+    syncChangesToServer: syncCommitteesToServer,
+    resetLocalChanges: resetCommitteesChanges,
+  } = useLocalCommitteesSchema();
+
+  // UI state
+  const [activeTab, setActiveTab] = useState('tags');
+  
+  // Tags state
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
+
+  // Committees state
+  const [selectedCommittee, setSelectedCommittee] = useState<string | null>(null);
+  const [editingCommittee, setEditingCommittee] = useState<string | null>(null);
+  const [showAddCommittee, setShowAddCommittee] = useState(false);
 
   // Form states
   const [tagForm, setTagForm] = useState<TagCategoryFormData>({
@@ -62,6 +94,13 @@ export function PeopleConfigurations() {
     name: '',
     description: '',
     color: '#10B981',
+    is_active: true,
+  });
+
+  const [committeeForm, setCommitteeForm] = useState<CommitteeFormData>({
+    name: '',
+    description: '',
+    end_date: '',
     is_active: true,
   });
 
@@ -86,6 +125,16 @@ export function PeopleConfigurations() {
     itemName: '',
   });
 
+  const [deleteCommitteeDialog, setDeleteCommitteeDialog] = useState<{
+    isOpen: boolean;
+    committeeId: string | null;
+    committeeName: string;
+  }>({
+    isOpen: false,
+    committeeId: null,
+    committeeName: '',
+  });
+
   const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   // Reset forms
@@ -108,6 +157,15 @@ export function PeopleConfigurations() {
     });
   };
 
+  const resetCommitteeForm = () => {
+    setCommitteeForm({
+      name: '',
+      description: '',
+      end_date: '',
+      is_active: true,
+    });
+  };
+
   // Handle tag operations
   const handleCreateTag = async () => {
     if (!tagForm.name.trim()) return;
@@ -126,7 +184,7 @@ export function PeopleConfigurations() {
   };
 
   const handleDeleteTag = (tagKey: string) => {
-    const tag = localSchema?.categories[tagKey];
+    const tag = tagsSchema?.categories[tagKey];
     setDeleteTagDialog({
       isOpen: true,
       tagId: tagKey,
@@ -164,7 +222,7 @@ export function PeopleConfigurations() {
   const handleDeleteItem = (itemId: string) => {
     if (!selectedTag) return;
 
-    const item = localSchema?.categories[selectedTag]?.items.find(
+    const item = tagsSchema?.categories[selectedTag]?.items.find(
       (i: any) => i.id === itemId
     );
     setDeleteItemDialog({
@@ -212,6 +270,52 @@ export function PeopleConfigurations() {
     toast.success(`Added ${templateCount} template${templateCount !== 1 ? 's' : ''}`);
   };
 
+  // Handle committee operations
+  const handleCreateCommittee = async () => {
+    if (!committeeForm.name.trim()) return;
+
+    addCommittee(committeeForm);
+    resetCommitteeForm();
+    setShowAddCommittee(false);
+  };
+
+  const handleUpdateCommittee = async (committeeKey: string) => {
+    if (!committeeForm.name.trim()) return;
+
+    updateCommittee(committeeKey, committeeForm);
+    setEditingCommittee(null);
+    resetCommitteeForm();
+  };
+
+  const handleDeleteCommittee = (committeeKey: string) => {
+    const committee = committeesSchema?.committees[committeeKey];
+    setDeleteCommitteeDialog({
+      isOpen: true,
+      committeeId: committeeKey,
+      committeeName: committee?.name || committeeKey,
+    });
+  };
+
+  const confirmDeleteCommittee = async () => {
+    if (!deleteCommitteeDialog.committeeId) return;
+
+    deleteCommittee(deleteCommitteeDialog.committeeId);
+    if (selectedCommittee === deleteCommitteeDialog.committeeId) {
+      setSelectedCommittee(null);
+    }
+    setDeleteCommitteeDialog({ isOpen: false, committeeId: null, committeeName: '' });
+  };
+
+  const startEditingCommittee = (committeeKey: string, committee: Committee) => {
+    setCommitteeForm({
+      name: committee.name,
+      description: committee.description,
+      end_date: committee.end_date || '',
+      is_active: committee.is_active,
+    });
+    setEditingCommittee(committeeKey);
+  };
+
   // Show loading if organization is not available yet
   if (!currentOrganization) {
     return (
@@ -227,7 +331,11 @@ export function PeopleConfigurations() {
   // Handle sync to server
   const handleSyncToServer = async () => {
     try {
-      await syncChangesToServer();
+      // Sync both schemas
+         await Promise.all([
+           tagsHasChanges ? syncTagsToServer() : Promise.resolve(),
+           committeesHasChanges ? syncCommitteesToServer() : Promise.resolve(),
+         ]);
       toast.success('Changes saved successfully');
     } catch (err: any) {
       console.error('Failed to sync changes:', err);
@@ -243,11 +351,12 @@ export function PeopleConfigurations() {
 
   // Handle reset changes
   const handleResetChanges = () => {
-    resetLocalChanges();
+    resetTagsChanges();
+    resetCommitteesChanges();
     toast.info('Changes discarded');
   };
 
-  if (isLoading) {
+  if (tagsIsLoading || committeesIsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -258,60 +367,105 @@ export function PeopleConfigurations() {
     );
   }
 
-  if (error) {
+  if (tagsError || committeesError) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Failed to load configurations: {error}
+          Failed to load configurations: {tagsError || committeesError}
         </AlertDescription>
       </Alert>
     );
   }
 
-  const tags = localSchema?.categories || {};
+  const tags = tagsSchema?.categories || {};
   const selectedTagData = selectedTag ? tags[selectedTag] : null;
+  
+  const committees = committeesSchema?.committees || {};
+  const selectedCommitteeData = selectedCommittee ? committees[selectedCommittee] : null;
 
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
       <ConfigurationsHeader
-        hasUnsavedChanges={hasUnsavedChanges}
-        changes={changes}
+        hasUnsavedChanges={tagsHasChanges || committeesHasChanges}
+        changes={{ ...tagsChanges, ...committeesChanges }}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tags List */}
-        <div className="lg:col-span-1">
-          <TagsListPanel
-            tags={tags}
-            selectedTag={selectedTag}
-            editingTag={editingTag}
-            onSelectTag={setSelectedTag}
-            onAddTag={() => setShowAddTag(true)}
-            onAddFromTemplate={() => setShowTemplateModal(true)}
-            onEditTag={startEditingTag}
-            onDeleteTag={handleDeleteTag}
-          />
-        </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="tags">Tags</TabsTrigger>
+          <TabsTrigger value="committees">Committees</TabsTrigger>
+        </TabsList>
 
-        {/* Tag Details and Items */}
-        <div className="lg:col-span-2">
-          <TagDetailsPanel
-            selectedTag={selectedTag}
-            selectedTagData={selectedTagData}
-            onAddItem={() => setShowAddItem(true)}
-            onEditItem={startEditingItem}
-            onDeleteItem={handleDeleteItem}
-          />
-        </div>
-      </div>
+        {/* Tags Tab */}
+        <TabsContent value="tags" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Tags List */}
+            <div className="lg:col-span-1">
+              <TagsListPanel
+                tags={tags}
+                selectedTag={selectedTag}
+                editingTag={editingTag}
+                onSelectTag={setSelectedTag}
+                onAddTag={() => setShowAddTag(true)}
+                onAddFromTemplate={() => setShowTemplateModal(true)}
+                onEditTag={startEditingTag}
+                onDeleteTag={handleDeleteTag}
+              />
+            </div>
+
+            {/* Tag Details and Items */}
+            <div className="lg:col-span-2">
+              <TagDetailsPanel
+                selectedTag={selectedTag}
+                selectedTagData={selectedTagData}
+                onAddItem={() => setShowAddItem(true)}
+                onEditItem={startEditingItem}
+                onDeleteItem={handleDeleteItem}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Committees Tab */}
+        <TabsContent value="committees" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Committees List */}
+            <div className="lg:col-span-1">
+              <CommitteesListPanel
+                committees={committees}
+                selectedCommittee={selectedCommittee}
+                editingCommittee={editingCommittee}
+                onSelectCommittee={setSelectedCommittee}
+                onAddCommittee={() => setShowAddCommittee(true)}
+                onEditCommittee={startEditingCommittee}
+                onDeleteCommittee={handleDeleteCommittee}
+              />
+            </div>
+
+            {/* Committee Details */}
+            <div className="lg:col-span-2">
+              <CommitteeDetailsPanel
+                selectedCommittee={selectedCommittee}
+                selectedCommitteeData={selectedCommitteeData}
+               
+               
+                onUpdateCommittee={(committeeId: string, updates: Partial<Committee>) => {
+                  updateCommittee(committeeId, updates);
+                }}
+              />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Fixed Update Button */}
       <FixedUpdateButton
-        hasUnsavedChanges={hasUnsavedChanges}
-        changes={changes}
-        isUpdating={isUpdating}
+        hasUnsavedChanges={tagsHasChanges || committeesHasChanges}
+        changes={{...tagsChanges, ...committeesChanges}}
+        isUpdating={tagsIsUpdating || committeesIsUpdating}
         onUpdate={handleSyncToServer}
         onReset={handleResetChanges}
       />
@@ -330,7 +484,7 @@ export function PeopleConfigurations() {
         formData={tagForm}
         setFormData={setTagForm}
         isEditing={editingTag !== null}
-        loading={isUpdating}
+        loading={tagsIsUpdating}
       />
 
       {/* Tag Item Modal */}
@@ -348,7 +502,7 @@ export function PeopleConfigurations() {
         setFormData={setItemForm}
         isEditing={editingItem !== null}
         tagName={selectedTagData?.name}
-        loading={isUpdating}
+        loading={tagsIsUpdating}
       />
 
       {/* Tag Template Modal */}
@@ -357,6 +511,23 @@ export function PeopleConfigurations() {
         onClose={() => setShowTemplateModal(false)}
         onAddTemplates={handleAddTemplates}
         existingTags={tags}
+      />
+
+      {/* Committee Modal */}
+      <CommitteeModal
+        isOpen={showAddCommittee || editingCommittee !== null}
+        onClose={() => {
+          setShowAddCommittee(false);
+          setEditingCommittee(null);
+          resetCommitteeForm();
+        }}
+        onSave={
+          editingCommittee ? () => handleUpdateCommittee(editingCommittee) : handleCreateCommittee
+        }
+        formData={committeeForm}
+        setFormData={setCommitteeForm}
+        isEditing={editingCommittee !== null}
+        loading={committeesIsUpdating}
       />
 
       {/* Delete Tag Confirmation Dialog */}
@@ -369,7 +540,7 @@ export function PeopleConfigurations() {
         title="Delete Tag"
         description={`Are you sure you want to delete the tag "${deleteTagDialog.tagName}"? This action cannot be undone and will remove all associated items.`}
         confirmButtonText="Delete Tag"
-        isLoading={isUpdating}
+        isLoading={tagsIsUpdating}
       />
 
       {/* Delete Item Confirmation Dialog */}
@@ -382,7 +553,20 @@ export function PeopleConfigurations() {
         title="Delete Item"
         description={`Are you sure you want to delete "${deleteItemDialog.itemName}"? This action cannot be undone.`}
         confirmButtonText="Delete Item"
-        isLoading={isUpdating}
+        isLoading={tagsIsUpdating}
+      />
+
+      {/* Delete Committee Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteCommitteeDialog.isOpen}
+        onClose={() =>
+          setDeleteCommitteeDialog({ isOpen: false, committeeId: null, committeeName: '' })
+        }
+        onConfirm={confirmDeleteCommittee}
+        title="Delete Committee"
+        description={`Are you sure you want to delete the committee "${deleteCommitteeDialog.committeeName}"? This action cannot be undone and will remove all associated members.`}
+        confirmButtonText="Delete Committee"
+        isLoading={committeesIsUpdating}
       />
     </div>
   );
