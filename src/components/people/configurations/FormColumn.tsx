@@ -101,6 +101,22 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
     const [optionsValue, setOptionsValue] = useState<string[]>(
       component.options || []
     );
+    
+    // Date picker settings
+    const [dateFormatValue, setDateFormatValue] = useState(
+      component.dateFormat || 'MM/dd/yyyy'
+    );
+    
+    // File picker settings
+    const [fileAcceptedTypes, setFileAcceptedTypes] = useState<string[]>(
+      component.fileSettings?.acceptedFileTypes || []
+    );
+    const [fileMaxSize, setFileMaxSize] = useState(
+      component.fileSettings?.maxFileSize || 5
+    );
+    const [fileDropzoneText, setFileDropzoneText] = useState(
+      component.fileSettings?.dropzoneText || 'Click to upload or drag and drop'
+    );
 
     // Reset ALL state when component changes (type, id, or any core property)
     useEffect(() => {
@@ -114,6 +130,10 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
         setTempOptionValue('');
         setOptionValue('');
         setOptionsValue(component.options || []);
+        setDateFormatValue(component.dateFormat || 'MM/dd/yyyy');
+        setFileAcceptedTypes(component.fileSettings?.acceptedFileTypes || []);
+        setFileMaxSize(component.fileSettings?.maxFileSize || 5);
+        setFileDropzoneText(component.fileSettings?.dropzoneText || 'Click to upload or drag and drop');
         setIsSettingsModalOpen(false);
       }
     }, [component]);
@@ -239,6 +259,26 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
       }
     };
 
+    // Helper function to get friendly labels for file types
+    const getFileTypeFriendlyLabel = (fileType: string): string => {
+      switch (fileType) {
+        case 'image/*':
+          return 'Images';
+        case 'application/pdf':
+          return 'PDF';
+        case '.doc,.docx':
+          return 'Word';
+        case '.xls,.xlsx':
+          return 'Excel';
+        case '.txt':
+          return 'Text';
+        case '.zip':
+          return 'ZIP';
+        default:
+          return fileType;
+      }
+    };
+
     // Expose openSettingsModal function through ref
     useImperativeHandle(ref, () => ({
       openSettingsModal: () => setIsSettingsModalOpen(true),
@@ -274,6 +314,20 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
         // Add options for components that support them
         if (['select', 'radio', 'checkbox'].includes(component.type)) {
           updatedComponent.options = optionsValue;
+        }
+
+        // Add date format for date picker
+        if (component.type === 'date') {
+          updatedComponent.dateFormat = dateFormatValue;
+        }
+
+        // Add file settings for file picker
+        if (component.type === 'file') {
+          updatedComponent.fileSettings = {
+            acceptedFileTypes: fileAcceptedTypes.length > 0 ? fileAcceptedTypes : undefined,
+            maxFileSize: fileMaxSize,
+            dropzoneText: fileDropzoneText.trim() || 'Click to upload or drag and drop',
+          };
         }
 
         onComponentChange(updatedComponent);
@@ -742,6 +796,7 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
           );
 
         case 'date':
+          const dateFormat = component.dateFormat || 'PPP';
           return (
             <Popover>
               <PopoverTrigger asChild>
@@ -751,7 +806,7 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
                   disabled={isPreviewMode}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, 'PPP') : <span>{placeholder}</span>}
+                  {date ? format(date, dateFormat) : <span>{placeholder}</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -766,6 +821,14 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
           );
 
         case 'file':
+          const fileSettings = component.fileSettings;
+          const acceptedTypes = fileSettings?.acceptedFileTypes?.join(',') || '';
+          const maxSize = fileSettings?.maxFileSize || 10;
+          const dropzoneText = fileSettings?.dropzoneText || 'Click to upload or drag and drop';
+          
+          // Convert technical file types to friendly labels
+          const friendlyFileTypes = fileSettings?.acceptedFileTypes?.map(type => getFileTypeFriendlyLabel(type)).join(', ') || '';
+          
           return (
             <div className="flex items-center justify-center w-full">
               <Label
@@ -775,14 +838,16 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
                   <p className="mb-2 text-sm text-muted-foreground">
-                    <span className="font-semibold">Click to upload</span> or
-                    drag and drop
+                    <span className="font-semibold">{dropzoneText}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">Any file type</p>
+                  <p className="text-xs text-muted-foreground">
+                    {friendlyFileTypes ? `Accepted: ${friendlyFileTypes}` : 'Any file type'} • Max {maxSize}MB
+                  </p>
                 </div>
                 <Input
                   id="file-upload"
                   type="file"
+                  accept={acceptedTypes}
                   className="hidden"
                   disabled={isPreviewMode}
                 />
@@ -970,6 +1035,94 @@ export const FormColumn = forwardRef<FormColumnRef, FormColumnProps>(
                       renderEditableOption(option, index)
                     )}
                     {renderAddOptionButton()}
+                  </div>
+                </div>
+              )}
+
+              {/* Date Format Settings */}
+              {component.type === 'date' && (
+                <div className="space-y-2">
+                  <Label htmlFor="date-format" className="text-sm font-medium">
+                    Date Format
+                  </Label>
+                  <Select value={dateFormatValue} onValueChange={setDateFormatValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select date format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MM/dd/yyyy">MM/DD/YYYY (12/31/2024)</SelectItem>
+                      <SelectItem value="dd/MM/yyyy">DD/MM/YYYY (31/12/2024)</SelectItem>
+                      <SelectItem value="yyyy-MM-dd">YYYY-MM-DD (2024-12-31)</SelectItem>
+                      <SelectItem value="MMM dd, yyyy">MMM DD, YYYY (Dec 31, 2024)</SelectItem>
+                      <SelectItem value="MMMM dd, yyyy">MMMM DD, YYYY (December 31, 2024)</SelectItem>
+                      <SelectItem value="dd MMM yyyy">DD MMM YYYY (31 Dec 2024)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* File Picker Settings */}
+              {component.type === 'file' && (
+                <div className="space-y-4">
+                  {/* File Types */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Accepted File Types</Label>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {['image/*', 'application/pdf', '.doc,.docx', '.xls,.xlsx', '.txt', '.zip'].map((type) => (
+                          <Button
+                            key={type}
+                            type="button"
+                            variant={fileAcceptedTypes.includes(type) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              if (fileAcceptedTypes.includes(type)) {
+                                setFileAcceptedTypes(fileAcceptedTypes.filter(t => t !== type));
+                              } else {
+                                setFileAcceptedTypes([...fileAcceptedTypes, type]);
+                              }
+                            }}
+                            className="text-xs"
+                          >
+                            {getFileTypeFriendlyLabel(type)}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Select the file types you want to accept. Leave empty to accept all files.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Max File Size */}
+                  <div className="space-y-2">
+                    <Label htmlFor="max-file-size" className="text-sm font-medium">
+                      Maximum File Size (MB)
+                    </Label>
+                    <Select value={fileMaxSize.toString()} onValueChange={(value) => setFileMaxSize(Number(value))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select max file size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 MB</SelectItem>
+                        <SelectItem value="2">2 MB</SelectItem>
+                        <SelectItem value="5">5 MB</SelectItem>
+                        <SelectItem value="10">10 MB</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Dropzone Text */}
+                  <div className="space-y-2">
+                    <Label htmlFor="dropzone-text" className="text-sm font-medium">
+                      Dropzone Text
+                    </Label>
+                    <Input
+                      id="dropzone-text"
+                      value={fileDropzoneText}
+                      onChange={(e) => setFileDropzoneText(e.target.value)}
+                      placeholder="Click to upload or drag and drop"
+                    />
                   </div>
                 </div>
               )}

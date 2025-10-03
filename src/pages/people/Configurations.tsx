@@ -28,7 +28,6 @@ import type {
   TagItemFormData,
   Committee,
   CommitteeFormData,
-  MembershipFormSchema,
 } from '../../types/people-configurations';
 
 export function PeopleConfigurations() {
@@ -70,16 +69,6 @@ export function PeopleConfigurations() {
 
   // UI state
   const [activeTab, setActiveTab] = useState('tags');
-  
-  // Membership form state
-  const [membershipFormSchema, setMembershipFormSchema] = useState<MembershipFormSchema>({
-    id: 'default-membership-form',
-    name: 'Membership Form',
-    description: 'Default membership form configuration',
-    rows: [],
-    is_active: true,
-    created_date: new Date().toISOString(),
-  });
   
   // Tags state
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -475,10 +464,7 @@ export function PeopleConfigurations() {
 
         {/* Membership Form Tab */}
         <TabsContent value="membership-form" className="space-y-6">
-          <MembershipFormBuilder
-            schema={membershipFormSchema}
-            onSchemaChange={setMembershipFormSchema}
-          />
+          <MembershipFormBuilder />
         </TabsContent>
       </Tabs>
 

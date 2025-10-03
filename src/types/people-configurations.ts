@@ -164,6 +164,8 @@ export interface FormComponent {
   options?: string[]; // For select, radio, checkbox
   validation?: FormValidation;
   tagReference?: string; // For tag-based components
+  dateFormat?: string; // For date picker format (e.g., 'MM/dd/yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd')
+  fileSettings?: FilePickerSettings; // For file picker configuration
 }
 
 export type FormComponentType = 
@@ -184,6 +186,12 @@ export interface FormValidation {
   pattern?: string;
   min?: number;
   max?: number;
+}
+
+export interface FilePickerSettings {
+  acceptedFileTypes?: string[]; // MIME types or file extensions (e.g., ['image/*', '.pdf', '.doc'])
+  maxFileSize?: number; // Maximum file size in MB (max 10MB)
+  dropzoneText?: string; // Custom placeholder text for the dropzone
 }
 
 export interface MembershipFormSchema {
@@ -248,6 +256,16 @@ export interface UseCommitteesManagementReturn {
   deleteCommittee: (committeeKey: string) => Promise<void>;
   addMember: (committeeKey: string, memberId: string) => Promise<void>;
   removeMember: (committeeKey: string, memberId: string) => Promise<void>;
+}
+
+export interface UseMembershipFormManagementReturn {
+  membershipFormSchema: MembershipFormSchema | null;
+  loading: boolean;
+  operationLoading: boolean;
+  error: string | null;
+  updateMembershipFormSchema: (newMembershipFormSchema: MembershipFormSchema, skipOptimistic?: boolean) => Promise<void>;
+  saveMembershipForm: (formData: MembershipFormData) => Promise<void>;
+  updateFormMetadata: (metadata: Partial<MembershipFormData>) => Promise<void>;
 }
 
 // Validation types

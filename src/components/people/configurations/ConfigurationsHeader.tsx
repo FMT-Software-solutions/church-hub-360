@@ -11,7 +11,7 @@ export function ConfigurationsHeader({ hasUnsavedChanges }: ConfigurationsHeader
       <div>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">
-            People Configurations
+            Configurations
           </h1>
           {hasUnsavedChanges && ( <div  className="bg-amber-600 rounded-full w-2 h-2 mx-4" />)}
         </div>

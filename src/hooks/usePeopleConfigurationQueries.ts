@@ -15,6 +15,9 @@ import type {
   Committee,
   CommitteeFormData,
   UseCommitteesManagementReturn,
+  MembershipFormSchema,
+  MembershipFormData,
+  UseMembershipFormManagementReturn,
 } from '../types/people-configurations';
 import { useState, useCallback } from 'react';
 
@@ -614,5 +617,106 @@ export function useCommitteesManagement(organizationId: string | undefined): Use
     deleteCommittee,
     addMember,
     removeMember,
+  };
+}
+
+// Comprehensive hook for membership form management
+export function useMembershipFormManagement(organizationId: string | undefined): UseMembershipFormManagementReturn {
+  const [error, setError] = useState<string | null>(null);
+  const [optimisticMembershipFormSchema, setOptimisticMembershipFormSchema] = useState<MembershipFormSchema | null>(null);
+  const { configuration, loading, refetch } = usePeopleConfiguration(organizationId);
+  const updateConfiguration = useUpdatePeopleConfiguration();
+  const createConfiguration = useCreatePeopleConfiguration();
+
+  const membershipFormSchema = optimisticMembershipFormSchema || configuration?.membership_form_schema || null;
+
+  // Helper function to update membership form schema with optimistic updates
+  const updateMembershipFormSchema = useCallback(async (newMembershipFormSchema: MembershipFormSchema, skipOptimistic = false) => {
+    if (!organizationId) {
+      setError('Organization ID is required');
+      return;
+    }
+
+    try {
+      setError(null);
+      
+      // Apply optimistic update immediately (unless skipped for initial creation)
+      if (!skipOptimistic) {
+        setOptimisticMembershipFormSchema(newMembershipFormSchema);
+      }
+      
+      if (configuration) {
+        // Update existing configuration
+        await updateConfiguration.mutateAsync({
+          id: configuration.id,
+          data: { membership_form_schema: newMembershipFormSchema },
+        });
+      } else {
+        // Create new configuration
+        await createConfiguration.mutateAsync({
+          organization_id: organizationId,
+          membership_form_schema: newMembershipFormSchema,
+        });
+      }
+      
+      // Refetch to sync with server, but don't wait for it
+      refetch().then(() => {
+        // Clear optimistic state once server data is loaded
+        setOptimisticMembershipFormSchema(null);
+      });
+    } catch (err) {
+      // Revert optimistic update on error
+      setOptimisticMembershipFormSchema(null);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      throw err;
+    }
+  }, [organizationId, configuration, updateConfiguration, createConfiguration, refetch]);
+
+  // Save membership form with form data
+  const saveMembershipForm = useCallback(async (formData: MembershipFormData) => {
+    const currentSchema = membershipFormSchema || {
+      id: `membership-form-${Date.now()}`,
+      name: formData.name,
+      description: formData.description,
+      rows: [],
+      is_active: formData.is_active,
+      created_date: new Date().toISOString(),
+    };
+
+    const updatedSchema: MembershipFormSchema = {
+      ...currentSchema,
+      name: formData.name,
+      description: formData.description,
+      is_active: formData.is_active,
+      updated_date: new Date().toISOString(),
+    };
+
+    await updateMembershipFormSchema(updatedSchema, false);
+  }, [membershipFormSchema, updateMembershipFormSchema]);
+
+  // Update form metadata only
+  const updateFormMetadata = useCallback(async (metadata: Partial<MembershipFormData>) => {
+    if (!membershipFormSchema) {
+      setError('Membership form schema not found');
+      return;
+    }
+
+    const updatedSchema: MembershipFormSchema = {
+      ...membershipFormSchema,
+      ...metadata,
+      updated_date: new Date().toISOString(),
+    };
+
+    await updateMembershipFormSchema(updatedSchema, false);
+  }, [membershipFormSchema, updateMembershipFormSchema]);
+
+  return {
+    membershipFormSchema,
+    loading: loading,
+    operationLoading: updateConfiguration.isPending || createConfiguration.isPending,
+    error: error || (updateConfiguration.error ? updateConfiguration.error.message : null) || (createConfiguration.error ? createConfiguration.error.message : null),
+    updateMembershipFormSchema,
+    saveMembershipForm,
+    updateFormMetadata,
   };
 }
