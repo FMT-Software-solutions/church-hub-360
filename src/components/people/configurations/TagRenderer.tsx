@@ -106,28 +106,30 @@ export function TagRenderer({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between",
+              "w-full justify-between min-h-[40px] h-auto",
               error && "border-destructive",
               selectedValues.length === 0 && "text-muted-foreground"
             )}
             disabled={disabled}
           >
-            {selectedValues.length === 0 ? (
-              `Select ${category.name.toLowerCase()}`
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {selectedItems.slice(0, 2).map((item) => (
-                  <Badge key={item.id} variant="secondary" className="text-xs">
-                    {item.name}
-                  </Badge>
-                ))}
-                {selectedItems.length > 2 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{selectedItems.length - 2} more
-                  </Badge>
-                )}
-              </div>
-            )}
+            <div className="flex-1 text-left overflow-hidden">
+              {selectedValues.length === 0 ? (
+                `Select ${category.name.toLowerCase()}`
+              ) : (
+                <div className="flex flex-wrap gap-1 py-1">
+                  {selectedItems.slice(0, 3).map((item) => (
+                    <Badge key={item.id} variant="secondary" className="text-xs shrink-0">
+                      {item.name}
+                    </Badge>
+                  ))}
+                  {selectedItems.length > 3 && (
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      +{selectedItems.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -170,7 +172,7 @@ export function TagRenderer({
     const selectedValues = Array.isArray(value) ? value : [];
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         {sortedItems.map((item) => (
           <div key={item.id} className="flex items-center space-x-2">
             <Checkbox
@@ -183,18 +185,14 @@ export function TagRenderer({
             />
             <Label 
               htmlFor={`${categoryKey}-${item.id}`}
-              className="flex items-center gap-2 cursor-pointer"
+              className="flex items-center gap-2 cursor-pointer text-sm"
+              title={item.description || undefined}
             >
               <div 
-                className="w-3 h-3 rounded-full border"
+                className="w-3 h-3 rounded-full border shrink-0"
                 style={{ backgroundColor: item.color }}
               />
-              {item.name}
-              {item.description && (
-                <span className="text-xs text-muted-foreground">
-                  - {item.description}
-                </span>
-              )}
+              <span className="truncate">{item.name}</span>
             </Label>
           </div>
         ))}
@@ -203,7 +201,7 @@ export function TagRenderer({
   };
 
   const renderRadioButtons = () => (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {sortedItems.map((item) => (
         <div key={item.id} className="flex items-center space-x-2">
           <input
@@ -214,22 +212,18 @@ export function TagRenderer({
             checked={value === item.id}
             onChange={(e) => handleSingleChange(e.target.value)}
             disabled={disabled}
-            className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 shrink-0"
           />
           <Label 
             htmlFor={`${categoryKey}-${item.id}`}
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-2 cursor-pointer text-sm"
+            title={item.description || undefined}
           >
             <div 
-              className="w-3 h-3 rounded-full border"
+              className="w-3 h-3 rounded-full border shrink-0"
               style={{ backgroundColor: item.color }}
             />
-            {item.name}
-            {item.description && (
-              <span className="text-xs text-muted-foreground">
-                - {item.description}
-              </span>
-            )}
+            <span className="truncate">{item.name}</span>
           </Label>
         </div>
       ))}
@@ -237,21 +231,19 @@ export function TagRenderer({
   );
 
   const renderList = () => (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {sortedItems.map((item) => (
         <div 
           key={item.id} 
-          className="flex items-center gap-3 p-2 rounded-lg border bg-muted/25"
+          className="flex items-center gap-2 p-2 rounded-lg border bg-muted/25"
+          title={item.description || undefined}
         >
           <div 
-            className="w-3 h-3 rounded-full border"
+            className="w-3 h-3 rounded-full border shrink-0"
             style={{ backgroundColor: item.color }}
           />
-          <div className="flex-1">
-            <div className="text-sm font-medium">{item.name}</div>
-            {item.description && (
-              <div className="text-xs text-muted-foreground">{item.description}</div>
-            )}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{item.name}</div>
           </div>
         </div>
       ))}
@@ -316,14 +308,14 @@ export function TagRenderer({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">
+      <div className="flex items-center">
+        <Label 
+          className="text-sm font-medium truncate"
+          title={category.description || undefined}
+        >
           {category.name}
           {category.is_required && <span className="text-destructive ml-1">*</span>}
         </Label>
-        {category.description && (
-          <span className="text-xs text-muted-foreground">{category.description}</span>
-        )}
       </div>
       
       {renderComponent()}

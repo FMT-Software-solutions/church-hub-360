@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,9 +35,7 @@ interface CustomFieldsRendererProps {
   className?: string;
 }
 
-interface FieldState {
-  [fieldId: string]: any;
-}
+
 
 export function CustomFieldsRenderer({
   schema,
@@ -48,21 +46,13 @@ export function CustomFieldsRenderer({
   disabled = false,
   className = '',
 }: CustomFieldsRendererProps) {
-  const [fieldValues, setFieldValues] = useState<FieldState>(values);
-
-  // Update internal state when external values change
-  useEffect(() => {
-    setFieldValues(values);
-  }, [values]);
-
   // Notify parent of value changes
   const handleValueChange = useCallback(
     (fieldId: string, value: any) => {
-      const newValues = { ...fieldValues, [fieldId]: value };
-      setFieldValues(newValues);
+      const newValues = { ...values, [fieldId]: value };
       onValuesChange?.(newValues);
     },
-    [fieldValues, onValuesChange]
+    [values, onValuesChange]
   );
 
   // Get default placeholder for field types
@@ -91,7 +81,7 @@ export function CustomFieldsRenderer({
 
   // Render individual form field
   const renderFormField = (component: FormComponent, fieldId: string) => {
-    const fieldValue = fieldValues[fieldId] || '';
+    const fieldValue = values[fieldId] || '';
     const placeholder =
       component.placeholder || getDefaultPlaceholder(component.type);
     const hasError = !!errors[fieldId];

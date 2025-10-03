@@ -1,13 +1,14 @@
 import type { DefaultMembershipFormData } from '@/components/people/configurations/DefaultMembershipForm';
 import { DefaultMembershipForm, type DefaultMembershipFormMethods } from '@/components/people/configurations/DefaultMembershipForm';
 import { CustomFieldsRenderer } from '@/components/people/configurations/CustomFieldsRenderer';
+import { TagRenderer } from '@/components/people/configurations/TagRenderer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useCreateMember } from '@/hooks/useMemberQueries';
-import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
+import { useMembershipFormManagement, useTagsManagement } from '@/hooks/usePeopleConfigurationQueries';
 import type { CreateMemberData } from '@/types/members';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, Tags } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -19,10 +20,12 @@ export function AddMember() {
   
   const [formData, setFormData] = useState<DefaultMembershipFormData | null>(null);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+  const [tagValues, setTagValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const createMemberMutation = useCreateMember();
   const { membershipFormSchema } = useMembershipFormManagement(currentOrganization?.id);
+  const { tagsSchema } = useTagsManagement(currentOrganization?.id);
   
   const organizationId = currentOrganization?.id;
 
@@ -32,6 +35,13 @@ export function AddMember() {
 
   const handleCustomFieldChange = useCallback((values: Record<string, any>) => {
     setCustomFieldValues(values);
+  }, []);
+
+  const handleTagChange = useCallback((categoryKey: string, value: any) => {
+    setTagValues(prev => ({
+      ...prev,
+      [categoryKey]: value
+    }));
   }, []);
 
   const handleSave = async () => {
@@ -73,7 +83,12 @@ export function AddMember() {
         notes: formData.notes || undefined,
         profile_image_url: formData.profile_image_url || undefined,
         branch_id: undefined, // Will be set based on organization structure
-        form_data: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
+        form_data: Object.keys(customFieldValues).length > 0 || Object.keys(tagValues).length > 0 
+          ? { 
+              ...customFieldValues, 
+              tags: tagValues 
+            } 
+          : undefined,
       };
 
       await createMemberMutation.mutateAsync(createData);
@@ -95,10 +110,11 @@ export function AddMember() {
     formRef.current?.resetForm();
     setFormData(null);
     setCustomFieldValues({});
+    setTagValues({});
   };
 
   return (
-    <div className="container mx-auto max-w-5xl">
+    <div className="container mx-auto max-w-7xl">
        <Button
           variant="ghost"
           size="sm"
@@ -138,34 +154,71 @@ export function AddMember() {
         </div>
       </div>
 
-      {/* Form Card */}
-      <Card>
-        <CardContent>
-          <DefaultMembershipForm
-            ref={formRef}
-            onFormDataChange={handleFormDataChange}
-          />
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Section - Left Side */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardContent>
+              <DefaultMembershipForm
+                ref={formRef}
+                onFormDataChange={handleFormDataChange}
+              />
 
-          {/* Custom Fields from Membership Form Schema */}
-          {membershipFormSchema && (
-            <CustomFieldsRenderer
-              schema={membershipFormSchema}
-              isPreviewMode={false}
-              onValuesChange={handleCustomFieldChange}
-            />
-          )}
+              {/* Custom Fields from Membership Form Schema */}
+              {membershipFormSchema && (
+                <CustomFieldsRenderer
+                  schema={membershipFormSchema}
+                  isPreviewMode={false}
+                  values={customFieldValues}
+                  onValuesChange={handleCustomFieldChange}
+                />
+              )}
 
-        <div className='flex justify-end pt-4'>
-          <Button
-            onClick={handleSave}
-            disabled={isSubmitting || !formData}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isSubmitting ? 'Saving...' : 'Save Member'}
-          </Button>
+              <div className='flex justify-end pt-4'>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSubmitting || !formData}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Saving...' : 'Save Member'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        </CardContent>
-      </Card>
+
+        {/* Tags Section - Right Sidebar */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tags className="h-5 w-5" />
+                Tags
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+               {tagsSchema && Object.keys(tagsSchema.categories).length > 0 ? (
+                 Object.entries(tagsSchema.categories)
+                   .sort(([, a], [, b]) => (a.display_order ?? 999) - (b.display_order ?? 999))
+                   .map(([categoryKey, category]) => (
+                     <TagRenderer
+                       key={categoryKey}
+                       category={{ ...category, id: categoryKey }}
+                       categoryKey={categoryKey}
+                       value={tagValues[categoryKey]}
+                       onChange={(value) => handleTagChange(categoryKey, value)}
+                     />
+                   ))
+               ) : (
+                 <div className="text-sm text-muted-foreground">
+                   No tag categories configured
+                 </div>
+               )}
+             </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

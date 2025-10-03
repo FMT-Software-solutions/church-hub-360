@@ -450,7 +450,9 @@ export function MembershipFormBuilder({
                 {/* Additional Custom Fields */}
                 <CustomFieldsRenderer
                   schema={formSchema}
+                  values={{}}
                   isPreviewMode={true}
+                  onValuesChange={() => {}}
                 />
               </div>
             )}
