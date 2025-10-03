@@ -32,6 +32,8 @@ import { ActivityLogs } from '../pages/ActivityLogs';
 import { People } from '../pages/people';
 import { PeopleConfigurations } from '../pages/people/Configurations';
 import { Membership } from '../pages/people/Membership';
+import { AddMember } from '../pages/people/AddMember';
+import { MemberDetail } from '../pages/people/MemberDetail';
 import { Attendance } from '../pages/people/Attendance';
 
 // Finance section pages
@@ -106,6 +108,8 @@ function AppRoutes() {
         <Route path="people" element={<People />}>
           <Route path="configurations" element={<PeopleConfigurations />} />
           <Route path="membership" element={<Membership />} />
+          <Route path="membership/add" element={<AddMember />} />
+          <Route path="membership/:memberId" element={<MemberDetail />} />
           <Route path="attendance" element={<Attendance />} />
         </Route>
 
