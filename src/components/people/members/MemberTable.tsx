@@ -32,6 +32,7 @@ import {
   Phone,
 } from 'lucide-react';
 import type { MemberSummary, MembershipStatus } from '@/types';
+import { PrintMemberModal } from './PrintMemberModal';
 
 interface MemberTableProps {
   members: MemberSummary[];
@@ -70,6 +71,13 @@ export function MemberTable({
   className,
 }: MemberTableProps) {
   const [loadingMemberId, setLoadingMemberId] = useState<string | null>(null);
+  const [printMember, setPrintMember] = useState<MemberSummary | null>(null);
+
+  const handlePrint = (member: MemberSummary) => {
+    setPrintMember(member);
+    // Call the original onPrint if provided for backward compatibility
+    onPrint?.(member);
+  };
 
   const handleAction = async (memberId: string, action: () => void | Promise<void>) => {
     setLoadingMemberId(memberId);
@@ -298,7 +306,7 @@ export function MemberTable({
                         <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleAction(member.id, () => onPrint(member));
+                            handleAction(member.id, () => handlePrint(member));
                           }}
                         >
                           <Printer className="mr-2 h-4 w-4" />
@@ -351,6 +359,15 @@ export function MemberTable({
           )}
         </TableBody>
       </Table>
+
+      {/* Print Modal */}
+      {printMember && (
+        <PrintMemberModal
+          member={printMember}
+          isOpen={!!printMember}
+          onClose={() => setPrintMember(null)}
+        />
+      )}
     </div>
   );
 }

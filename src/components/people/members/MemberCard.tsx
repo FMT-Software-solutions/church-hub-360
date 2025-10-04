@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import type { MemberSummary, MembershipStatus } from '@/types';
 import { cn } from '@/lib/utils';
+import { PrintMemberModal } from './PrintMemberModal';
 
 interface MemberCardProps {
   member: MemberSummary;
@@ -59,6 +60,13 @@ export function MemberCard({
   className,
 }: MemberCardProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+
+  const handlePrint = () => {
+    setShowPrintModal(true);
+    // Call the original onPrint if provided for backward compatibility
+    onPrint?.(member);
+  };
 
   const handleAction = async (action: () => void | Promise<void>) => {
     setIsLoading(true);
@@ -153,7 +161,7 @@ export function MemberCard({
                 )}
                 {onPrint && (
                   <DropdownMenuItem
-                    onClick={() => handleAction(() => onPrint(member))}
+                    onClick={() => handleAction(() => handlePrint())}
                   >
                     <Printer className="mr-2 h-4 w-4" />
                     Print Details
@@ -250,6 +258,13 @@ export function MemberCard({
           )}
         </div>
       </CardContent>
+
+      {/* Print Modal */}
+      <PrintMemberModal
+        member={member}
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+      />
     </Card>
   );
 }
