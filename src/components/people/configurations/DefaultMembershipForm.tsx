@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/useDebounce';
+import type { MembershipStatus, MembershipType } from '@/types/members';
 import { Camera, FileText, Phone, User, X } from 'lucide-react';
 import React, {
   forwardRef,
@@ -42,6 +43,8 @@ export interface DefaultMembershipFormData {
   postal_code: string;
   country: string;
   membership_id: string;
+  membership_status: MembershipStatus;
+  membership_type: MembershipType;
   date_joined?: Date;
   baptism_date?: Date;
   notes?: string;
@@ -62,6 +65,8 @@ export interface FormValidationErrors {
   state?: string;
   postal_code?: string;
   country?: string;
+  membership_status?: string;
+  membership_type?: string;
   date_joined?: string;
   baptism_date?: string;
 }
@@ -109,6 +114,10 @@ export const DefaultMembershipForm = forwardRef<
     const randomNumber = Math.floor(Math.random() * (max - min + 1)) + min;
     return randomNumber.toString();
   }); // Auto-generated random 6-8 digit number
+  const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>(
+    'active'
+  );
+  const [membershipType, setMembershipType] = useState<MembershipType>('Regular');
   const [dateJoined, setDateJoined] = useState<Date>();
   const [baptismDate, setBaptismDate] = useState<Date>();
   const [notes, setNotes] = useState('');
@@ -142,6 +151,8 @@ export const DefaultMembershipForm = forwardRef<
       postal_code: postalCode,
       country,
       membership_id: membershipId,
+      membership_status: membershipStatus,
+      membership_type: membershipType,
       date_joined: dateJoined,
       baptism_date: baptismDate,
       notes,
@@ -163,6 +174,8 @@ export const DefaultMembershipForm = forwardRef<
       postalCode,
       country,
       membershipId,
+      membershipStatus,
+      membershipType,
       dateJoined,
       baptismDate,
       notes,
@@ -218,6 +231,12 @@ export const DefaultMembershipForm = forwardRef<
     if (!country.trim()) {
       newErrors.country = 'Country is required';
     }
+    if (!membershipStatus) {
+      newErrors.membership_status = 'Membership status is required';
+    }
+    if (!membershipType.trim()) {
+      newErrors.membership_type = 'Membership type is required';
+    }
 
     if (baptismDate && !baptismDate) {
       newErrors.baptism_date = 'Baptism date is required when baptized';
@@ -258,6 +277,8 @@ export const DefaultMembershipForm = forwardRef<
     setState('');
     setPostalCode('');
     setCountry('');
+    setMembershipStatus('active');
+    setMembershipType('Regular');
     setDateJoined(undefined);
     setBaptismDate(undefined);
     setNotes('');
@@ -755,6 +776,74 @@ export const DefaultMembershipForm = forwardRef<
               />
               {errors.date_joined && (
                 <p className="text-sm text-red-500">{errors.date_joined}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Membership Status and Type */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="membershipStatus" className="text-sm font-medium">
+                Membership Status <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={membershipStatus}
+                onValueChange={(value: MembershipStatus) => {
+                  setMembershipStatus(value);
+                  clearFieldErrors('membership_status', value);
+                }}
+                disabled={isPreviewMode}
+              >
+                <SelectTrigger
+                  className={`w-full ${
+                    errors.membership_status ? 'border-red-500' : ''
+                  }`}
+                >
+                  <SelectValue placeholder="Select membership status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="transferred">Transferred</SelectItem>
+                  <SelectItem value="deceased">Deceased</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.membership_status && (
+                <p className="text-sm text-red-500">
+                  {errors.membership_status}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="membershipType" className="text-sm font-medium">
+                Membership Type <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={membershipType}
+                onValueChange={(value: MembershipType) => {
+                  setMembershipType(value);
+                  clearFieldErrors('membership_type', value);
+                }}
+                disabled={isPreviewMode}
+              >
+                <SelectTrigger
+                  className={`w-full ${
+                    errors.membership_type ? 'border-red-500' : ''
+                  }`}
+                >
+                  <SelectValue placeholder="Select membership type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Regular">Regular</SelectItem>
+                  <SelectItem value="Associate">Associate</SelectItem>
+                  <SelectItem value="New Convert">New Convert</SelectItem>
+                  <SelectItem value="Visitor">Visitor</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.membership_type && (
+                <p className="text-sm text-red-500">{errors.membership_type}</p>
               )}
             </div>
           </div>

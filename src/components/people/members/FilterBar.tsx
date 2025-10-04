@@ -26,14 +26,14 @@ import {
   Building,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import type { MemberFilters, MembershipStatus } from '@/types';
+import type { MemberFilters, MembershipStatus, MembershipType } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface FilterBarProps {
   filters: MemberFilters;
   onFiltersChange: (filters: MemberFilters) => void;
   branches?: Array<{ id: string; name: string }>;
-  membershipTypes?: string[];
+  membershipTypes?: MembershipType[];
   className?: string;
 }
 
@@ -135,7 +135,7 @@ export function FilterBar({
           value={filters.membership_status || 'all'}
           onValueChange={(value) => updateFilter('membership_status', value)}
         >
-          <SelectTrigger className="w-full md:w-48">
+          <SelectTrigger className="">
             <UserCheck className="mr-2 h-4 w-4" />
             <SelectValue />
           </SelectTrigger>

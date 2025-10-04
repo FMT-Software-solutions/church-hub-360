@@ -98,7 +98,8 @@ export function MemberCard({
     <Card
       className={cn(
         'hover:shadow-md transition-shadow duration-200',
-        onClick && 'cursor-pointer hover:bg-accent/50',
+        onClick &&
+          'cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/70',
         className
       )}
       onClick={() => onClick?.(member.id)}

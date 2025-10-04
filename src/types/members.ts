@@ -27,7 +27,7 @@ export interface Member {
   
   // Membership details
   membership_status: MembershipStatus;
-  membership_type: string | null;
+  membership_type: MembershipType | null;
   date_joined: string | null; // ISO date string
   baptism_date: string | null; // ISO date string
   confirmation_date: string | null; // ISO date string
@@ -67,7 +67,7 @@ export interface MemberSummary {
   date_of_birth: string | null;
   gender: string | null;
   membership_status: MembershipStatus;
-  membership_type: string | null;
+  membership_type: MembershipType | null;
   date_joined: string | null;
   is_active: boolean;
   profile_image_url: string | null;
@@ -85,6 +85,13 @@ export type MembershipStatus =
   | 'suspended'
   | 'transferred'
   | 'deceased';
+
+// Membership type enum
+export type MembershipType = 
+  | 'Regular'
+  | 'Associate'
+  | 'New Convert'
+  | 'Visitor';
 
 // Gender options
 export type Gender = 
@@ -126,7 +133,7 @@ export interface CreateMemberData {
   
   // Membership details
   membership_status?: MembershipStatus;
-  membership_type?: string;
+  membership_type?: MembershipType;
   date_joined?: string;
   baptism_date?: string;
   confirmation_date?: string;
@@ -153,7 +160,7 @@ export interface UpdateMemberData extends Partial<Omit<CreateMemberData, 'organi
 export interface MemberFilters {
   search?: string;
   membership_status?: MembershipStatus | 'all';
-  membership_type?: string | 'all';
+  membership_type?: MembershipType | 'all';
   branch_id?: string | 'all';
   gender?: string | 'all';
   age_range?: {
@@ -171,24 +178,20 @@ export interface MemberFilters {
 
 // Member display preferences
 export interface MemberDisplayPreferences {
-  layout?: 'table' | 'card';
-  pageSize?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  view_mode?: 'table' | 'card';
-  page_size?: number;
-  sort_field?: string;
-  sort_order?: 'asc' | 'desc';
-  show_inactive?: boolean;
-  columns_visible?: {
-    membership_id?: boolean;
-    name?: boolean;
-    email?: boolean;
-    phone?: boolean;
-    membership_status?: boolean;
-    membership_type?: boolean;
-    join_date?: boolean;
-    actions?: boolean;
+  view_mode: 'table' | 'card';
+  page_size: number;
+  sort_field: string;
+  sort_order: 'asc' | 'desc';
+  show_inactive: boolean;
+  columns_visible: {
+    membership_id: boolean;
+    name: boolean;
+    email: boolean;
+    phone: boolean;
+    membership_status: boolean;
+    membership_type: boolean;
+    join_date: boolean;
+    actions: boolean;
   };
 }
 

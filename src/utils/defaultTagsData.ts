@@ -22,72 +22,7 @@ export interface DefaultTagItem {
 }
 
 export const defaultTagCategories: Record<string, DefaultTagCategory> = {
-  membership_categories: {
-    name: 'Membership Categories',
-    description: 'Different types of church membership',
-    is_required: true,
-    component_style: 'dropdown',
-    display_order: 1,
-    items: [
-      {
-        label: 'Regular Member',
-        description: 'Full voting member of the church',
-        color: '#10B981',
-        display_order: 1,
-      },
-      {
-        label: 'Associate Member',
-        description: 'Non-voting member or member from another church',
-        color: '#3B82F6',
-        display_order: 2,
-      },
-      {
-        label: 'Visitor',
-        description: 'Regular attendee who is not yet a member',
-        color: '#F59E0B',
-        display_order: 3,
-      },
-      {
-        label: 'Inactive Member',
-        description: 'Member who is currently inactive',
-        color: '#6B7280',
-        display_order: 4,
-      },
-    ],
-  },
-  membership_status: {
-    name: 'Membership Status',
-    description: 'Current status of church members',
-    is_required: true,
-    component_style: 'dropdown',
-    display_order: 2,
-    items: [
-      {
-        label: 'Active',
-        description: 'Currently active member',
-        color: '#10B981',
-        display_order: 1,
-      },
-      {
-        label: 'Inactive',
-        description: 'Temporarily inactive member',
-        color: '#F59E0B',
-        display_order: 2,
-      },
-      {
-        label: 'Transferred',
-        description: 'Transferred to another church',
-        color: '#8B5CF6',
-        display_order: 3,
-      },
-      {
-        label: 'Deceased',
-        description: 'Member who has passed away',
-        color: '#6B7280',
-        display_order: 4,
-      },
-    ],
-  },
+
   leadership_levels: {
     name: 'Leadership Levels',
     description: 'Different levels of church leadership',

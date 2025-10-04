@@ -93,6 +93,8 @@ export function AddMember() {
         postal_code: formData.postal_code || undefined,
         country: formData.country || undefined,
         membership_id: formData.membership_id || undefined,
+        membership_status: formData.membership_status,
+        membership_type: formData.membership_type,
         date_joined: formData.date_joined ? formData.date_joined.toISOString().split('T')[0] : undefined,
         baptism_date: formData.baptism_date ? formData.baptism_date.toISOString().split('T')[0] : undefined,
         notes: formData.notes || undefined,

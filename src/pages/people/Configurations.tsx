@@ -45,7 +45,7 @@ export function PeopleConfigurations() {
   } = useLocalCommitteesSchema();
 
   // UI state
-  const [activeTab, setActiveTab] = useState('tags');
+  const [activeTab, setActiveTab] = useState('committees');
 
   // Committees state
   const [selectedCommittee, setSelectedCommittee] = useState<string | null>(
@@ -206,7 +206,7 @@ export function PeopleConfigurations() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="committees">Committees</TabsTrigger>
           <TabsTrigger value="membership-form">Membership Form</TabsTrigger>
         </TabsList>

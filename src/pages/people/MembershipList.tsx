@@ -37,6 +37,7 @@ import type {
   Member,
   MemberSummary,
   MemberFormField,
+  MembershipType,
 } from '@/types/members';
 import type { MembershipFormSchema } from '@/types/people-configurations';
 
@@ -69,6 +70,9 @@ const convertSchemaToFormFields = (
   return fields;
 };
 
+// Available membership types
+const membershipTypes: MembershipType[] = ['Regular', 'Associate', 'New Convert', 'Visitor'];
+
 export default function MembershipList() {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
@@ -92,7 +96,7 @@ export default function MembershipList() {
     organizationId,
     filters,
     currentPage,
-    preferences.pageSize
+    preferences.page_size
   );
   const { data: statistics } = useMemberStatistics(organizationId);
   const { configuration: peopleConfig } = usePeopleConfiguration(
@@ -182,7 +186,7 @@ export default function MembershipList() {
   };
 
   const totalPages = Math.ceil(
-    (membersData?.total || 0) / (preferences.pageSize || 20)
+    (membersData?.total || 0) / (preferences.page_size || 20)
   );
 
   return (
@@ -276,14 +280,14 @@ export default function MembershipList() {
             {/* View Toggle */}
             <div className="flex items-center gap-2">
               <Button
-                variant={preferences.layout === 'table' ? 'default' : 'outline'}
+                variant={preferences.view_mode === 'table' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('table')}
               >
                 <Table className="h-4 w-4" />
               </Button>
               <Button
-                variant={preferences.layout === 'card' ? 'default' : 'outline'}
+                variant={preferences.view_mode === 'card' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('card')}
               >
@@ -299,6 +303,7 @@ export default function MembershipList() {
             filters={filters}
             onFiltersChange={setFilters}
             branches={branches}
+            membershipTypes={membershipTypes}
           />
         </CardHeader>
 
@@ -322,7 +327,7 @@ export default function MembershipList() {
           ) : (
             <div className="space-y-4">
               {/* Members List */}
-              {preferences.layout === 'table' ? (
+              {preferences.view_mode === 'table' ? (
                 <MemberTable
                   members={membersData.members}
                   onView={handleViewMember}
@@ -352,7 +357,7 @@ export default function MembershipList() {
               <MemberPagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                pageSize={preferences.pageSize || 20}
+                pageSize={preferences.page_size || 20}
                 totalItems={membersData.total}
                 onPageChange={setCurrentPage}
                 onPageSizeChange={setPageSize}
