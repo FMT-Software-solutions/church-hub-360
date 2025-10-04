@@ -9,8 +9,9 @@ import { useCreateMember } from '@/hooks/useMemberQueries';
 import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
 import { useMemberTagAssignments } from '@/hooks/useMemberTagAssignments';
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 import type { CreateMemberData } from '@/types/members';
-import { ArrowLeft, Save, X, Tags } from 'lucide-react';
+import { ArrowLeft, Save, X, Tags, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ export function AddMember() {
   const { membershipFormSchema } = useMembershipFormManagement(currentOrganization?.id);
   const { tags } = useRelationalTags();
   const { createAssignment } = useMemberTagAssignments();
+  const { isUploading } = useCloudinaryUpload(); // Check if any upload is in progress
   
   const organizationId = currentOrganization?.id;
 
@@ -56,6 +58,12 @@ export function AddMember() {
   const handleSave = async () => {
     if (!formData || !organizationId) {
       toast.error('Please fill in the required fields');
+      return;
+    }
+
+    // Check if upload is in progress
+    if (isUploading) {
+      toast.error('Please wait for the profile photo to finish uploading');
       return;
     }
 
@@ -119,7 +127,14 @@ export function AddMember() {
         
         await Promise.all(tagAssignmentPromises);
       }
-      toast.success('Member added successfully');
+      
+      // Show success message with profile photo status
+      if (formData.profile_image_url) {
+        toast.success('Member added successfully with profile photo');
+      } else {
+        toast.success('Member added successfully');
+      }
+      
       navigate('/people/membership');
     } catch (error) {
       toast.error('Failed to add member');
@@ -166,17 +181,26 @@ export function AddMember() {
           <Button
             variant="outline"
             onClick={handleReset}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploading}
           >
             <X className="h-4 w-4 mr-2" />
             Reset
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSubmitting || !formData}
+            disabled={isSubmitting || !formData || isUploading}
           >
-            <Save className="h-4 w-4 mr-2" />
-            {isSubmitting ? 'Saving...' : 'Save Member'}
+            {isUploading ? (
+              <>
+                <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                Uploading Photo...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                {isSubmitting ? 'Saving...' : 'Save Member'}
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -206,10 +230,19 @@ export function AddMember() {
               <div className='flex justify-end pt-4'>
                 <Button
                   onClick={handleSave}
-                  disabled={isSubmitting || !formData}
+                  disabled={isSubmitting || !formData || isUploading}
                 >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Saving...' : 'Save Member'}
+                  {isUploading ? (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                      Uploading Photo...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      {isSubmitting ? 'Saving...' : 'Save Member'}
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>

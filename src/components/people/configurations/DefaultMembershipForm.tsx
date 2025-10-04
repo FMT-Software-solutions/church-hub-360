@@ -16,8 +16,9 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 import type { MembershipStatus, MembershipType } from '@/types/members';
-import { Camera, FileText, Phone, User, X } from 'lucide-react';
+import { Camera, FileText, Phone, User, X, Upload, Loader2 } from 'lucide-react';
 import React, {
   forwardRef,
   useCallback,
@@ -69,6 +70,7 @@ export interface FormValidationErrors {
   membership_type?: string;
   date_joined?: string;
   baptism_date?: string;
+  profile_photo?: string;
 }
 
 // Form methods interface for external access
@@ -127,8 +129,12 @@ export const DefaultMembershipForm = forwardRef<
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(
     null
   );
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null); // Cloudinary URL
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
+
+  // Cloudinary upload hook
+  const { uploadProfilePhoto, isUploading, uploadProgress, error: uploadError, reset: resetUpload } = useCloudinaryUpload();
 
   // Validation errors state
   const [errors, setErrors] = useState<FormValidationErrors>({});
@@ -156,7 +162,7 @@ export const DefaultMembershipForm = forwardRef<
       date_joined: dateJoined,
       baptism_date: baptismDate,
       notes,
-      profile_image_url: profilePhotoPreview || undefined,
+      profile_image_url: profilePhotoUrl || undefined, // Use Cloudinary URL instead of preview
     }),
     [
       firstName,
@@ -179,7 +185,7 @@ export const DefaultMembershipForm = forwardRef<
       dateJoined,
       baptismDate,
       notes,
-      profilePhotoPreview,
+      profilePhotoUrl, // Changed from profilePhotoPreview
     ]
   );
 
@@ -284,7 +290,9 @@ export const DefaultMembershipForm = forwardRef<
     setNotes('');
     setProfilePhoto(null);
     setProfilePhotoPreview(null);
+    setProfilePhotoUrl(null); // Reset Cloudinary URL
     setErrors({});
+    resetUpload(); // Reset upload state
   };
 
   // Expose methods to parent component
@@ -314,10 +322,10 @@ export const DefaultMembershipForm = forwardRef<
     setIsCropperOpen(true);
   };
 
-  const handleCropComplete = (croppedFile: File) => {
+  const handleCropComplete = async (croppedFile: File) => {
     setProfilePhoto(croppedFile);
 
-    // Create preview URL
+    // Create preview URL for immediate display
     if (profilePhotoPreview) {
       URL.revokeObjectURL(profilePhotoPreview);
     }
@@ -326,6 +334,25 @@ export const DefaultMembershipForm = forwardRef<
 
     setIsCropperOpen(false);
     setSelectedImageFile(null);
+
+    // Clear any previous upload errors
+    resetUpload();
+    setErrors(prev => ({ ...prev, profile_photo: undefined }));
+
+    // Upload to Cloudinary
+    try {
+      const result = await uploadProfilePhoto(croppedFile, 5); // 5MB max size
+      setProfilePhotoUrl(result.url);
+      
+      // Show success feedback (optional)
+      console.log(`Profile photo uploaded successfully via ${result.uploadMethod}:`, result.url);
+    } catch (error) {
+      console.error('Profile photo upload failed:', error);
+      setErrors(prev => ({ 
+        ...prev, 
+        profile_photo: error instanceof Error ? error.message : 'Failed to upload profile photo'
+      }));
+    }
   };
 
   const handleRemovePhoto = () => {
@@ -334,6 +361,9 @@ export const DefaultMembershipForm = forwardRef<
     }
     setProfilePhoto(null);
     setProfilePhotoPreview(null);
+    setProfilePhotoUrl(null); // Clear Cloudinary URL
+    resetUpload(); // Reset upload state
+    setErrors(prev => ({ ...prev, profile_photo: undefined }));
   };
 
   // Cleanup preview URL on unmount
@@ -368,11 +398,28 @@ export const DefaultMembershipForm = forwardRef<
             <div className="relative w-fit">
               <div className="w-32 h-32 rounded-lg border-2 border-dashed border-border bg-muted/50 flex items-center justify-center overflow-hidden">
                 {profilePhotoPreview ? (
-                  <img
-                    src={profilePhotoPreview}
-                    alt="Profile preview"
-                    className="w-full h-full object-cover rounded-lg"
-                  />
+                  <div className="relative w-full h-full">
+                    <img
+                      src={profilePhotoPreview}
+                      alt="Profile preview"
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    {/* Upload progress overlay */}
+                    {isUploading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                        <div className="text-center text-white">
+                          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-1" />
+                          <p className="text-xs">{uploadProgress}%</p>
+                        </div>
+                      </div>
+                    )}
+                    {/* Success indicator */}
+                    {profilePhotoUrl && !isUploading && (
+                      <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-1">
+                        <Upload className="w-3 h-3" />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-center">
                     <Camera className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
@@ -387,6 +434,7 @@ export const DefaultMembershipForm = forwardRef<
                   size="sm"
                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
                   onClick={handleRemovePhoto}
+                  disabled={isUploading}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -395,14 +443,36 @@ export const DefaultMembershipForm = forwardRef<
 
             {/* Upload Section */}
             {!isPreviewMode && (
-              <div className="w-full md:max-w-[300px]">
+              <div className="w-full md:max-w-[300px] space-y-2">
                 <ModernFileUpload
                   onFileSelect={handleFileSelect}
                   accept="image/*"
                   maxSize={5}
                   variant="compact"
-                  disabled={isPreviewMode}
+                  disabled={isPreviewMode || isUploading}
                 />
+                
+                {/* Upload status messages */}
+                {isUploading && (
+                  <div className="flex items-center gap-2 text-sm text-blue-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Uploading... {uploadProgress}%</span>
+                  </div>
+                )}
+                
+                {profilePhotoUrl && !isUploading && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Upload className="w-4 h-4" />
+                    <span>Photo uploaded successfully</span>
+                  </div>
+                )}
+                
+                {/* Error messages */}
+                {(uploadError || errors.profile_photo) && (
+                  <p className="text-sm text-red-500">
+                    {errors.profile_photo || uploadError?.message}
+                  </p>
+                )}
               </div>
             )}
           </div>
