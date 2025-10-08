@@ -143,6 +143,9 @@ export function AddMember() {
         membership_type: formData.membership_type,
         date_joined: formData.date_joined ? formData.date_joined.toISOString().split('T')[0] : undefined,
         baptism_date: formData.baptism_date ? formData.baptism_date.toISOString().split('T')[0] : undefined,
+        emergency_contact_name: formData.emergency_contact_name || undefined,
+        emergency_contact_phone: formData.emergency_contact_phone || undefined,
+        emergency_contact_relationship: formData.emergency_contact_relationship || undefined,
         notes: formData.notes || undefined,
         profile_image_url: formData.profile_image_url || undefined,
         form_data: Object.keys(customFieldValues).length > 0 

@@ -1,5 +1,4 @@
-import { MemberForm } from '@/components/people/members';
-import { TagRenderer } from '@/components/people/tags/TagRenderer';
+import { DefaultMembershipForm, type DefaultMembershipFormData, type DefaultMembershipFormMethods } from '@/components/people/configurations/DefaultMembershipForm';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -7,13 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useBranches } from '@/hooks/useBranchQueries';
-import { useMember } from '@/hooks/useMemberQueries';
-import { usePeopleConfiguration } from '@/hooks/usePeopleConfigurationQueries';
-import { useRelationalTags } from '@/hooks/useRelationalTags';
+import { Label } from '@/components/ui/label';
+import { BranchSelector } from '@/components/shared/BranchSelector';
+import { TagRenderer } from '@/components/people/tags/TagRenderer';
+import { useMember, useUpdateMember } from '@/hooks/useMemberQueries';
 import { useMemberTagAssignments } from '@/hooks/useMemberTagAssignments';
-import { type MemberFormField, type MembershipStatus } from '@/types/members';
-import type { MembershipFormSchema } from '@/types/people-configurations';
+import { useRelationalTags } from '@/hooks/useRelationalTags';
+import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useBulkTagOperations } from '@/hooks/useBulkTagOperations';
+import { compareTagAssignments } from '@/utils/tagAssignmentUtils';
+import { type MembershipStatus, type UpdateMemberData } from '@/types/members';
+import { type MemberTagAssignment } from '@/hooks/useMemberTagAssignments';
 import { format } from 'date-fns';
 import {
   AlertCircle,
@@ -21,94 +25,223 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  Copy,
   CreditCard,
   Edit,
+  FileText,
   Heart,
-  Mail,
-  MapPin,
   Phone,
   Printer,
   User,
   XCircle,
-  Tags
+  Tags,
+  Save,
+  X,
+  MailIcon
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-
-// Helper function to convert MembershipFormSchema to MemberFormField[]
-const convertSchemaToFormFields = (schema: MembershipFormSchema | undefined): MemberFormField[] => {
-  if (!schema?.rows) return [];
-  
-  const fields: MemberFormField[] = [];
-  
-  schema.rows.forEach(row => {
-    row.columns.forEach(column => {
-      if (column.component) {
-        const component = column.component;
-        fields.push({
-          id: component.id,
-          type: component.type as any, // Type conversion needed
-          label: component.label,
-          required: component.required,
-          placeholder: component.placeholder,
-          options: component.options,
-          validation: component.validation
-        });
-      }
-    });
-  });
-  
-  return fields;
-};
+import { toast } from 'sonner';
 
 export function MemberDetail() {
   const { memberId } = useParams<{ memberId: string }>();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<DefaultMembershipFormMethods>(null);
+
+  // State for branch and tag management
+  const [branchId, setBranchId] = useState<string>('');
   const [tagValues, setTagValues] = useState<Record<string, any>>({});
+  const [tagErrors, setTagErrors] = useState<Record<string, string>>({});
+  const [branchError, setBranchError] = useState<string>('');
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   // Fetch member data
   const { data: member, isLoading, error } = useMember(memberId!);
-  const { configuration } = usePeopleConfiguration(member?.organization_id);
-  const { data: branches } = useBranches(member?.organization_id);
+  const updateMemberMutation = useUpdateMember();
+  const { currentOrganization } = useOrganization();
   
-  // Fetch tag data
-  const { tags } = useRelationalTags();
+  // Fetch tag assignments and related data
   const { 
-    assignmentsByTag, 
-    updateTagAssignments 
-  } = useMemberTagAssignments(memberId);
+    assignments,
+    assignmentsByTag
+  } = useMemberTagAssignments(memberId || '');
   
-  // Convert membership form schema to form fields
-  const membershipFormFields = convertSchemaToFormFields(configuration?.membership_form_schema);
+  const { tags } = useRelationalTags();
+  const { membershipFormSchema } = useMembershipFormManagement(currentOrganization?.id);
+  const { bulkUpdateTags } = useBulkTagOperations();
 
-  // Initialize tag values from current assignments
-  useEffect(() => {
-    if (assignmentsByTag && Object.keys(assignmentsByTag).length > 0) {
-      setTagValues(assignmentsByTag);
-    }
-  }, [assignmentsByTag]);
-
-  // Handle tag changes
-  const handleTagChange = async (tagId: string, tagItemIds: string | string[]) => {
-    if (!memberId) return;
-    
+  // Handle copy to clipboard
+  const handleCopyToClipboard = async (text: string, label: string) => {
     try {
-      const itemIds = Array.isArray(tagItemIds) ? tagItemIds : [tagItemIds];
-      await updateTagAssignments({
-        memberId,
-        tagId,
-        tagItemIds: itemIds,
-      });
-      setTagValues(prev => ({ ...prev, [tagId]: itemIds }));
+      await navigator.clipboard.writeText(text);
+      // You could add a toast notification here if you have a toast system
+      console.log(`${label} copied to clipboard`);
     } catch (error) {
-      console.error('Error updating tag assignments:', error);
+      console.error('Failed to copy to clipboard:', error);
+    }
+  };
+  
+  const handleEditToggle = () => {
+    setIsEditing(!isEditing);
+  };
+
+  // Initialize default values when member data is loaded
+  useEffect(() => {
+    if (member && !isEditing) {
+      setBranchId(member.branch_id || '');
+      
+      // Initialize tag values from existing assignments
+      const initialTagValues: Record<string, any> = {};
+      if (assignmentsByTag) {
+        Object.entries(assignmentsByTag).forEach(([tagId, tagItemIds]) => {
+          if (tagItemIds && tagItemIds.length > 0) {
+            // assignmentsByTag contains arrays of tag_item_ids
+            initialTagValues[tagId] = tagItemIds;
+          }
+        });
+      }
+      setTagValues(initialTagValues);
+      
+      // Initialize custom field values
+      const initialCustomFields: Record<string, any> = {};
+      if (member.form_data) {
+        Object.entries(member.form_data).forEach(([fieldId, value]) => {
+          initialCustomFields[fieldId] = value;
+        });
+      }
+      setCustomFieldValues(initialCustomFields);
+    }
+  }, [member, isEditing]);
+
+  // Callback handlers for branch and tag changes
+  const handleBranchChange = useCallback((value: string | string[] | undefined) => {
+    // For single branch selection, we expect a string
+    const branchValue = Array.isArray(value) ? value[0] : value;
+    setBranchId(branchValue || '');
+    setBranchError('');
+  }, []);
+
+  const handleTagChange = useCallback((tagId: string, value: any) => {
+    setTagValues(prev => ({
+      ...prev,
+      [tagId]: value
+    }));
+    setTagErrors(prev => ({
+      ...prev,
+      [tagId]: ''
+    }));
+  }, []);
+
+  const handleUpdateMember = async () => {
+    if (!member || !formRef.current) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Get form data and validate
+      const { isValid, errors } = formRef.current.validateForm();
+      if (!isValid) {
+        toast.error('Please fix the form errors before submitting');
+        console.error('Form validation errors:', errors);
+        return;
+      }
+
+      // Validate branch selection if required
+      // Note: branch_required is not part of MembershipFormSchema, 
+      // branch validation should be handled by form validation
+      if (!branchId) {
+        setBranchError('Branch selection is required');
+      }
+
+      // Validate required tags
+      let hasTagErrors = false;
+      const newTagErrors: Record<string, string> = {};
+      
+      if (tags && membershipFormSchema) {
+        tags.forEach(tag => {
+          if (tag.is_required && (!tagValues[tag.id] || tagValues[tag.id] === '')) {
+            newTagErrors[tag.id] = `${tag.name} is required`;
+            hasTagErrors = true;
+          }
+        });
+      }
+
+      if (hasTagErrors) {
+        setTagErrors(newTagErrors);
+      }
+
+      if(!isValid || !branchId || hasTagErrors) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      const formData: DefaultMembershipFormData = formRef.current.getFormData();
+      
+      // Convert DefaultMembershipFormData to UpdateMemberData
+      const updateData: UpdateMemberData = {
+        id: member.id,
+        first_name: formData.first_name,
+        middle_name: formData.middle_name,
+        last_name: formData.last_name,
+        date_of_birth: formData.date_of_birth ? formData.date_of_birth.toISOString().split('T')[0] : undefined,
+        gender: formData.gender,
+        marital_status: formData.marital_status,
+        phone: formData.phone,
+        email: formData.email,
+        address_line_1: formData.address_line_1,
+        address_line_2: formData.address_line_2,
+        city: formData.city,
+        state: formData.state,
+        postal_code: formData.postal_code,
+        country: formData.country,
+        membership_id: formData.membership_id,
+        membership_status: formData.membership_status,
+        membership_type: formData.membership_type,
+        date_joined: formData.date_joined ? formData.date_joined.toISOString().split('T')[0] : undefined,
+        baptism_date: formData.baptism_date ? formData.baptism_date.toISOString().split('T')[0] : undefined,
+        notes: formData.notes,
+        profile_image_url: formData.profile_image_url,
+        emergency_contact_name: formData.emergency_contact_name,
+        emergency_contact_phone: formData.emergency_contact_phone,
+        emergency_contact_relationship: formData.emergency_contact_relationship,
+        branch_id: branchId || undefined,
+        form_data: customFieldValues
+      };
+
+      // Update member data
+      await updateMemberMutation.mutateAsync(updateData);
+
+      // Handle tag assignment changes
+      if (assignments) {
+        // Transform assignments to the format expected by compareTagAssignments
+        const currentAssignments: Record<string, MemberTagAssignment | null> = {};
+        assignments.forEach(assignment => {
+          currentAssignments[assignment.tag_item.tag_id] = assignment;
+        });
+        
+        const tagComparison = compareTagAssignments(currentAssignments, tagValues);
+        
+        if (tagComparison.hasChanges) {
+          await bulkUpdateTags({
+            memberId: member.id,
+            changes: tagComparison.changes
+          });
+        }
+      }
+
+      toast.success('Member updated successfully');
+      setIsEditing(false);
+    } catch (error) {
+      toast.error('Failed to update member');
+      console.error('Error updating member:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handle edit mode
-  const handleEditToggle = () => {
-    setIsEditing(!isEditing);
+  const handleCancel = () => {
+    setIsEditing(false);
   };
 
   // Handle print member details
@@ -382,102 +515,334 @@ export function MemberDetail() {
   // Edit mode
   if (isEditing) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="container mx-auto max-w-7xl">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleCancel}
+          className="flex items-center gap-2 mb-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Cancel Edit
+        </Button>
+        
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 bg-neutral-100 dark:bg-neutral-800/50 px-4 py-2 rounded-md border">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(false)}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Cancel Edit
-            </Button>
             <div>
-              <h1 className="text-3xl font-bold">Edit Member</h1>
+              <h1 className="text-2xl font-bold">Edit Member</h1>
               <p className="text-muted-foreground">
                 {member.first_name} {member.last_name}
               </p>
             </div>
           </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+               variant="outline"
+               onClick={handleCancel}
+               disabled={isSubmitting}
+             >
+               <X className="h-4 w-4 mr-2" />
+               Cancel
+             </Button>
+             <Button
+               onClick={handleUpdateMember}
+               disabled={isSubmitting}
+             >
+               <Save className="h-4 w-4 mr-2" />
+               {isSubmitting ? 'Saving...' : 'Save Changes'}
+             </Button>
+          </div>
         </div>
 
-        <MemberForm
-          member={member}
-          membershipFormSchema={membershipFormFields}
-          branches={branches || []}
-          onCancel={() => setIsEditing(false)}
-          onSubmit={async (_data) => {
-            // Handle member update
-            try {
-              // Add update logic here if needed
-              setIsEditing(false);
-            } catch (error) {
-              console.error('Error updating member:', error);
-            }
-          }}
-        />
+        {/* Main Content Grid - Similar to AddMember */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Form Section - Left Side */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardContent>
+                <DefaultMembershipForm
+                  ref={formRef}
+                  initialData={{
+                    first_name: member.first_name || '',
+                    middle_name: member.middle_name || '',
+                    last_name: member.last_name || '',
+                    date_of_birth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
+                    gender: member.gender || '',
+                    marital_status: member.marital_status || '',
+                    phone: member.phone || '',
+                    email: member.email || '',
+                    address_line_1: member.address_line_1 || '',
+                    address_line_2: member.address_line_2 || '',
+                    city: member.city || '',
+                    state: member.state || '',
+                    postal_code: member.postal_code || '',
+                    country: member.country || '',
+                    membership_id: member.membership_id || '',
+                    membership_status: member.membership_status || 'active',
+                    membership_type: member.membership_type || 'Regular',
+                    date_joined: member.date_joined ? new Date(member.date_joined) : undefined,
+                    baptism_date: member.baptism_date ? new Date(member.baptism_date) : undefined,
+                    notes: member.notes || '',
+                    profile_image_url: member.profile_image_url || '',
+                    emergency_contact_name: member.emergency_contact_name || '',
+                    emergency_contact_phone: member.emergency_contact_phone || '',
+                    emergency_contact_relationship: member.emergency_contact_relationship || '',
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Sidebar - Member Info */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Member Info
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={member.profile_image_url || undefined} />
+                    <AvatarFallback>
+                      {member.first_name?.[0]}{member.last_name?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{member.first_name} {member.last_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Member ID: {member.membership_id || 'Not assigned'}
+                    </p>
+                  </div>
+                </div>
+                
+                <Separator />
+
+                {/* Branch Selector - Only show in edit mode */}
+                {isEditing && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="branch-selector">Branch</Label>
+                      <BranchSelector
+                        variant="single"
+                        value={branchId}
+                        onValueChange={handleBranchChange}
+                        allowClear={true}
+                        placeholder="Select a branch..."
+                      />
+                      {branchError && <p className="text-sm text-red-500">{branchError}</p>}
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Tag Renderer - Only show in edit mode */}
+                {isEditing && tags && tags.length > 0 && (
+                  <>
+                    <div className="space-y-4">
+                      <Label>Tags & Information</Label>
+                      {tags.map((tag) => (
+                        <TagRenderer
+                          key={tag.id}
+                          tag={tag}
+                          tagKey={tag.id}
+                          value={tagValues[tag.id]}
+                          onChange={(value) => handleTagChange(tag.id, value)}
+                          error={tagErrors[tag.id]}
+                        />
+                      ))}
+                    </div>
+                    <Separator />
+                  </>
+                )}
+                
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Status</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                        style={{
+                          backgroundColor: statusDisplay.color + '20',
+                          color: statusDisplay.color,
+                          borderColor: statusDisplay.color + '40',
+                        }}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        {statusDisplay.text}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {member.date_joined && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Joined</label>
+                      <p className="text-sm">{format(new Date(member.date_joined), 'MMM d, yyyy')}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/people/membership')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Members
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">
-              {member.first_name} {member.last_name}
-            </h1>
-            <p className="text-muted-foreground">
-              Member ID: {member.membership_id}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrintDetails}
-            className="flex items-center gap-2"
-          >
-            <Printer className="h-4 w-4" />
-            Print Details
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrintCard}
-            className="flex items-center gap-2"
-          >
-            <CreditCard className="h-4 w-4" />
-            Print Card
-          </Button>
-          <Button
-            onClick={handleEditToggle}
-            className="flex items-center gap-2"
-          >
-            <Edit className="h-4 w-4" />
-            Edit Member
-          </Button>
-        </div>
+    <div className="container mx-auto py-8 max-w-6xl">
+      {/* Back Button */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/people/membership')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Members
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Main Header Card */}
+      <Card className="mb-8">
+        <CardContent className="py-4 px-8">
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Profile Section */}
+            <div className="flex flex-col items-center lg:items-start">
+              <Avatar className="h-32 w-32 mb-4 rounded-xl border">
+                <AvatarImage src={member.profile_image_url || ''} alt={`${member.first_name} ${member.last_name}`} />
+                <AvatarFallback className="text-2xl">
+                  {member.first_name[0]}{member.last_name[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-center lg:text-left">
+                <h1 className="text-3xl font-bold mb-2">
+                   {member.first_name} {member.last_name}
+                 </h1>
+                 <div className="flex items-center gap-2 mb-4">
+                   <p className="text-muted-foreground">
+                     Member ID: {member.membership_id}
+                   </p>
+                   <Button
+                     variant="ghost"
+                     size="sm"
+                     onClick={() => handleCopyToClipboard(member.membership_id, 'Member ID')}
+                     className="h-6 w-6 p-0"
+                   >
+                     <Copy className="h-3 w-3" />
+                   </Button>
+                 </div>
+                <Badge variant="secondary" className={`${statusDisplay.bg} ${statusDisplay.color} mb-4`}>
+                  <StatusIcon className="h-3 w-3 mr-1" />
+                  {statusDisplay.text}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Quick Info Grid */}
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="space-y-4">
+                 <div className="flex items-center gap-3">
+                   <Phone className="h-5 w-5 text-muted-foreground" />
+                   <div className="flex-1">
+                     <p className="text-sm font-medium text-muted-foreground">Mobile</p>
+                     <div className="flex items-center gap-2">
+                       <p className="text-lg">{member.phone || 'Not provided'}</p>
+                       {member.phone && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleCopyToClipboard(member.phone!, 'Phone number')}
+                           className="h-6 w-6 p-0"
+                         >
+                           <Copy className="h-3 w-3" />
+                         </Button>
+                       )}
+                     </div>
+                   </div>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   <MailIcon className="h-5 w-5 text-muted-foreground" />
+                   <div className="flex-1">
+                     <p className="text-sm font-medium text-muted-foreground">Email</p>
+                     <div className="flex items-center gap-2">
+                       <p className="text-lg truncate max-w-[140px]" title={member.email || 'Not provided'}>{member.email || 'Not provided'}</p>
+                       {member.email && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleCopyToClipboard(member.email!, 'Email')}
+                           className="h-6 w-6 p-0"
+                         >
+                           <Copy className="h-3 w-3" />
+                         </Button>
+                       )}
+                     </div>
+                   </div>
+                 </div>
+               </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Gender</p>
+                    <p className="text-lg">{member.gender || 'Not specified'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Join Date</p>
+                    <p className="text-lg">
+                      {member.date_joined ? format(new Date(member.date_joined), 'MMM d, yyyy') : 'Not provided'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2 lg:w-48">
+              <Button
+                onClick={handleEditToggle}
+                className="flex items-center gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Edit Member
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrintDetails}
+                className="flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                Print Details
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrintCard}
+                className="flex items-center gap-2"
+              >
+                <CreditCard className="h-4 w-4" />
+                Print Card
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column */}
+        <div className="space-y-6">
           {/* Personal Information */}
           <Card>
             <CardHeader>
@@ -487,17 +852,50 @@ export function MemberDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Full Name */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                  <p className="text-sm">
-                    {member.first_name} {member.middle_name && `${member.middle_name} `}{member.last_name}
-                  </p>
+                  <label className="text-sm font-medium text-muted-foreground">First Name</label>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm">{member.first_name}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyToClipboard(member.first_name, 'First name')}
+                      className="h-5 w-5 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Middle Name</label>
+                  <p className="text-sm">{member.middle_name || 'Not provided'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Last Name</label>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm">{member.last_name}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyToClipboard(member.last_name, 'Last name')}
+                      className="h-5 w-5 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Personal Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
                   <p className="text-sm">
-                    {member.date_of_birth ? format(new Date(member.date_of_birth), 'PPP') : 'Not provided'}
+                    {member.date_of_birth ? format(new Date(member.date_of_birth), 'MMM d, yyyy') : 'Not provided'}
                   </p>
                 </div>
                 <div>
@@ -522,96 +920,201 @@ export function MemberDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                  <div className="flex items-center gap-2">
                     <p className="text-sm">{member.phone || 'Not provided'}</p>
+                    {member.phone && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyToClipboard(member.phone!, 'Phone number')}
+                        className="h-5 w-5 p-0"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Email</label>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <div className="flex items-center gap-2">
                     <p className="text-sm">{member.email || 'Not provided'}</p>
+                    {member.email && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyToClipboard(member.email!, 'Email')}
+                        className="h-5 w-5 p-0"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
               
               <Separator />
               
-              <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-1" />
-                <div className="flex-1">
-                  <label className="text-sm font-medium text-muted-foreground">Address</label>
-                  <div className="text-sm space-y-1">
-                    {member.address_line_1 && <p>{member.address_line_1}</p>}
-                    {member.address_line_2 && <p>{member.address_line_2}</p>}
-                    {(member.city || member.state || member.postal_code) && (
-                      <p>{member.city}, {member.state} {member.postal_code}</p>
-                    )}
-                    {member.country && <p>{member.country}</p>}
-                    {!member.address_line_1 && !member.city && <p>No address provided</p>}
-                  </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Address</label>
+                <div className="text-sm mt-1 space-y-1">
+                  {member.address_line_1 && (
+                    <div className="flex items-center gap-2">
+                      <p>{member.address_line_1}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyToClipboard(member.address_line_1!, 'Address')}
+                        className="h-4 w-4 p-0"
+                      >
+                        <Copy className="h-2 w-2" />
+                      </Button>
+                    </div>
+                  )}
+                  {member.address_line_2 && <p>{member.address_line_2}</p>}
+                  {(member.city || member.state || member.postal_code) && (
+                    <p>
+                      {[member.city, member.state, member.postal_code].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  {member.country && <p>{member.country}</p>}
+                  {!member.address_line_1 && !member.city && <p>No address provided</p>}
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Emergency Contact */}
-          {member.emergency_contact_name && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="h-5 w-5" />
-                  Emergency Contact
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="h-5 w-5" />
+                Emergency Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {member.emergency_contact_name || member.emergency_contact_phone ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Name</label>
-                    <p className="text-sm">{member.emergency_contact_name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Relationship</label>
-                    <p className="text-sm">{member.emergency_contact_relationship || 'Not specified'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm">{member.emergency_contact_name || 'Not provided'}</p>
+                      {member.emergency_contact_name && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyToClipboard(member.emergency_contact_name!, 'Emergency contact name')}
+                          className="h-5 w-5 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                    <p className="text-sm">{member.emergency_contact_phone || 'Not provided'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm">{member.emergency_contact_phone || 'Not provided'}</p>
+                      {member.emergency_contact_phone && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyToClipboard(member.emergency_contact_phone!, 'Emergency contact phone')}
+                          className="h-5 w-5 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-muted-foreground">Relationship</label>
+                    <p className="text-sm">{member.emergency_contact_relationship || 'Not specified'}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Additional Information */}
-          {member.form_data && Object.keys(member.form_data).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(member.form_data).map(([key, value]) => (
-                    <div key={key}>
-                      <label className="text-sm font-medium text-muted-foreground capitalize">
-                        {key.replace(/_/g, ' ')}
-                      </label>
-                      <p className="text-sm">{String(value)}</p>
-                    </div>
-                  ))}
+              ) : (
+                <div className="text-center py-4">
+                  <Heart className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No emergency contact information</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-          {/* Notes */}
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Membership Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Membership Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Membership ID</label>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-mono">{member.membership_id}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyToClipboard(member.membership_id, 'Membership ID')}
+                      className="h-5 w-5 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Membership Type</label>
+                  <p className="text-sm">{member.membership_type || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <Badge variant="secondary" className={`${statusDisplay.bg} ${statusDisplay.color}`}>
+                     <StatusIcon className="h-3 w-3 mr-1" />
+                     {statusDisplay.text}
+                   </Badge>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Date Joined</label>
+                  <p className="text-sm">
+                    {member.date_joined ? format(new Date(member.date_joined), 'MMM d, yyyy') : 'Not provided'}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Baptism Date</label>
+                  <p className="text-sm">
+                    {member.baptism_date ? format(new Date(member.baptism_date), 'MMM d, yyyy') : 'Not provided'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Confirmation Date</label>
+                  <p className="text-sm">
+                    {member.confirmation_date ? format(new Date(member.confirmation_date), 'MMM d, yyyy') : 'Not provided'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Additional Notes */}
           {member.notes && (
             <Card>
               <CardHeader>
-                <CardTitle>Notes</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Notes
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm whitespace-pre-wrap">{member.notes}</p>
@@ -619,129 +1122,79 @@ export function MemberDetail() {
             </Card>
           )}
 
-          {/* Tags */}
-          {tags && tags.length > 0 && (
+          {/* Custom Fields */}
+          {member.form_data && Object.keys(member.form_data).length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Tags className="h-5 w-5" />
-                  Tags
+                  <FileText className="h-5 w-5" />
+                  Additional Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {tags.map((category) => (
-                  <TagRenderer
-                    key={category.id}
-                    tag={category}
-                    tagKey={category.id}
-                    value={tagValues[category.id] || []}
-                    onChange={(value) => handleTagChange(category.id, value)}
-                    disabled={!isEditing}
-                  />
+              <CardContent className="space-y-3">
+                {Object.entries(member.form_data).map(([key, value]) => (
+                  <div key={key}>
+                    <label className="text-sm font-medium text-muted-foreground capitalize">
+                      {key.replace(/_/g, ' ')}
+                    </label>
+                    <p className="text-sm">{String(value) || 'Not provided'}</p>
+                  </div>
                 ))}
               </CardContent>
             </Card>
           )}
-        </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Member Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Member Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col items-center text-center">
-                <Avatar className="h-20 w-20 mb-4">
-                  <AvatarImage src="" alt={`${member.first_name} ${member.last_name}`} />
-                  <AvatarFallback className="text-lg">
-                    {member.first_name[0]}{member.last_name[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <h3 className="font-semibold">{member.first_name} {member.last_name}</h3>
-                <p className="text-sm text-muted-foreground">{member.membership_id}</p>
-              </div>
-              
-              <Separator />
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status</span>
-                  <Badge variant="secondary" className={`${statusDisplay.bg} ${statusDisplay.color}`}>
-                    <StatusIcon className="h-3 w-3 mr-1" />
-                    {statusDisplay.text}
-                  </Badge>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Type</span>
-                  <span className="text-sm">{member.membership_type || 'Not specified'}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Join Date</span>
-                  <span className="text-sm">
-                    {member.date_joined ? format(new Date(member.date_joined), 'MMM d, yyyy') : 'Not provided'}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEditToggle}
-                className="w-full justify-start"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Member
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrintDetails}
-                className="w-full justify-start"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print Details
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrintCard}
-                className="w-full justify-start"
-              >
-                <CreditCard className="h-4 w-4 mr-2" />
-                Print Membership Card
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Audit Information */}
+          {/* Tags Section */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Audit Information
+                <Tags className="h-5 w-5" />
+                Tags
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Created</label>
-                <p className="text-sm">{format(new Date(member.created_at), 'PPP')}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                <p className="text-sm">{format(new Date(member.updated_at), 'PPP')}</p>
-              </div>
+            <CardContent>
+              {assignments && assignments.length > 0 ? (
+                <div className="space-y-4">
+                  {Object.entries(
+                    assignments.reduce((acc, assignment) => {
+                      const parentName = assignment.tag_item.tag.name || 'Other';
+                      if (!acc[parentName]) acc[parentName] = [];
+                      acc[parentName].push(assignment);
+                      return acc;
+                    }, {} as Record<string, typeof assignments>)
+                  ).map(([parentName, tagAssignments]) => (
+                    <div key={parentName}>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                        {parentName}
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {tagAssignments.map((assignment) => (
+                          <Badge
+                            key={assignment.id}
+                            variant="secondary"
+                            style={{
+                              backgroundColor: assignment.tag_item.color + '20',
+                              color: assignment.tag_item.color,
+                              borderColor: assignment.tag_item.color + '40',
+                            }}
+                            className="border"
+                          >
+                            {assignment.tag_item.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Tags className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                  <p className="text-muted-foreground">No tags assigned to this member</p>
+                  <p className="text-sm text-muted-foreground/70 mt-1">
+                    Tags can be used to organize and categorize members
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

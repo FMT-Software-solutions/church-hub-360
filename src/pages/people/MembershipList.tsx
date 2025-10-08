@@ -1,77 +1,33 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Grid, Download, Upload, Table } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
-import {
-  MemberCard,
-  MemberTable,
-  MemberForm,
   FilterBar,
+  MemberCard,
   MemberPagination,
   MemberStatistics,
+  MemberTable,
 } from '@/components/people/members';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { useBranches } from '@/hooks/useBranchQueries';
+import { useMemberPreferences } from '@/hooks/useMemberPreferences';
 import {
-  useMembersSummaryPaginated,
-  useUpdateMember,
   useDeleteMember,
+  useMembersSummaryPaginated,
   useMemberStatistics,
 } from '@/hooks/useMemberQueries';
-import { useMemberPreferences } from '@/hooks/useMemberPreferences';
-import { usePeopleConfiguration } from '@/hooks/usePeopleConfigurationQueries';
-import { useBranches } from '@/hooks/useBranchQueries';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
+import { Download, Grid, Plus, Table, Upload } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { cn } from '@/lib/utils';
 import type {
   MemberFilters,
-  CreateMemberData,
-  UpdateMemberData,
-  Member,
-  MemberSummary,
-  MemberFormField,
   MembershipType,
+  MemberSummary,
 } from '@/types/members';
-import type { MembershipFormSchema } from '@/types/people-configurations';
-import { cn } from '@/lib/utils';
-
-// Helper function to convert MembershipFormSchema to MemberFormField[]
-// Helper function to convert MembershipFormSchema to MemberFormField[]
-const convertSchemaToFormFields = (
-  schema: MembershipFormSchema | undefined
-): MemberFormField[] => {
-  if (!schema?.rows) return [];
-
-  const fields: MemberFormField[] = [];
-
-  schema.rows.forEach((row) => {
-    row.columns.forEach((column) => {
-      if (column.component) {
-        const component = column.component;
-        fields.push({
-          id: component.id,
-          type: component.type as any, // Type conversion needed
-          label: component.label,
-          required: component.required,
-          placeholder: component.placeholder,
-          options: component.options,
-          validation: component.validation,
-        });
-      }
-    });
-  });
-
-  return fields;
-};
 
 // Available membership types
 const membershipTypes: MembershipType[] = [
@@ -91,7 +47,6 @@ export default function MembershipList() {
   // State management
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<MemberFilters>({});
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
 
   // Hooks
   const { preferences, setViewMode, setPageSize } = useMemberPreferences(
@@ -106,43 +61,19 @@ export default function MembershipList() {
     currentPage,
     preferences.page_size
   );
-  const { data: statistics, isLoading: isLoadingStatistics } = useMemberStatistics(organizationId);
-  const { configuration: peopleConfig } = usePeopleConfiguration(
-    organizationId
-  );
+  const {
+    data: statistics,
+    isLoading: isLoadingStatistics,
+  } = useMemberStatistics(organizationId);
   const { data: branches = [] } = useBranches(organizationId);
   const { tags } = useRelationalTags();
 
-  // Convert membership form schema to form fields
-  const membershipFormFields = convertSchemaToFormFields(
-    peopleConfig?.membership_form_schema
-  );
-
-  const updateMemberMutation = useUpdateMember();
   const deleteMemberMutation = useDeleteMember();
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
-
-  const handleFormSubmit = async (
-    data: CreateMemberData | UpdateMemberData
-  ) => {
-    try {
-      if (editingMember) {
-        await updateMemberMutation.mutateAsync({
-          ...data,
-          id: editingMember.id,
-        } as UpdateMemberData);
-        setEditingMember(null);
-        toast.success('Member updated successfully');
-      }
-    } catch (error) {
-      toast.error('Failed to update member');
-      console.error('Error updating member:', error);
-    }
-  };
 
   const handleMemberClick = (memberId: string) => {
     navigate(`/people/membership/${memberId}`);
@@ -165,33 +96,6 @@ export default function MembershipList() {
   const handlePrintMember = (_member: MemberSummary) => {
     // TODO: Implement print functionality
     console.log('Print member functionality not implemented yet');
-  };
-
-  const handleEditMemberFromSummary = (memberSummary: MemberSummary) => {
-    // Convert MemberSummary to Member for editing
-    // We'll need to fetch the full member data or create a compatible object
-    const memberForEdit: Member = {
-      ...memberSummary,
-      marital_status: null,
-      address_line_1: null,
-      address_line_2: null,
-      city: null,
-      state: null,
-      postal_code: null,
-      country: null,
-      membership_type: memberSummary.membership_type,
-      date_joined: memberSummary.date_joined,
-      baptism_date: null,
-      confirmation_date: null,
-      emergency_contact_name: null,
-      emergency_contact_phone: null,
-      emergency_contact_relationship: null,
-      form_data: {},
-      notes: null,
-      created_by: null,
-      last_updated_by: null,
-    };
-    setEditingMember(memberForEdit);
   };
 
   const totalPages = Math.ceil(
@@ -227,9 +131,9 @@ export default function MembershipList() {
 
       {/* Statistics Cards */}
       {statistics && (
-        <MemberStatistics 
-          statistics={statistics} 
-          isLoading={isLoadingStatistics} 
+        <MemberStatistics
+          statistics={statistics}
+          isLoading={isLoadingStatistics}
         />
       )}
 
@@ -305,7 +209,6 @@ export default function MembershipList() {
                 <MemberTable
                   members={membersData?.members || []}
                   onView={handleViewMember}
-                  onEdit={handleEditMemberFromSummary}
                   onDelete={handleDeleteMember}
                   onPrint={handlePrintMember}
                   onClick={handleMemberClick}
@@ -318,7 +221,6 @@ export default function MembershipList() {
                       key={member.id}
                       member={member}
                       onView={handleViewMember}
-                      onEdit={handleEditMemberFromSummary}
                       onDelete={handleDeleteMember}
                       onPrint={handlePrintMember}
                       onClick={handleMemberClick}
@@ -342,31 +244,6 @@ export default function MembershipList() {
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Member Dialog */}
-      <Dialog
-        open={!!editingMember}
-        onOpenChange={() => setEditingMember(null)}
-      >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Member</DialogTitle>
-            <DialogDescription>
-              Update the member information below.
-            </DialogDescription>
-          </DialogHeader>
-          {editingMember && (
-            <MemberForm
-              member={editingMember}
-              membershipFormSchema={membershipFormFields}
-              branches={branches.filter((branch) => branch.is_active) || []}
-              onSubmit={handleFormSubmit}
-              onCancel={() => setEditingMember(null)}
-              isLoading={updateMemberMutation.isPending}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

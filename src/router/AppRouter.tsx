@@ -41,10 +41,10 @@ import { Attendance } from '../pages/people/Attendance';
 // Finance section pages
 import { Finance } from '../pages/finance';
 import { Income } from '../pages/finance/Income';
-import { Expenses } from '../pages/finance/Expenses';
-import { Contributions } from '../pages/finance/Contributions';
+import Expenses from '../pages/finance/Expenses';
+import Contributions from '../pages/finance/Contributions';
 import { Pledges } from '../pages/finance/Pledges';
-import { BudgetPlanning } from '../pages/finance/BudgetPlanning';
+import BudgetPlanning from '../pages/finance/BudgetPlanning';
 
 function AppRoutes() {
   return (

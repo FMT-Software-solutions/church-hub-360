@@ -1,16 +1,6 @@
-import { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,18 +10,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import type { MemberSummary, MembershipStatus } from '@/types';
+import {
   ArrowUpDown,
-  MoreVertical,
-  Edit,
-  Trash2,
   Eye,
+  Mail,
+  MoreVertical,
+  Phone,
+  Printer,
+  Trash2,
   UserCheck,
   UserX,
-  Printer,
-  Mail,
-  Phone,
 } from 'lucide-react';
-import type { MemberSummary, MembershipStatus } from '@/types';
+import { useState } from 'react';
 import { PrintMemberModal } from './PrintMemberModal';
 
 interface MemberTableProps {
@@ -52,16 +51,18 @@ interface MemberTableProps {
 const statusColors: Record<MembershipStatus, string> = {
   active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   inactive: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+  pending:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
   suspended: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
   transferred: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  deceased: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  deceased:
+    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
 };
 
 export function MemberTable({
   members,
   isLoading = false,
-  onEdit,
+
   onDelete,
   onView,
   onToggleStatus,
@@ -79,7 +80,10 @@ export function MemberTable({
     onPrint?.(member);
   };
 
-  const handleAction = async (memberId: string, action: () => void | Promise<void>) => {
+  const handleAction = async (
+    memberId: string,
+    action: () => void | Promise<void>
+  ) => {
     setLoadingMemberId(memberId);
     try {
       await action();
@@ -97,7 +101,13 @@ export function MemberTable({
     return new Date(dateString).toLocaleDateString();
   };
 
-  const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
+  const SortableHeader = ({
+    field,
+    children,
+  }: {
+    field: string;
+    children: React.ReactNode;
+  }) => (
     <TableHead>
       <Button
         variant="ghost"
@@ -176,7 +186,9 @@ export function MemberTable({
               <>
                 <SortableHeader field="full_name">Member</SortableHeader>
                 <TableHead>Contact</TableHead>
-                <SortableHeader field="membership_status">Status</SortableHeader>
+                <SortableHeader field="membership_status">
+                  Status
+                </SortableHeader>
                 <SortableHeader field="membership_type">Type</SortableHeader>
                 <SortableHeader field="date_joined">Joined</SortableHeader>
                 <SortableHeader field="age">Age</SortableHeader>
@@ -197,24 +209,26 @@ export function MemberTable({
         <TableBody>
           {members.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell
+                colSpan={7}
+                className="text-center py-8 text-muted-foreground"
+              >
                 No members found
               </TableCell>
             </TableRow>
           ) : (
             members.map((member) => (
-              <TableRow 
-                key={member.id} 
-                className={cn(
-                  "hover:bg-muted/50",
-                  onClick && "cursor-pointer"
-                )}
+              <TableRow
+                key={member.id}
+                className={cn('hover:bg-muted/50', onClick && 'cursor-pointer')}
                 onClick={() => onClick?.(member.id)}
               >
                 <TableCell>
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={member.profile_image_url || undefined} />
+                      <AvatarImage
+                        src={member.profile_image_url || undefined}
+                      />
                       <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
                         {getInitials(member.first_name, member.last_name)}
                       </AvatarFallback>
@@ -232,7 +246,9 @@ export function MemberTable({
                     {member.email && (
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Mail className="mr-1 h-3 w-3" />
-                        <span className="truncate max-w-[200px]">{member.email}</span>
+                        <span className="truncate max-w-[200px]">
+                          {member.email}
+                        </span>
                       </div>
                     )}
                     {member.phone && (
@@ -242,12 +258,19 @@ export function MemberTable({
                       </div>
                     )}
                     {!member.email && !member.phone && (
-                      <span className="text-sm text-muted-foreground">No contact info</span>
+                      <span className="text-sm text-muted-foreground">
+                        No contact info
+                      </span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge className={cn('text-xs', statusColors[member.membership_status])}>
+                  <Badge
+                    className={cn(
+                      'text-xs',
+                      statusColors[member.membership_status]
+                    )}
+                  >
                     {member.membership_status}
                   </Badge>
                 </TableCell>
@@ -257,7 +280,9 @@ export function MemberTable({
                       {member.membership_type}
                     </Badge>
                   ) : (
-                    <span className="text-sm text-muted-foreground">Not specified</span>
+                    <span className="text-sm text-muted-foreground">
+                      Not specified
+                    </span>
                   )}
                 </TableCell>
                 <TableCell className="text-sm">
@@ -281,7 +306,7 @@ export function MemberTable({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                       {onView && (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAction(member.id, () => onView(member));
@@ -291,19 +316,9 @@ export function MemberTable({
                           View Details
                         </DropdownMenuItem>
                       )}
-                      {onEdit && (
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAction(member.id, () => onEdit(member));
-                          }}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Member
-                        </DropdownMenuItem>
-                      )}
+
                       {onPrint && (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAction(member.id, () => handlePrint(member));
@@ -316,10 +331,12 @@ export function MemberTable({
                       {onToggleStatus && (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAction(member.id, () => onToggleStatus(member));
+                              handleAction(member.id, () =>
+                                onToggleStatus(member)
+                              );
                             }}
                           >
                             {member.is_active ? (
@@ -339,10 +356,12 @@ export function MemberTable({
                       {onDelete && (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAction(member.id, () => onDelete(member.id));
+                              handleAction(member.id, () =>
+                                onDelete(member.id)
+                              );
                             }}
                             className="text-destructive focus:text-destructive"
                           >

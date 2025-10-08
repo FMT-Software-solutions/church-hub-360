@@ -16,7 +16,6 @@ import {
   Phone,
   Calendar,
   MoreVertical,
-  Edit,
   Trash2,
   Eye,
   UserCheck,
@@ -51,7 +50,6 @@ const statusColors: Record<MembershipStatus, string> = {
 
 export function MemberCard({
   member,
-  onEdit,
   onDelete,
   onView,
   onToggleStatus,
@@ -151,14 +149,7 @@ export function MemberCard({
                     View Details
                   </DropdownMenuItem>
                 )}
-                {onEdit && (
-                  <DropdownMenuItem
-                    onClick={() => handleAction(() => onEdit(member))}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Member
-                  </DropdownMenuItem>
-                )}
+
                 {onPrint && (
                   <DropdownMenuItem
                     onClick={() => handleAction(() => handlePrint())}
