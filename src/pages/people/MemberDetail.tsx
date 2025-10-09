@@ -1,25 +1,26 @@
 import { DefaultMembershipForm, type DefaultMembershipFormData, type DefaultMembershipFormMethods } from '@/components/people/configurations/DefaultMembershipForm';
+import { TagRenderer } from '@/components/people/tags/TagRenderer';
+import { BranchSelector } from '@/components/shared/BranchSelector';
+import { CopyToClipboard } from '@/components/shared/CopyToClipboard';
+import { MembershipCardModal } from '@/components/shared/MembershipCardModal';
+import { TemplateSelectionDrawer } from '@/components/shared/TemplateSelectionDrawer';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Label } from '@/components/ui/label';
-import { BranchSelector } from '@/components/shared/BranchSelector';
-import { CopyToClipboard } from '@/components/shared/CopyToClipboard';
-import { MembershipCardModal } from '@/components/shared/MembershipCardModal';
-import { TagRenderer } from '@/components/people/tags/TagRenderer';
-import { useMember, useUpdateMember } from '@/hooks/useMemberQueries';
-import { useMemberTagAssignments } from '@/hooks/useMemberTagAssignments';
-import { useRelationalTags } from '@/hooks/useRelationalTags';
-import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTemplateSelection } from '@/hooks/useTemplateSelection';
 import { useBulkTagOperations } from '@/hooks/useBulkTagOperations';
-import { compareTagAssignments } from '@/utils/tagAssignmentUtils';
+import { useMember, useUpdateMember } from '@/hooks/useMemberQueries';
+import { useMemberTagAssignments, type MemberTagAssignment } from '@/hooks/useMemberTagAssignments';
+import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
+import { useRelationalTags } from '@/hooks/useRelationalTags';
 import { type MembershipStatus, type UpdateMemberData } from '@/types/members';
-import { type MemberTagAssignment } from '@/hooks/useMemberTagAssignments';
+import { compareTagAssignments } from '@/utils/tagAssignmentUtils';
 import { format } from 'date-fns';
 import {
   AlertCircle,
@@ -31,16 +32,17 @@ import {
   Edit,
   FileText,
   Heart,
+  IdCard,
+  MailIcon,
   Phone,
   Printer,
-  User,
-  XCircle,
-  Tags,
   Save,
+  Tags,
+  User,
   X,
-  MailIcon
+  XCircle
 } from 'lucide-react';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -58,6 +60,7 @@ export function MemberDetail() {
   const [branchError, setBranchError] = useState<string>('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [isTemplateDrawerOpen, setIsTemplateDrawerOpen] = useState(false);
 
   // Fetch member data
   const { data: member, isLoading, error } = useMember(memberId!);
@@ -73,6 +76,7 @@ export function MemberDetail() {
   const { tags } = useRelationalTags();
   const { membershipFormSchema } = useMembershipFormManagement(currentOrganization?.id);
   const { bulkUpdateTags } = useBulkTagOperations();
+  const { selectTemplate } = useTemplateSelection();
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
@@ -714,15 +718,26 @@ export function MemberDetail() {
                 <Printer className="h-4 w-4" />
                 Print Details
               </Button>
+              <div className='flex items-center gap-[2px]'>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handlePrintCard}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 flex-1"
               >
                 <CreditCard className="h-4 w-4" />
                 Print Card
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTemplateDrawerOpen(true)}
+                className="flex items-center gap-2"
+                title="Open card templates"
+              >
+                <IdCard className="h-4 w-4" />
+              </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -1080,6 +1095,18 @@ export function MemberDetail() {
             gender: member.gender,
             profile_image_url: member.profile_image_url,
             date_joined: member.date_joined,
+          }}
+        />
+      )}
+
+      {/* Template Selection Drawer */}
+      {member && (
+        <TemplateSelectionDrawer
+          isOpen={isTemplateDrawerOpen}
+          onClose={() => setIsTemplateDrawerOpen(false)}
+          onTemplateSelect={(templateId) => {
+            selectTemplate(templateId);
+            setIsTemplateDrawerOpen(false);
           }}
         />
       )}

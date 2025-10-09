@@ -43,6 +43,40 @@ export function hslStringToHex(hslString: string): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+// Convert any color format (OKLCH, hex, etc.) to RGBA with specified alpha
+export function colorToRgba(color: string, alpha: number): string {
+  // Check if it's OKLCH format
+  if (color.startsWith('oklch(')) {
+    // Convert OKLCH to hex first using the utility function
+    const hexColor = oklchToHex(color);
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } else if (color.startsWith('#')) {
+    // Handle hex colors
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } else if (color.startsWith('rgb(')) {
+    // Handle rgb colors - extract values and convert to rgba
+    const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (match) {
+      return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+    }
+  } else if (color.startsWith('rgba(')) {
+    // Handle existing rgba colors - replace alpha
+    const match = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)/);
+    if (match) {
+      return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+    }
+  }
+  
+  // Fallback for other formats - append alpha as hex
+  return `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+}
+
 export function getContrastTextColor(hexColor: string): string {
   // Remove # if present
   const color = hexColor.replace('#', '');
