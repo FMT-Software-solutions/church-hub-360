@@ -2,7 +2,10 @@ import { DefaultMembershipForm, type DefaultMembershipFormData, type DefaultMemb
 import { TagRenderer } from '@/components/people/tags/TagRenderer';
 import { BranchSelector } from '@/components/shared/BranchSelector';
 import { CopyToClipboard } from '@/components/shared/CopyToClipboard';
+import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead';
 import { MembershipCardModal } from '@/components/shared/MembershipCardModal';
+import { MembershipDetailsPrintModal } from '@/components/shared/MembershipDetailsPrintModal';
+import { MemberStatusRenderer } from '@/components/shared/MemberStatusRenderer';
 import { TemplateSelectionDrawer } from '@/components/shared/TemplateSelectionDrawer';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,21 +16,20 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useTemplateSelection } from '@/hooks/useTemplateSelection';
 import { useBulkTagOperations } from '@/hooks/useBulkTagOperations';
 import { useMember, useUpdateMember } from '@/hooks/useMemberQueries';
 import { useMemberTagAssignments, type MemberTagAssignment } from '@/hooks/useMemberTagAssignments';
 import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
-import { type MembershipStatus, type UpdateMemberData } from '@/types/members';
+import { useTemplateSelection } from '@/hooks/useTemplateSelection';
+import { type UpdateMemberData } from '@/types/members';
+import { type MemberSearchResult } from '@/hooks/useMemberSearch';
 import { compareTagAssignments } from '@/utils/tagAssignmentUtils';
 import { format } from 'date-fns';
 import {
   AlertCircle,
   ArrowLeft,
   Calendar,
-  CheckCircle,
-  Clock,
   CreditCard,
   Edit,
   FileText,
@@ -39,8 +41,7 @@ import {
   Save,
   Tags,
   User,
-  X,
-  XCircle
+  X
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -60,6 +61,7 @@ export function MemberDetail() {
   const [branchError, setBranchError] = useState<string>('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isTemplateDrawerOpen, setIsTemplateDrawerOpen] = useState(false);
 
   // Fetch member data
@@ -239,86 +241,18 @@ export function MemberDetail() {
     setIsEditing(false);
   };
 
+  // Handle member search selection
+  const handleMemberSearchSelect = useCallback((members: MemberSearchResult[]) => {
+    if (members.length > 0) {
+      const selectedMember = members[0]; // Single select mode
+      // Navigate to the selected member's detail page
+      navigate(`/people/membership/${selectedMember.id}`);
+    }
+  }, [navigate]);
+
   // Handle print member details
   const handlePrintDetails = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow || !member) return;
-
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Member Details - ${member.first_name} ${member.last_name}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .section { margin-bottom: 20px; }
-            .section h3 { border-bottom: 2px solid #333; padding-bottom: 5px; }
-            .field { margin: 5px 0; }
-            .label { font-weight: bold; }
-            .status { padding: 2px 8px; border-radius: 4px; }
-            .active { background-color: #dcfce7; color: #166534; }
-            .inactive { background-color: #fef2f2; color: #dc2626; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Member Details</h1>
-            <h2>${member.first_name} ${member.last_name}</h2>
-            <p>Member ID: ${member.membership_id}</p>
-          </div>
-          
-          <div class="section">
-            <h3>Personal Information</h3>
-            <div class="field"><span class="label">Full Name:</span> ${member.first_name} ${member.middle_name || ''} ${member.last_name}</div>
-            <div class="field"><span class="label">Date of Birth:</span> ${member.date_of_birth ? format(new Date(member.date_of_birth), 'PPP') : 'Not provided'}</div>
-            <div class="field"><span class="label">Gender:</span> ${member.gender || 'Not specified'}</div>
-            <div class="field"><span class="label">Marital Status:</span> ${member.marital_status || 'Not specified'}</div>
-            <div class="field"><span class="label">Phone:</span> ${member.phone || 'Not provided'}</div>
-            <div class="field"><span class="label">Email:</span> ${member.email || 'Not provided'}</div>
-          </div>
-
-          <div class="section">
-            <h3>Address</h3>
-            <div class="field">${member.address_line_1 || ''}</div>
-            ${member.address_line_2 ? `<div class="field">${member.address_line_2}</div>` : ''}
-            <div class="field">${member.city || ''}, ${member.state || ''} ${member.postal_code || ''}</div>
-            <div class="field">${member.country || ''}</div>
-          </div>
-
-          <div class="section">
-            <h3>Membership Information</h3>
-            <div class="field"><span class="label">Status:</span> <span class="status ${member.membership_status === 'active' ? 'active' : 'inactive'}">${member.membership_status}</span></div>
-            <div class="field"><span class="label">Type:</span> ${member.membership_type || 'Not specified'}</div>
-            <div class="field"><span class="label">Join Date:</span> ${member.date_joined ? format(new Date(member.date_joined), 'PPP') : 'Not provided'}</div>
-          </div>
-
-          ${member.emergency_contact_name ? `
-          <div class="section">
-            <h3>Emergency Contact</h3>
-            <div class="field"><span class="label">Name:</span> ${member.emergency_contact_name}</div>
-            <div class="field"><span class="label">Relationship:</span> ${member.emergency_contact_relationship || 'Not specified'}</div>
-            <div class="field"><span class="label">Phone:</span> ${member.emergency_contact_phone || 'Not provided'}</div>
-          </div>
-          ` : ''}
-
-          ${member.notes ? `
-          <div class="section">
-            <h3>Notes</h3>
-            <div class="field">${member.notes}</div>
-          </div>
-          ` : ''}
-
-          <div class="section">
-            <p><em>Printed on ${format(new Date(), 'PPP')} at ${format(new Date(), 'p')}</em></p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.print();
+    setIsPrintModalOpen(true);
   };
 
   // Handle print membership card
@@ -326,19 +260,7 @@ export function MemberDetail() {
     setIsCardModalOpen(true);
   };
 
-  // Get status icon and color
-  const getStatusDisplay = (status: MembershipStatus) => {
-    switch (status) {
-      case 'active':
-        return { icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', text: 'Active' };
-      case 'inactive':
-        return { icon: XCircle, color: 'text-red-600', bg: 'bg-red-100', text: 'Inactive' };
-      case 'pending':
-        return { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100', text: 'Pending' };
-      default:
-        return { icon: AlertCircle, color: 'text-gray-600', bg: 'bg-gray-100', text: 'Unknown' };
-    }
-  };
+  
 
   // Loading state
   if (isLoading) {
@@ -387,16 +309,29 @@ export function MemberDetail() {
   if (error || !member) {
     return (
       <div className="container mx-auto py-8">
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/people/membership')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Members
-          </Button>
+        <div className="mb-6">
+          <div className="flex items-center justify-between gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/people/membership')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Members
+            </Button>
+            
+            {/* Member Search */}
+            <div className="w-full max-w-md">
+              <MemberSearchTypeahead
+                organizationId={currentOrganization?.id || ''}
+                placeholder="Search for another member..."
+                multiSelect={false}
+                onChange={handleMemberSearchSelect}
+                className="w-full"
+              />
+            </div>
+          </div>
         </div>
         
         <Alert variant="destructive">
@@ -409,8 +344,7 @@ export function MemberDetail() {
     );
   }
 
-  const statusDisplay = getStatusDisplay(member.membership_status);
-  const StatusIcon = statusDisplay.icon;
+
 
   // Edit mode
   if (isEditing) {
@@ -564,18 +498,7 @@ export function MemberDetail() {
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge
-                        variant="secondary"
-                        className="flex items-center gap-1"
-                        style={{
-                          backgroundColor: statusDisplay.color + '20',
-                          color: statusDisplay.color,
-                          borderColor: statusDisplay.color + '40',
-                        }}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {statusDisplay.text}
-                      </Badge>
+                      <MemberStatusRenderer status={member.membership_status} />
                     </div>
                   </div>
                   
@@ -598,15 +521,28 @@ export function MemberDetail() {
     <div className="container mx-auto py-8 max-w-6xl">
       {/* Back Button */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/people/membership')}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Members
-        </Button>
+        <div className="flex items-center justify-between gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/people/membership')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Members
+          </Button>
+          
+          {/* Member Search */}
+          <div className="w-full max-w-md">
+            <MemberSearchTypeahead
+              organizationId={currentOrganization?.id || ''}
+              placeholder="Search for a member..."
+              multiSelect={false}
+              onChange={handleMemberSearchSelect}
+              className="w-full"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Main Header Card */}
@@ -626,7 +562,7 @@ export function MemberDetail() {
                    {member.first_name} {member.last_name}
                  </h1>
                  <div className='flex justify-between items-center'>
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2">
                     <p className="text-muted-foreground">
                       Member ID: {member.membership_id}
                     </p>
@@ -636,10 +572,7 @@ export function MemberDetail() {
                       size="sm"
                     />
                   </div>
-                  <Badge variant="secondary" className={`${statusDisplay.bg} ${statusDisplay.color} mb-4`}>
-                    <StatusIcon className="h-3 w-3 mr-1" />
-                    {statusDisplay.text}
-                  </Badge>
+                  <MemberStatusRenderer status={member.membership_status} />
                 </div>
               </div>
             </div>
@@ -956,10 +889,7 @@ export function MemberDetail() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <Badge variant="secondary" className={`${statusDisplay.bg} ${statusDisplay.color}`}>
-                     <StatusIcon className="h-3 w-3 mr-1" />
-                     {statusDisplay.text}
-                   </Badge>
+                  <MemberStatusRenderer status={member.membership_status} />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Date Joined</label>
@@ -1096,6 +1026,17 @@ export function MemberDetail() {
             profile_image_url: member.profile_image_url,
             date_joined: member.date_joined,
           }}
+        />
+      )}
+
+      {/* Membership Details Print Modal */}
+      {member && (
+        <MembershipDetailsPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          member={member}
+          organization={currentOrganization!}
+          assignments={assignments}
         />
       )}
 

@@ -46,7 +46,7 @@ export function MinimalCleanTemplate({ member, organization }: CardTemplateProps
             className="rounded-full"
           />
           <div>
-            <h3 className="text-md font-semibold text-gray-900">
+            <h3 className="font-semibold max-w-[320px] leading-5">
               {organization.name || 'ChurchHub360'}
             </h3>
             <p className="text-xs text-gray-500 font-medium tracking-wide">

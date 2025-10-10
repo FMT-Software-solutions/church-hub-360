@@ -65,10 +65,10 @@ export function ModernGradientTemplate({ member, organization }: CardTemplatePro
 
           {/* Organization Name and Card Type */}
           <div>
-            <h3 className={cn('text-md font-bold leading-tight mb-1')} style={{ color: primaryTextColor }}>
+            <h3 className={cn('font-semibold max-w-[320px] leading-5')} style={{ color: primaryTextColor }}>
               {organization.name || 'ChurchHub 360'}
             </h3>
-            <p className="text-md opacity-90 font-semibold tracking-widest">
+            <p className="text-md opacity-90 font-semibold tracking-wide">
               MEMBERSHIP CARD
             </p>
           </div>

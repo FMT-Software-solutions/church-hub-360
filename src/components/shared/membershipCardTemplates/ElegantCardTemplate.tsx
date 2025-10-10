@@ -51,7 +51,7 @@ export function ElegantCardTemplate({ member, organization }: CardTemplateProps)
               className="bg-transparent"
             />
             <div className="border-l-2 pl-2 text-center" style={{ borderColor: accentColor }}>
-              <h3 className="text-sm font-serif font-bold text-slate-800 leading-tight">
+              <h3 className="text-sm font-serif font-semibold max-w-[320px] leading-5">
                 {organization.name || 'ChurchHub360'}
               </h3>
               <p className="text-xs font-medium tracking-[0.2em] text-slate-600 mt-1">

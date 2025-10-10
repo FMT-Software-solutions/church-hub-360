@@ -44,9 +44,9 @@ export function ClassicProfessionalTemplate({ member, organization }: CardTempla
             className="rounded-full border-2 border-white"
           />
           <div>
-            <h3 className="text-lg font-bold">
+            <p className="font-semibold max-w-[320px] leading-5">
               {organization.name || 'ChurchHub360'}
-            </h3>
+            </p>
             <p className="text-xs font-medium tracking-wider opacity-90">
               MEMBERSHIP CARD
             </p>

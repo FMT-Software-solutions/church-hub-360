@@ -25,7 +25,6 @@ export function CorporateBrandedTemplate({ member, organization }: CardTemplateP
   const primaryColor = colorScheme?.primary || '#1e40af';
   const primaryTextColor = colorScheme?.primaryForeground || '#ffffff';
   const accentColor = colorScheme?.accent || '#06b6d4';
-  const accentTextColor = colorScheme?.accentForeground || '#ffffff';
 
   return (
     <div className="w-[400px] h-[250px] bg-white rounded-lg shadow-xl border relative overflow-hidden"
@@ -33,7 +32,7 @@ export function CorporateBrandedTemplate({ member, organization }: CardTemplateP
       
       {/* Brand Header with Logo Prominence */}
       <div 
-        className="h-16 flex items-center justify-center relative overflow-hidden"
+        className="h-18 flex items-center justify-center relative overflow-hidden"
         style={{ 
           background: `linear-gradient(135deg, ${colorToRgba(primaryColor, 1)} 0%, ${colorToRgba(accentColor, 1)} 100%)`,
           color: primaryTextColor
@@ -47,7 +46,7 @@ export function CorporateBrandedTemplate({ member, organization }: CardTemplateP
             className="rounded-full border-3 border-white shadow-lg"
           />
           <div className="text-center">
-            <h3 className="text-md font-bold leading-tight">
+            <h3 className="font-semibold max-w-[320px] leading-5">
               {organization.name || 'ChurchHub360'}
             </h3>
             <p className="text-sm font-semibold tracking-widest opacity-90">
@@ -90,7 +89,7 @@ export function CorporateBrandedTemplate({ member, organization }: CardTemplateP
               </h4>
               <div 
                 className="inline-block px-3 py-[2px] rounded-full text-xs font-bold mt-1"
-                style={{ backgroundColor: accentColor, color: accentTextColor }}
+                style={{ backgroundColor: primaryColor, color: primaryTextColor }}
               >
                 ID: {member.membership_id}
               </div>

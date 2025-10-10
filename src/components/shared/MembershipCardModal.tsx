@@ -39,7 +39,11 @@ export function MembershipCardModal({
 }: MembershipCardModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const { currentOrganization } = useOrganization();
-  const { selectedTemplateId, selectTemplate, isLoading } = useTemplateSelection();
+  const {
+    selectedTemplateId,
+    selectTemplate,
+    isLoading,
+  } = useTemplateSelection();
   const [isTemplateDrawerOpen, setIsTemplateDrawerOpen] = useState(false);
   const [forceRender, setForceRender] = useState(0);
 
@@ -47,25 +51,13 @@ export function MembershipCardModal({
   useEffect(() => {
     if (isOpen && !isLoading) {
       // Force a re-render to ensure the latest template is displayed
-      setForceRender(prev => prev + 1);
+      setForceRender((prev) => prev + 1);
     }
   }, [isOpen, isLoading, selectedTemplateId]);
 
   const handlePrint = useReactToPrint({
     contentRef: cardRef,
     documentTitle: `Membership Card - ${member.first_name} ${member.last_name}`,
-    pageStyle: `
-      @page {
-        size: auto;
-        margin: 20mm;
-      }
-      @media print {
-        body {
-          -webkit-print-color-adjust: exact;
-          color-adjust: exact;
-        }
-      }
-    `,
   });
 
   const handleSaveAsImage = async () => {
@@ -95,7 +87,7 @@ export function MembershipCardModal({
       });
     } catch (error) {
       console.error('Save as image failed:', error);
-      
+
       // Fallback to JPEG if PNG fails
       try {
         const dataUrl = await htmlToImage.toJpeg(cardRef.current, {
@@ -169,7 +161,7 @@ export function MembershipCardModal({
 
           {/* Card Preview */}
           <div className="flex justify-center" key={forceRender}>
-            <div ref={cardRef}>
+            <div ref={cardRef} className="printable-content">
               {TemplateComponent ? (
                 <TemplateComponent
                   member={member}
