@@ -7,7 +7,7 @@ import { BranchSelector } from '@/components/shared/BranchSelector'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Save, User, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { DefaultMembershipForm, type DefaultMembershipFormMethods, type DefaultMembershipFormData } from '../configurations/DefaultMembershipForm'
+import { MemberFormWrapper, type MemberFormWrapperMethods } from '@/components/people/forms/MemberFormWrapper'
 import { Button } from '@/components/ui/button'
 import type { Member } from '@/types'
 import { format } from 'date-fns'
@@ -29,15 +29,12 @@ interface EditMemberViewProps {
 }
 
 export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: EditMemberViewProps) => {
-  const formRef = useRef<DefaultMembershipFormMethods>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // State for branch and tag management
-  const [branchId, setBranchId] = useState<string>('');
-  const [tagValues, setTagValues] = useState<Record<string, any>>({});
+  const formRef = useRef<MemberFormWrapperMethods>(null);
+  const [tagValues, setTagValues] = useState<Record<string, string[]>>({});
   const [tagErrors, setTagErrors] = useState<Record<string, string>>({});
+  const [branchId, setBranchId] = useState<string | null>(member?.branch_id || null);
   const [branchError, setBranchError] = useState<string>('');
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Hooks
   const updateMemberMutation = useUpdateMember();
@@ -52,15 +49,6 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
   // Initialize values when component mounts or member changes
   useEffect(() => {
     setBranchId(member.branch_id || '');
-    
-    // Initialize custom field values
-    const initialCustomFields: Record<string, any> = {};
-    if (member.form_data) {
-      Object.entries(member.form_data).forEach(([fieldId, value]) => {
-        initialCustomFields[fieldId] = value;
-      });
-    }
-    setCustomFieldValues(initialCustomFields);
   }, [member.id]);
 
   // Initialize tag values when assignments change
@@ -83,10 +71,12 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
     setBranchError('');
   }, []);
 
-  const handleTagChange = useCallback((tagId: string, value: any) => {
+  const handleTagValueChange = useCallback((tagId: string, value: string | string[]) => {
+    // Convert single string to array for consistency
+    const arrayValue = Array.isArray(value) ? value : [value];
     setTagValues(prev => ({
       ...prev,
-      [tagId]: value
+      [tagId]: arrayValue
     }));
     setTagErrors(prev => ({
       ...prev,
@@ -97,74 +87,68 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
   const handleUpdate = async () => {
     if (!member || !formRef.current) return;
     
+    // Collect all validation errors before returning
+    let hasValidationErrors = false;
+    const newTagErrors: Record<string, string> = {};
+
+    // Validate branch selection if required
+    if (!branchId) {
+      setBranchError('Branch selection is required');
+      hasValidationErrors = true;
+    } else {
+      setBranchError('');
+    }
+
+    // Validate required tags
+    if (tags && membershipFormSchema) {
+      tags.forEach(tag => {
+        if (tag.is_required && (!tagValues[tag.id] || tagValues[tag.id].length === 0)) {
+          newTagErrors[tag.id] = `${tag.name} is required`;
+          hasValidationErrors = true;
+        }
+      });
+    }
+
+    // Set tag errors regardless of other validation results
+    setTagErrors(newTagErrors);
+
+    // Validate form fields using wrapper
+    const validationResult = formRef.current.validateForm();
+    if (!validationResult.isValid) {
+      hasValidationErrors = true;
+    }
+
+    // If there are any validation errors, show message and return
+    if (hasValidationErrors) {
+      toast.error('Please fix all validation errors in the form.');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      // Get form data and validate
-      const { isValid, errors } = formRef.current.validateForm();
-      if (!isValid) {
-        toast.error('Please fix the form errors before submitting');
-        console.error('Form validation errors:', errors);
+      // Use wrapper's comprehensive processing method
+      const processingResult = await formRef.current.processFormForSubmission('update');
+      
+      if (!processingResult.isValid) {
+        if (processingResult.errors?.defaultFields) {
+          toast.error('Please fix all validation errors in the form.');
+        }
+        if (processingResult.errors?.customFields) {
+          toast.error('Please fix all validation errors in custom fields.');
+        }
         return;
       }
 
-      // Validate branch selection if required
-      if (!branchId) {
-        setBranchError('Branch selection is required');
-      }
-
-      // Validate required tags
-      let hasTagErrors = false;
-      const newTagErrors: Record<string, string> = {};
-      
-      if (tags && membershipFormSchema) {
-        tags.forEach(tag => {
-          if (tag.is_required && (!tagValues[tag.id] || tagValues[tag.id] === '')) {
-            newTagErrors[tag.id] = `${tag.name} is required`;
-            hasTagErrors = true;
-          }
-        });
-      }
-
-      if (hasTagErrors) {
-        setTagErrors(newTagErrors);
-      }
-
-      if(!isValid || !branchId || hasTagErrors) {
-        toast.error('Please fill in all required fields');
+      if (!processingResult.updateData) {
+        toast.error('Failed to process form data');
         return;
       }
 
-      const formData: DefaultMembershipFormData = formRef.current.getFormData();
-      
-      // Convert DefaultMembershipFormData to UpdateMemberData
+      // Add member ID and branch info to the processed data
       const updateData: UpdateMemberData = {
+        ...processingResult.updateData,
         id: member.id,
-        first_name: formData.first_name,
-        middle_name: formData.middle_name,
-        last_name: formData.last_name,
-        date_of_birth: formData.date_of_birth ? formData.date_of_birth.toISOString().split('T')[0] : undefined,
-        gender: formData.gender,
-        marital_status: formData.marital_status,
-        phone: formData.phone,
-        email: formData.email,
-        address_line_1: formData.address_line_1,
-        address_line_2: formData.address_line_2,
-        city: formData.city,
-        state: formData.state,
-        postal_code: formData.postal_code,
-        country: formData.country,
-        membership_id: formData.membership_id,
-        membership_status: formData.membership_status,
-        membership_type: formData.membership_type,
-        date_joined: formData.date_joined ? formData.date_joined.toISOString().split('T')[0] : undefined,
-        baptism_date: formData.baptism_date ? formData.baptism_date.toISOString().split('T')[0] : undefined,
-        notes: formData.notes,
-        profile_image_url: formData.profile_image_url,
-        emergency_contact_name: formData.emergency_contact_name,
-        emergency_contact_phone: formData.emergency_contact_phone,
-        emergency_contact_relationship: formData.emergency_contact_relationship,
-        branch_id: branchId || undefined,
-        form_data: customFieldValues
+        branch_id: branchId as string,
       };
 
       // Update member data
@@ -183,7 +167,6 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
         });
         
         const tagComparison = compareTagAssignments(currentAssignments, tagValues);
-        console.log('tagComparison', tagComparison);
         
         if (tagComparison.hasChanges) {
           await bulkUpdateTags({
@@ -251,33 +234,36 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
           <div className="lg:col-span-2">
             <Card>
               <CardContent>
-                <DefaultMembershipForm
+                <MemberFormWrapper
                   ref={formRef}
                   initialData={{
-                    first_name: member.first_name || '',
-                    middle_name: member.middle_name || '',
-                    last_name: member.last_name || '',
-                    date_of_birth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
-                    gender: member.gender || '',
-                    marital_status: member.marital_status || '',
-                    phone: member.phone || '',
-                    email: member.email || '',
-                    address_line_1: member.address_line_1 || '',
-                    address_line_2: member.address_line_2 || '',
-                    city: member.city || '',
-                    state: member.state || '',
-                    postal_code: member.postal_code || '',
-                    country: member.country || '',
-                    membership_id: member.membership_id || '',
-                    membership_status: member.membership_status || 'active',
-                    membership_type: member.membership_type || 'Regular',
-                    date_joined: member.date_joined ? new Date(member.date_joined) : undefined,
-                    baptism_date: member.baptism_date ? new Date(member.baptism_date) : undefined,
-                    notes: member.notes || '',
-                    profile_image_url: member.profile_image_url || '',
-                    emergency_contact_name: member.emergency_contact_name || '',
-                    emergency_contact_phone: member.emergency_contact_phone || '',
-                    emergency_contact_relationship: member.emergency_contact_relationship || '',
+                    defaultFields: {
+                      first_name: member.first_name || '',
+                      middle_name: member.middle_name || '',
+                      last_name: member.last_name || '',
+                      date_of_birth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
+                      gender: member.gender || '',
+                      marital_status: member.marital_status || '',
+                      phone: member.phone || '',
+                      email: member.email || '',
+                      address_line_1: member.address_line_1 || '',
+                      address_line_2: member.address_line_2 || '',
+                      city: member.city || '',
+                      state: member.state || '',
+                      postal_code: member.postal_code || '',
+                      country: member.country || '',
+                      membership_id: member.membership_id || '',
+                      membership_status: member.membership_status || 'active',
+                      membership_type: member.membership_type || 'Regular',
+                      date_joined: member.date_joined ? new Date(member.date_joined) : undefined,
+                      baptism_date: member.baptism_date ? new Date(member.baptism_date) : undefined,
+                      notes: member.notes || '',
+                      profile_image_url: member.profile_image_url || '',
+                      emergency_contact_name: member.emergency_contact_name || '',
+                      emergency_contact_phone: member.emergency_contact_phone || '',
+                      emergency_contact_relationship: member.emergency_contact_relationship || '',
+                    },
+                    customFields: member.form_data || {}
                   }}
                 />
               </CardContent>
@@ -316,7 +302,7 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
                   <Label htmlFor="branch-selector">Branch</Label>
                   <BranchSelector
                     variant="single"
-                    value={branchId}
+                    value={branchId || undefined}
                     onValueChange={handleBranchChange}
                     allowClear={true}
                     placeholder="Select a branch..."
@@ -336,7 +322,7 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
                           tag={tag}
                           tagKey={tag.id}
                           value={tagValues[tag.id]}
-                          onChange={(value) => handleTagChange(tag.id, value)}
+                          onChange={(value) => handleTagValueChange(tag.id, value)}
                           error={tagErrors[tag.id]}
                         />
                       ))}

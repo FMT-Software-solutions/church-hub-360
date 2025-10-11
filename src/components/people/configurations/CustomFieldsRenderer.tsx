@@ -35,8 +35,6 @@ interface CustomFieldsRendererProps {
   className?: string;
 }
 
-
-
 export function CustomFieldsRenderer({
   schema,
   isPreviewMode = false,
@@ -337,7 +335,7 @@ export function CustomFieldsRenderer({
                     <div>
                       {renderFormField(component, fieldId)}
                       {errors[fieldId] && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p className="text-sm text-red-500 mt-1">
                           {errors[fieldId]}
                         </p>
                       )}

@@ -1,12 +1,9 @@
-import type { DefaultMembershipFormData } from '@/components/people/configurations/DefaultMembershipForm';
-import { DefaultMembershipForm, type DefaultMembershipFormMethods } from '@/components/people/configurations/DefaultMembershipForm';
-import { CustomFieldsRenderer } from '@/components/people/configurations/CustomFieldsRenderer';
+import { MemberFormWrapper, type MemberFormWrapperMethods, type MemberFormData } from '@/components/people/forms/MemberFormWrapper';
 import { TagRenderer } from '@/components/people/tags/TagRenderer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useCreateMember } from '@/hooks/useMemberQueries';
-import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
 import { useMemberTagAssignments } from '@/hooks/useMemberTagAssignments';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
@@ -21,10 +18,9 @@ import { Label } from '@/components/ui/label';
 export function AddMember() {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
-  const formRef = useRef<DefaultMembershipFormMethods>(null);
+  const formRef = useRef<MemberFormWrapperMethods>(null);
   
-  const [formData, setFormData] = useState<DefaultMembershipFormData | null>(null);
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<MemberFormData | null>(null);
   const [tagValues, setTagValues] = useState<Record<string, any>>({});
   const [tagErrors, setTagErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,7 +28,6 @@ export function AddMember() {
   const [branchError, setBranchError] = useState<string>('');
   
   const createMemberMutation = useCreateMember();
-  const { membershipFormSchema } = useMembershipFormManagement(currentOrganization?.id);
   const { tags } = useRelationalTags();
   const {  bulkCreateAssignments } = useMemberTagAssignments();
   const { isUploading } = useCloudinaryUpload(); // Check if any upload is in progress
@@ -43,51 +38,33 @@ export function AddMember() {
     setBranchError('');
   }, [branchId]);
 
-  
-
-  const handleFormDataChange = useCallback((data: DefaultMembershipFormData) => {
-    console.log("trigger onChange");
+  const handleFormDataChange = useCallback((data: MemberFormData) => {
     setFormData(data);
   }, []);
 
-  const handleCustomFieldChange = useCallback((values: Record<string, any>) => {
-    setCustomFieldValues(values);
-  }, []);
-
-
-
   const handleSave = async () => {
-    if (!formData || !organizationId) {
-      toast.error('Please fill in the required fields');
-      return;
-    }
+    if (!formRef.current) return;
 
-    // Check if upload is in progress
-    if (isUploading) {
-      toast.error('Please wait for the profile photo to finish uploading');
-      return;
-    }
-
-    // Collect all validation errors before any early returns
+    // Collect all validation errors before returning
     let hasValidationErrors = false;
+    const newTagErrors: Record<string, string> = {};
 
     // Validate branch selection
-    if (!branchId || (typeof branchId === 'string' && branchId.trim() === '')) {
+    if (!branchId) {
       setBranchError('Please select a branch');
       hasValidationErrors = true;
     } else {
       setBranchError('');
     }
 
-    // Validate the form
-    const validationResult = formRef.current?.validateForm();
-    const isFormValid = validationResult && validationResult.isValid;
-    if (!isFormValid) {
-      hasValidationErrors = true;
+    // Get form data from wrapper
+    const formData = formRef.current.getFormData();
+    if (!formData) {
+      toast.error('Form data is not available');
+      return;
     }
 
     // Validate required tags
-    const newTagErrors: Record<string, string> = {};
     if (tags && tags.length > 0) {
       for (const tag of tags) {
         if (tag.is_required) {
@@ -111,6 +88,12 @@ export function AddMember() {
     // Set tag errors regardless of other validation results
     setTagErrors(newTagErrors);
 
+    // Validate form fields using wrapper
+    const validationResult = formRef.current.validateForm();
+    if (!validationResult.isValid) {
+      hasValidationErrors = true;
+    }
+
     // If there are any validation errors, show message and return
     if (hasValidationErrors) {
       toast.error('Please fix all validation errors in the form.');
@@ -120,37 +103,30 @@ export function AddMember() {
     setIsSubmitting(true);
     
     try {
-      // Convert DefaultMembershipFormData to CreateMemberData
+      // Use wrapper's comprehensive processing method
+      const processingResult = await formRef.current.processFormForSubmission('create');
+      console.log(processingResult)
+      
+      if (!processingResult.isValid) {
+        if (processingResult.errors?.defaultFields) {
+          toast.error('Please fix all validation errors in the form.');
+        }
+        if (processingResult.errors?.customFields) {
+          toast.error('Please fix all validation errors in custom fields.');
+        }
+        return;
+      }
+
+      if (!processingResult.createData) {
+        toast.error('Failed to process form data');
+        return;
+      }
+
+      // Add organization and branch info to the processed data
       const createData: CreateMemberData = {
-        organization_id: organizationId,
+        ...processingResult.createData,
+        organization_id: organizationId!,
         branch_id: branchId as string,
-        first_name: formData.first_name,
-        middle_name: formData.middle_name || undefined,
-        last_name: formData.last_name,
-        date_of_birth: formData.date_of_birth ? formData.date_of_birth.toISOString().split('T')[0] : undefined,
-        gender: formData.gender || undefined,
-        marital_status: formData.marital_status || undefined,
-        phone: formData.phone || undefined,
-        email: formData.email || undefined,
-        address_line_1: formData.address_line_1 || undefined,
-        address_line_2: formData.address_line_2 || undefined,
-        city: formData.city || undefined,
-        state: formData.state || undefined,
-        postal_code: formData.postal_code || undefined,
-        country: formData.country || undefined,
-        membership_id: formData.membership_id || undefined,
-        membership_status: formData.membership_status,
-        membership_type: formData.membership_type,
-        date_joined: formData.date_joined ? formData.date_joined.toISOString().split('T')[0] : undefined,
-        baptism_date: formData.baptism_date ? formData.baptism_date.toISOString().split('T')[0] : undefined,
-        emergency_contact_name: formData.emergency_contact_name || undefined,
-        emergency_contact_phone: formData.emergency_contact_phone || undefined,
-        emergency_contact_relationship: formData.emergency_contact_relationship || undefined,
-        notes: formData.notes || undefined,
-        profile_image_url: formData.profile_image_url || undefined,
-        form_data: Object.keys(customFieldValues).length > 0 
-          ? customFieldValues 
-          : undefined,
       };
 
       const newMember = await createMemberMutation.mutateAsync(createData);
@@ -193,8 +169,10 @@ export function AddMember() {
   const handleReset = () => {
     formRef.current?.resetForm();
     setFormData(null);
-    setCustomFieldValues({});
     setTagValues({});
+    setTagErrors({});
+    setBranchId('');
+    setBranchError('');
   };
 
   return (
@@ -221,29 +199,29 @@ export function AddMember() {
         
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            onClick={handleReset}
-            disabled={isSubmitting || isUploading}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={isSubmitting || !formData || isUploading}
-          >
-            {isUploading ? (
-              <>
-                <Upload className="h-4 w-4 mr-2 animate-pulse" />
-                Uploading Photo...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Saving...' : 'Save Member'}
-              </>
-            )}
-          </Button>
+             variant="outline"
+             onClick={handleReset}
+             disabled={isSubmitting || isUploading}
+           >
+             <X className="h-4 w-4 mr-2" />
+             Reset
+           </Button>
+           <Button
+             onClick={handleSave}
+             disabled={isSubmitting || !formData || isUploading}
+           >
+             {isUploading ? (
+               <>
+                 <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                 Uploading...
+               </>
+             ) : (
+               <>
+                 <Save className="h-4 w-4 mr-2" />
+                 {isSubmitting ? 'Saving...' : 'Save Member'}
+               </>
+             )}
+           </Button>
         </div>
       </div>
 
@@ -254,39 +232,29 @@ export function AddMember() {
           <Card>
             <CardContent>
              
-              <DefaultMembershipForm
+              <MemberFormWrapper
                 ref={formRef}
                 onFormDataChange={handleFormDataChange}
               />
 
-              {/* Custom Fields from Membership Form Schema */}
-              {membershipFormSchema && (
-                <CustomFieldsRenderer
-                  schema={membershipFormSchema}
-                  isPreviewMode={false}
-                  values={customFieldValues}
-                  onValuesChange={handleCustomFieldChange}
-                />
-              )}
-
               <div className='flex justify-end pt-4'>
-                <Button
-                  onClick={handleSave}
-                  disabled={isSubmitting || !formData || isUploading}
-                >
-                  {isUploading ? (
-                    <>
-                      <Upload className="h-4 w-4 mr-2 animate-pulse" />
-                      Uploading Photo...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSubmitting ? 'Saving...' : 'Save Member'}
-                    </>
-                  )}
-                </Button>
-              </div>
+                 <Button
+                   onClick={handleSave}
+                   disabled={isSubmitting || !formData || isUploading}
+                 >
+                   {isUploading ? (
+                     <>
+                       <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                       Uploading...
+                     </>
+                   ) : (
+                     <>
+                       <Save className="h-4 w-4 mr-2" />
+                       {isSubmitting ? 'Saving...' : 'Save Member'}
+                     </>
+                   )}
+                 </Button>
+               </div>
             </CardContent>
           </Card>
         </div>
