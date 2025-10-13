@@ -1,10 +1,21 @@
 import { Input } from '@/components/ui/input';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Calendar,
   Check,
   Edit2,
   Loader2,
   Plus,
+  Printer,
   Settings,
   Trash2,
   UserPlus,
@@ -14,6 +25,7 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useOrganization } from '../../../contexts/OrganizationContext';
 import type { Committee } from '../../../hooks/useCommittees';
 import {
   useAssignMemberToCommittee,
@@ -23,8 +35,10 @@ import {
   useRemoveMemberFromCommittee,
   useUpdateMemberPosition,
 } from '../../../hooks/useCommittees';
+import { useBranches } from '../../../hooks/useBranchQueries';
 import type { MemberSearchResult } from '../../../hooks/useMemberSearch';
 import { MemberSearchTypeahead } from '../../shared/MemberSearchTypeahead';
+import { CommitteeMembersPrintModal } from '../../shared/CommitteeMembersPrintModal';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import {
@@ -53,6 +67,8 @@ export function CommitteeDetailsPanel({
   isLoading = false,
 }: CommitteeDetailsPanelProps) {
   const { user } = useAuth();
+  const { currentOrganization } = useOrganization();
+  const { data: branches } = useBranches(currentOrganization?.id || '');
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<MemberSearchResult[]>(
     []
@@ -60,6 +76,8 @@ export function CommitteeDetailsPanel({
   const [memberPosition, setMemberPosition] = useState<string>('');
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
   const [editPositionValue, setEditPositionValue] = useState<string>('');
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
 
   const {
     data: committeeMembers,
@@ -184,14 +202,23 @@ export function CommitteeDetailsPanel({
     setEditPositionValue('');
   };
 
-  const handleCloseCommittee = async () => {
+  const handleCloseCommittee = () => {
+    setIsCloseConfirmOpen(true);
+  };
+
+  const handleConfirmCloseCommittee = async () => {
     if (!committee || !user?.id) return;
 
     try {
       await closeCommitteeMutation.mutateAsync(committee.id);
+      setIsCloseConfirmOpen(false);
     } catch (error) {
       console.error('Failed to close committee:', error);
     }
+  };
+
+  const handlePrintMembers = () => {
+    setIsPrintModalOpen(true);
   };
 
   const getCommitteeStatusBadge = () => {
@@ -229,28 +256,41 @@ export function CommitteeDetailsPanel({
               <CardDescription>{committee.description}</CardDescription>
             )}
           </div>
-          {/* Close Committee Button - Only show for temporal committees that are not closed */}
-          {committee.type === 'temporal' && !committee.is_closed && (
+          <div className="flex items-center gap-2">
+            {/* Print Members Button */}
             <Button
               type="button"
-              variant="destructive"
+              variant="outline"
               size="sm"
-              onClick={handleCloseCommittee}
-              disabled={closeCommitteeMutation.isPending}
+              onClick={handlePrintMembers}
+              className="flex items-center gap-2"
             >
-              {closeCommitteeMutation.isPending ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  Closing...
-                </>
-              ) : (
-                <>
-                  <X className="h-3 w-3 mr-1" />
-                  Close
-                </>
-              )}
+              <Printer className="h-3 w-3" />
+              Print
             </Button>
-          )}
+            {/* Close Committee Button - Only show for temporal committees that are not closed */}
+            {committee.type === 'temporal' && !committee.is_closed && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleCloseCommittee}
+                disabled={closeCommitteeMutation.isPending}
+              >
+                {closeCommitteeMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Closing...
+                  </>
+                ) : (
+                  <>
+                    <X className="h-3 w-3 mr-1" />
+                    Close
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -497,6 +537,45 @@ export function CommitteeDetailsPanel({
           </div>
         </div>
       </CardContent>
+
+      {/* Print Modal */}
+      {committee && (
+        <CommitteeMembersPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          committee={committee}
+          members={committeeMembers || []}
+          organizationName={currentOrganization?.name}
+          branchName={
+            branches?.find((branch) => branch.id === committee.branch_id)?.name
+          }
+        />
+      )}
+
+      {/* Close Committee Confirmation Dialog */}
+      <AlertDialog
+        open={isCloseConfirmOpen}
+        onOpenChange={setIsCloseConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close Committee</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to close this committee? It will be marked
+              as closed and you can no longer update it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCloseCommittee}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Close Committee
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

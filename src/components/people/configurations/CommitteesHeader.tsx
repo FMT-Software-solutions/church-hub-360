@@ -23,15 +23,17 @@ export function CommitteesHeader({ onAddCommittee, isLoading }: ConfigurationsHe
         </div>
    </div>
 
-    <Button
-      className="flex items-center gap-2"
-      size="sm"
-      onClick={onAddCommittee}
-      disabled={isLoading}
-    >
-      <Plus className="h-4 w-4" />
-      Add Committee
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        className="flex items-center gap-2"
+        size="sm"
+        onClick={onAddCommittee}
+        disabled={isLoading}
+      >
+        <Plus className="h-4 w-4" />
+        Add Committee
+      </Button>
+    </div>
   </div>
     
   );
