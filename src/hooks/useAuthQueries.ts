@@ -8,8 +8,6 @@ export const authKeys = {
   session: () => [...authKeys.all, 'session'] as const,
   user: (userId?: string) => [...authKeys.all, 'user', userId] as const,
   userProfile: (userId: string) => [...authKeys.all, 'userProfile', userId] as const,
-  userStatus: (userEmail?: string) => [...authKeys.all, 'userStatus', userEmail] as const,
-  firstTimeLogin: (userId: string) => [...authKeys.all, 'firstTimeLogin', userId] as const,
 };
 
 // Hook to get current session
@@ -25,10 +23,6 @@ export function useSession() {
     refetchOnWindowFocus: false, // Prevent unnecessary refetches
     refetchOnMount: true, // Always check on mount to prevent flickering
     retry: 1, // Reduce retry attempts for faster failure
-    // Initialize with null instead of undefined to prevent flickering
-    initialData: null,
-    // Make the query synchronous on first load
-    networkMode: 'always',
   });
 }
 
@@ -61,81 +55,7 @@ export function useUserProfile(userId?: string) {
   });
 }
 
-// Hook to check if user is active
-export function useUserStatus(userEmail?: string) {
-  return useQuery({
-    queryKey: authKeys.userStatus(userEmail),
-    queryFn: async (): Promise<{ isActive: boolean; userExists: boolean; error?: string }> => {
-      try {
-        let query = supabase.from('auth_users').select('is_active');
 
-        if (userEmail) {
-          query = query.eq('email', userEmail);
-        } else {
-          return {
-            isActive: false,
-            userExists: false,
-            error: 'No user identifier provided',
-          };
-        }
-
-        const { data, error } = await query.maybeSingle();
-
-        if (error) {
-          console.error('Error checking user activity:', error);
-          return {
-            isActive: false,
-            userExists: false,
-            error: 'Database error occurred',
-          };
-        }
-
-        if (!data) {
-          console.error('User not found in auth_users table');
-          return { isActive: false, userExists: false };
-        }
-
-        return { isActive: data.is_active ?? false, userExists: true };
-      } catch (error) {
-        console.error('Error checking user activity:', error);
-        return {
-          isActive: false,
-          userExists: false,
-          error: 'Unexpected error occurred',
-        };
-      }
-    },
-    enabled: !!userEmail,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
-
-// Hook to check first time login status
-export function useFirstTimeLogin(userId?: string) {
-  return useQuery({
-    queryKey: authKeys.firstTimeLogin(userId!),
-    queryFn: async (): Promise<boolean> => {
-      if (!userId) return false;
-
-      const { data, error } = await supabase
-        .from('auth_users')
-        .select('is_first_login')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error checking first-time login:', error);
-        return false;
-      }
-
-      return data?.is_first_login ?? false;
-    },
-    enabled: !!userId,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
 
 // Mutation for signing in
 export function useSignIn() {
@@ -159,8 +79,6 @@ export function useSignIn() {
       queryClient.invalidateQueries({ queryKey: authKeys.session() });
       if (data.user?.id) {
         queryClient.invalidateQueries({ queryKey: authKeys.userProfile(data.user.id) });
-        queryClient.invalidateQueries({ queryKey: authKeys.firstTimeLogin(data.user.id) });
-        queryClient.invalidateQueries({ queryKey: authKeys.userStatus(data.user.id) });
       }
     },
   });
@@ -231,7 +149,6 @@ export function useUpdatePassword() {
       queryClient.invalidateQueries({ queryKey: authKeys.session() });
       if (data.user?.id) {
         queryClient.invalidateQueries({ queryKey: authKeys.userProfile(data.user.id) });
-        queryClient.invalidateQueries({ queryKey: authKeys.firstTimeLogin(data.user.id) });
       }
     },
   });

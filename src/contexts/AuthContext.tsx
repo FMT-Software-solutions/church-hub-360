@@ -1,7 +1,19 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AuthUserWithProfile } from '../types/user-management';
 import { supabase } from '../utils/supabase';
 import type { Session } from '@supabase/supabase-js';
+import {
+  useSession,
+  useUserProfile,
+  useSignIn,
+  useSignOut,
+  useUpdatePassword,
+  useRequestOtp,
+  useVerifyOtp,
+  useResetOtpRequestCount,
+  authKeys,
+} from '../hooks/useAuthQueries';
 
 interface OtpRequest {
   success: boolean;
@@ -36,7 +48,7 @@ interface SignInResult {
 
 interface AuthContextType {
   user: AuthUserWithProfile | null;
-  session: Session | null;
+  session: Session | null | undefined;
   setSession: (session: Session | null) => void;
   initializeUser: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
@@ -56,24 +68,47 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [
-    authUserWithProfile,
-    setAuthUserWithProfile,
-  ] = useState<AuthUserWithProfile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const { data: authUserWithProfile } = useUserProfile(session?.user?.id);
+
+  // Initialize mutation hooks
+  const signInMutation = useSignIn();
+  const signOutMutation = useSignOut();
+  const updatePasswordMutation = useUpdatePassword();
+  const requestOtpMutation = useRequestOtp();
+  const verifyOtpMutation = useVerifyOtp();
+  const resetOtpRequestCountMutation = useResetOtpRequestCount();
+
+  // Custom setSession function that updates React Query cache
+  const setSession = useCallback(
+    (newSession: Session | null) => {
+      queryClient.setQueryData(authKeys.session(), newSession);
+    },
+    [queryClient]
+  );
 
   const initializeUser = useCallback(async () => {
     try {
       const {
-        data: { session },
+        data: { session: currentSession },
       } = await supabase.auth.getSession();
 
-      if (!session?.user) {
-        setAuthUserWithProfile(null);
+      if (!currentSession?.user) {
+        // Clear all auth-related queries when no session
+        queryClient.removeQueries({ queryKey: authKeys.all });
         return;
       }
 
-      // Fetch user profile using the dual foreign key relationship
+      // Update session in React Query cache
+      setSession(currentSession);
+
+      // Check if user is active by invalidating and refetching user profile
+      queryClient.invalidateQueries({
+        queryKey: authKeys.userProfile(currentSession.user.id),
+      });
+
+      // Get the fresh user profile data
       const { data: authUserProfile, error } = await supabase
         .from('auth_users')
         .select(
@@ -82,112 +117,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           profile:profiles!auth_users_id_fkey1(*)
         `
         )
-        .eq('id', session.user.id)
+        .eq('id', currentSession.user.id)
         .single();
 
       if (error) {
         console.error('Error fetching user profile:', error);
-        // If we can't fetch the profile, clear both user and userProfile
-        setAuthUserWithProfile(null);
+        // Clear all auth-related queries on error
+        queryClient.removeQueries({ queryKey: authKeys.all });
         await signOut();
       } else {
         if (authUserProfile && authUserProfile.is_active === false) {
           await supabase.auth.signOut();
-          setAuthUserWithProfile(null);
+          queryClient.removeQueries({ queryKey: authKeys.all });
           return;
         }
-        setSession(session);
-        setAuthUserWithProfile(authUserProfile);
+        // Update the user profile in React Query cache
+        queryClient.setQueryData(
+          authKeys.userProfile(currentSession.user.id),
+          authUserProfile
+        );
       }
     } catch (error) {
       console.error('Error initializing user:', error);
-      setAuthUserWithProfile(null);
+      queryClient.removeQueries({ queryKey: authKeys.all });
     }
-  }, []);
+  }, [queryClient, setSession]);
 
   const signIn = async (
     email: string,
     password: string
   ): Promise<SignInResult> => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const data = await signInMutation.mutateAsync({ email, password });
 
-    if (error) {
-      return { error };
-    }
-
-    // Check if user is active
-    const userStatus = await isUserActive(data.user.id);
-    if (!userStatus.userExists || !userStatus.isActive) {
-      await signOut();
-      return {
-        error: null,
-        isInActiveUser: true,
-      };
-    }
-
-    if (data.user) {
-      // set session state
-      setSession(data.session);
-
-      const isFirstTime = await checkFirstTimeLogin(data.user.id);
-
-      // Check if this is a first-time login
-      if (isFirstTime) {
+      // Check if user is active
+      const userStatus = await isUserActive(data.user.id);
+      if (!userStatus.userExists || !userStatus.isActive) {
+        await signOut();
         return {
           error: null,
-          isFirstTimeLogin: true,
-          requiresPasswordReset: true,
+          isInActiveUser: true,
         };
       }
 
-      // Reset OTP request count on successful login
-      await resetOtpRequestCount(data.user.id);
-    }
+      if (data.user) {
+        // set session state
+        setSession(data.session);
 
-    return { error: null };
+        const isFirstTime = await checkFirstTimeLogin(data.user.id);
+
+        // Check if this is a first-time login
+        if (isFirstTime) {
+          return {
+            error: null,
+            isFirstTimeLogin: true,
+            requiresPasswordReset: true,
+          };
+        }
+
+        // Reset OTP request count on successful login
+        await resetOtpRequestCountMutation.mutateAsync(data.user.id);
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setAuthUserWithProfile(null);
-    setSession(null);
+    await signOutMutation.mutateAsync();
   };
 
   const updatePassword = async (
     request: PasswordResetRequest
   ): Promise<PasswordResetResponse> => {
     try {
-      const { data, error } = await supabase.auth.updateUser({
-        password: request.newPassword,
+      const data = await updatePasswordMutation.mutateAsync({
+        newPassword: request.newPassword,
+        type: request.type,
       });
-
-      if (error) {
-        return { success: false, message: error.message };
-      }
 
       //set session state
       const {
-        data: { session },
+        data: { session: newSession },
       } = await supabase.auth.getSession();
-      setSession(session);
-
-      // Mark user as no longer first-time
-      if (data.user && request.type === 'first_time_login') {
-        await supabase
-          .from('auth_users')
-          .update({
-            is_first_login: false,
-            password_updated: true,
-            otp_requests_count: 0,
-          })
-          .eq('id', data.user.id);
-      }
+      setSession(newSession);
 
       // Reset OTP request count on successful login
-      await resetOtpRequestCount(data.user.id);
+      await resetOtpRequestCountMutation.mutateAsync(data.user.id);
 
       return { success: true, message: 'Password reset successfully' };
     } catch (error) {
@@ -224,38 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-
-      // For OTP requests, we need a valid user session or use anon key for unauthenticated requests
-      const authHeader = accessToken
-        ? `Bearer ${accessToken}`
-        : `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({ email }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          message: result.message || 'Failed to send verification code',
-          cooldownMinutes: result.cooldownMinutes,
-          remainingRequests: result.remainingRequests,
-        };
-      }
+      const result = await requestOtpMutation.mutateAsync(email);
 
       return {
         success: true,
@@ -266,6 +253,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {
         success: false,
         message: (error as any).message || 'Network error occurred',
+        cooldownMinutes: (error as any).cooldownMinutes,
+        remainingRequests: (error as any).remainingRequests,
       };
     }
   };
@@ -275,36 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     otp: string
   ): Promise<OtpVerification> => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-
-      // For OTP requests, we need a valid user session or use anon key for unauthenticated requests
-      const authHeader = accessToken
-        ? `Bearer ${accessToken}`
-        : `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-otp`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({ email, otp }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          message: result.message || 'Failed to verify verification code',
-        };
-      }
+      const result = await verifyOtpMutation.mutateAsync({ email, otp });
 
       // If OTP verification is successful, use the session from backend
       if (!result.session) {
@@ -351,20 +311,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error checking first-time login:', error);
       return false;
-    }
-  };
-
-  const resetOtpRequestCount = async (userId: string): Promise<void> => {
-    try {
-      await supabase
-        .from('auth_users')
-        .update({
-          otp_requests_count: 0,
-          last_login: new Date().toISOString(),
-        })
-        .eq('id', userId);
-    } catch (error) {
-      console.error('Error resetting OTP request count:', error);
     }
   };
 
@@ -417,7 +363,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = {
-    user: authUserWithProfile,
+    user: authUserWithProfile ?? null,
     session,
     initializeUser,
     signIn,
