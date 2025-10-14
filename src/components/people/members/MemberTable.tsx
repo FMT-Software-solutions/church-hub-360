@@ -76,8 +76,13 @@ export function MemberTable({
 }: MemberTableProps) {
   const { currentOrganization } = useOrganization();
   const [loadingMemberId, setLoadingMemberId] = useState<string | null>(null);
-  const [printDetailsMember, setPrintDetailsMember] = useState<MemberSummary | null>(null);
-  const [printCardMember, setPrintCardMember] = useState<MemberSummary | null>(null);
+  const [
+    printDetailsMember,
+    setPrintDetailsMember,
+  ] = useState<MemberSummary | null>(null);
+  const [printCardMember, setPrintCardMember] = useState<MemberSummary | null>(
+    null
+  );
 
   const handlePrintDetails = (member: MemberSummary) => {
     setPrintDetailsMember(member);
@@ -132,17 +137,22 @@ export function MemberTable({
 
   if (isLoading) {
     return (
-      <div className={cn('rounded-md border', className)}>
-        <Table>
+      <div className={cn('rounded-md border overflow-x-auto', className)}>
+        <Table className="min-w-[1200px]">
           <TableHeader>
             <TableRow>
               <TableHead>Member</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Joined</TableHead>
               <TableHead>Age</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead>Joined</TableHead>
+              <TableHead>Years</TableHead>
+              <TableHead>Branch</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Tags</TableHead>
+              <TableHead>Added</TableHead>
+              <TableHead className="w-[50px] sticky right-0 bg-background border-l shadow-sm z-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,6 +186,24 @@ export function MemberTable({
                   <Skeleton className="h-4 w-16" />
                 </TableCell>
                 <TableCell>
+                  <Skeleton className="h-4 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-16" />
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-20" />
+                </TableCell>
+                <TableCell className="sticky right-0 bg-background border-l shadow-sm z-10">
                   <Skeleton className="h-8 w-8 rounded" />
                 </TableCell>
               </TableRow>
@@ -187,8 +215,8 @@ export function MemberTable({
   }
 
   return (
-    <div className={cn('rounded-md border', className)}>
-      <Table>
+    <div className={cn('rounded-md border overflow-x-auto', className)}>
+      <Table className="min-w-[1200px]">
         <TableHeader>
           <TableRow>
             {onSort ? (
@@ -199,8 +227,13 @@ export function MemberTable({
                   Status
                 </SortableHeader>
                 <SortableHeader field="membership_type">Type</SortableHeader>
-                <SortableHeader field="date_joined">Joined</SortableHeader>
                 <SortableHeader field="age">Age</SortableHeader>
+                <SortableHeader field="date_joined">Joined</SortableHeader>
+                <SortableHeader field="membership_years">Years</SortableHeader>
+                <SortableHeader field="branch_name">Branch</SortableHeader>
+                <SortableHeader field="city">Location</SortableHeader>
+                <TableHead>Tags</TableHead>
+                <SortableHeader field="created_at">Added</SortableHeader>
               </>
             ) : (
               <>
@@ -208,8 +241,13 @@ export function MemberTable({
                 <TableHead>Contact</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Joined</TableHead>
                 <TableHead>Age</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead>Years</TableHead>
+                <TableHead>Branch</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Tags</TableHead>
+                <TableHead>Added</TableHead>
               </>
             )}
             <TableHead className="w-[50px]"></TableHead>
@@ -219,7 +257,7 @@ export function MemberTable({
           {members.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={12}
                 className="text-center py-8 text-muted-foreground"
               >
                 No members found
@@ -295,12 +333,51 @@ export function MemberTable({
                   )}
                 </TableCell>
                 <TableCell className="text-sm">
+                  {member.age !== null ? `${member.age}` : 'N/A'}
+                </TableCell>
+                <TableCell className="text-sm">
                   {formatDate(member.date_joined)}
                 </TableCell>
                 <TableCell className="text-sm">
-                  {member.age !== null ? `${member.age}` : 'N/A'}
+                  {member.membership_years !== null
+                    ? `${member.membership_years} years`
+                    : 'N/A'}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-sm">
+                  {member.branch_name || 'N/A'}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {member.city
+                    ? `${member.city}${member.state ? `, ${member.state}` : ''}`
+                    : 'N/A'}
+                </TableCell>
+                <TableCell className="text-sm overflow-x-clip">
+                  {member.tag_count > 0 ? (
+                    <div className="flex flex-wrap gap-1 max-w-[150px]">
+                      {member.tags_array?.slice(0, 2).map((tag, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="text-xs px-1 py-0 text-wrap"
+                          title={tag}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                      {member.tag_count > 2 && (
+                        <Badge variant="outline" className="text-xs px-1 py-0">
+                          +{member.tag_count - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">No tags</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {formatDate(member.created_at)}
+                </TableCell>
+                <TableCell className="sticky -right-1 bg-card border-l shadow-md z-10">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -331,7 +408,9 @@ export function MemberTable({
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAction(member.id, () => handlePrintDetails(member));
+                              handleAction(member.id, () =>
+                                handlePrintDetails(member)
+                              );
                             }}
                           >
                             <FileText className="mr-2 h-4 w-4" />
@@ -340,7 +419,9 @@ export function MemberTable({
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAction(member.id, () => handlePrintCard(member));
+                              handleAction(member.id, () =>
+                                handlePrintCard(member)
+                              );
                             }}
                           >
                             <CreditCard className="mr-2 h-4 w-4" />

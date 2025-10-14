@@ -6,6 +6,7 @@ import {
   MemberStatistics,
   MemberTable,
 } from '@/components/people/members';
+import type { SortConfig } from '@/components/people/members/SortBar';
 import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,7 @@ import { useMemberPreferences } from '@/hooks/useMemberPreferences';
 import {
   useDeleteMember,
   useMembersSummaryPaginated,
+  useMembersSummaryFiltered,
   useMemberStatistics,
 } from '@/hooks/useMemberQueries';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
@@ -49,6 +51,7 @@ export default function MembershipList() {
   // State management
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<MemberFilters>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -71,7 +74,13 @@ export default function MembershipList() {
     organizationId,
     filters,
     currentPage,
-    preferences.page_size
+    preferences.page_size,
+    sortConfig
+  );
+  const { data: allFilteredMembers = [] } = useMembersSummaryFiltered(
+    organizationId,
+    filters,
+    sortConfig
   );
   const {
     data: statistics,
@@ -154,14 +163,6 @@ export default function MembershipList() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button> */}
           <Button onClick={() => navigate('/people/membership/add')}>
             <Plus className="h-4 w-4 mr-2" />
             Add Member
@@ -186,7 +187,7 @@ export default function MembershipList() {
             <div className="flex items-center gap-2">
               {/* Export Buttons */}
               <MemberExportButtons
-                members={membersData?.members || []}
+                members={allFilteredMembers}
                 className="mr-2"
               />
 
@@ -216,14 +217,17 @@ export default function MembershipList() {
 
           <Separator />
 
-          {/* Filter Bar */}
-          <FilterBar
-            filters={filters}
-            onFiltersChange={setFilters}
-            branches={branches.filter((branch) => branch.is_active)}
-            membershipTypes={membershipTypes}
-            tags={tags}
-          />
+          <div className="flex justify-between items-center gap-4">
+            {/* Filter Bar */}
+            <FilterBar
+              filters={filters}
+              onFiltersChange={setFilters}
+              branches={branches.filter((branch) => branch.is_active)}
+              membershipTypes={membershipTypes}
+              tags={tags}
+              setSortConfig={setSortConfig}
+            />
+          </div>
         </CardHeader>
 
         <CardContent className="relative">

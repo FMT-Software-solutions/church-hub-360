@@ -92,6 +92,7 @@ export interface MemberSummary {
   assigned_tags: string;
   tag_count: number;
   tags_with_categories: string;
+  tags_array: string[]; // Array of tag names for efficient filtering
 }
 
 // Membership status enum

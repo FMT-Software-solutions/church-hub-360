@@ -9,7 +9,8 @@ import type {
   MemberStatistics,
 } from '../types/members';
 import type { MembershipStatus } from '../types/members';
-import { matchesTagFilter } from '../utils/tagFormatUtils';
+  // Import SortConfig type
+import type { SortConfig } from '../components/people/members/SortBar';
 
 // Query Keys
 export const memberKeys = {
@@ -23,8 +24,10 @@ export const memberKeys = {
     [...memberKeys.all, 'summary', organizationId] as const,
   membersStatistics: (organizationId: string) => 
     [...memberKeys.all, 'statistics', organizationId] as const,
-  filteredMembers: (organizationId: string, filters: MemberFilters) => 
-    [...memberKeys.organizationMembers(organizationId), 'filtered', filters] as const,
+  filteredMembers: (organizationId: string, filters: MemberFilters, sortConfig?: SortConfig | null) => 
+    [...memberKeys.organizationMembers(organizationId), 'filtered', filters, sortConfig] as const,
+  paginatedMembers: (organizationId: string, filters: MemberFilters, page: number, pageSize: number, sortConfig?: SortConfig | null) => 
+    [...memberKeys.organizationMembers(organizationId), 'paginated', filters, page, pageSize, sortConfig] as const,
 };
 
 // Hook to fetch members with pagination and filtering
@@ -32,10 +35,11 @@ export function useMembers(
   organizationId: string | undefined,
   filters?: MemberFilters,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  sortConfig?: SortConfig | null,
 ) {
   return useQuery({
-    queryKey: memberKeys.filteredMembers(organizationId || '', filters || {}),
+    queryKey: memberKeys.filteredMembers(organizationId || '', filters || {}, sortConfig),
     queryFn: async (): Promise<{ members: Member[]; total: number }> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
@@ -160,9 +164,19 @@ export function useMembers(
         query = query.lte('date_joined', filters.date_joined_range.end);
       }
 
-      // Apply sorting
-      const sortField = filters?.sort_field || 'last_name';
-      const sortOrder = filters?.sort_order || 'asc';
+      // Apply sorting - use sortConfig if provided, otherwise fall back to filters or defaults
+      let sortField = 'full_name'; // Default sort field
+      let sortOrder: 'asc' | 'desc' = 'asc'; // Default sort order
+      
+      if (sortConfig) {
+        sortField = sortConfig.field;
+        sortOrder = sortConfig.direction;
+      } else if (filters?.sort_field) {
+        // Fallback to legacy filter-based sorting
+        sortField = filters.sort_field;
+        sortOrder = filters.sort_order || 'asc';
+      }
+      
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       // Apply pagination
@@ -235,8 +249,7 @@ export function useAttendanceMemberSearch(
       // Transform MemberSummary to AttendanceMemberResult format
       return (data || []).map(member => ({
         ...member,
-        // Add any additional fields needed for AttendanceMemberResult
-        tags: [], // TODO: Fetch member tags if needed
+        
         attendance_status: 'not_marked' as const,
         last_attendance: undefined,
       }));
@@ -266,15 +279,126 @@ export function useMembersSummary(organizationId: string | undefined) {
   });
 }
 
-// Hook to fetch members summary with pagination and filtering
-export function useMembersSummaryPaginated(
+// Hook to fetch all filtered members (for export purposes)
+export function useMembersSummaryFiltered(
   organizationId: string | undefined,
   filters?: MemberFilters,
-  page: number = 1,
-  pageSize: number = 20
+  sortConfig?: SortConfig | null
 ) {
   return useQuery({
-    queryKey: memberKeys.filteredMembers(organizationId || '', filters || {}),
+    queryKey: memberKeys.filteredMembers(organizationId || '', filters || {}, sortConfig),
+    queryFn: async (): Promise<MemberSummary[]> => {
+      if (!organizationId) throw new Error('Organization ID is required');
+
+      // Start with the base query using the enhanced members_summary view
+      let query = supabase
+        .from('members_summary')
+        .select('*')
+        .eq('organization_id', organizationId);
+
+      // Apply other filters first
+      if (filters?.search) {
+        query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%,membership_id.ilike.%${filters.search}%`);
+      }
+
+      if (filters?.membership_status && filters.membership_status !== 'all') {
+        query = query.eq('membership_status', filters.membership_status);
+      }
+
+      if (filters?.branch_id && filters.branch_id !== 'all') {
+        query = query.eq('branch_id', filters.branch_id);
+      }
+
+      if (filters?.membership_type && filters.membership_type !== 'all') {
+        query = query.eq('membership_type', filters.membership_type);
+      }
+
+      if (filters?.gender && filters.gender !== 'all') {
+        query = query.eq('gender', filters.gender);
+      }
+
+      if (filters?.age_range?.min) {
+        query = query.gte('age', filters.age_range.min);
+      }
+
+      if (filters?.age_range?.max) {
+        query = query.lte('age', filters.age_range.max);
+      }
+
+      if (filters?.date_joined_range?.start) {
+        query = query.gte('date_joined', filters.date_joined_range.start);
+      }
+
+      if (filters?.date_joined_range?.end) {
+        query = query.lte('date_joined', filters.date_joined_range.end);
+      }
+
+      if (filters?.is_active !== undefined && filters.is_active !== 'all') {
+        query = query.eq('is_active', filters.is_active);
+      }
+
+      // Apply tag filtering using the new tags_array column for better performance
+      if (filters?.tag_items && filters.tag_items.length > 0) {
+        // First, get the tag item names from the IDs
+        const { data: tagItems, error: tagError } = await supabase
+          .from('tag_items')
+          .select('id, name')
+          .in('id', filters.tag_items);
+
+        if (tagError) throw tagError;
+
+        const tagNames = tagItems?.map(item => item.name) || [];
+        
+        if (tagNames.length > 0) {
+          const tagFilterMode = filters.tag_filter_mode || 'any';
+          
+          if (tagFilterMode === 'any') {
+            // OR logic: member must have at least one of the selected tags
+            // Using PostgreSQL array overlap operator (&&)
+            query = query.overlaps('tags_array', tagNames);
+          } else {
+            // AND logic: member must have all selected tags
+            // Using PostgreSQL array contains operator (@>)
+            query = query.contains('tags_array', tagNames);
+          }
+        }
+      }
+
+      // Apply sorting - use sortConfig if provided, otherwise fall back to filters or defaults
+      let sortField = 'full_name'; // Default sort field
+      let sortOrder: 'asc' | 'desc' = 'asc'; // Default sort order
+      
+      if (sortConfig) {
+        sortField = sortConfig.field;
+        sortOrder = sortConfig.direction;
+      } else if (filters?.sort_field) {
+        // Fallback to legacy filter-based sorting
+        sortField = filters.sort_field;
+        sortOrder = filters.sort_order || 'asc';
+      }
+      
+      query = query.order(sortField, { ascending: sortOrder === 'asc' });
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return data || [];
+    },
+    enabled: !!organizationId,
+  });
+}
+
+// Hook to fetch members summary with pagination and filtering
+  export function useMembersSummaryPaginated(
+    organizationId: string | undefined,
+    filters?: MemberFilters,
+    page: number = 1,
+    pageSize: number = 20,
+    sortConfig?: SortConfig | null
+  ) {
+  return useQuery({
+    queryKey: memberKeys.paginatedMembers(organizationId || '', filters || {}, page, pageSize, sortConfig),
     queryFn: async (): Promise<{ members: MemberSummary[]; total: number }> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
@@ -325,24 +449,7 @@ export function useMembersSummaryPaginated(
         query = query.eq('is_active', filters.is_active);
       }
 
-      // Apply sorting
-      const sortField = filters?.sort_field || 'last_name';
-      const sortOrder = filters?.sort_order || 'asc';
-      query = query.order(sortField, { ascending: sortOrder === 'asc' });
-
-      // Apply pagination
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      query = query.range(from, to);
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      let filteredMembers = data || [];
-
-      // Apply tag filtering on the client side using the new tag fields
-      // This is more efficient than complex joins since we now have pre-aggregated tag data
+      // Apply tag filtering using the new tags_array column for better performance
       if (filters?.tag_items && filters.tag_items.length > 0) {
         // First, get the tag item names from the IDs
         const { data: tagItems, error: tagError } = await supabase
@@ -357,20 +464,45 @@ export function useMembersSummaryPaginated(
         if (tagNames.length > 0) {
           const tagFilterMode = filters.tag_filter_mode || 'any';
           
-          filteredMembers = filteredMembers.filter(member => {
-            const assignedTags = member.assigned_tags || '';
-            
-            // Use the proper matchesTagFilter function for exact tag matching
-            return matchesTagFilter(assignedTags, tagNames, tagFilterMode === 'all');
-          });
+          if (tagFilterMode === 'any') {
+            // OR logic: member must have at least one of the selected tags
+            // Using PostgreSQL array overlap operator (&&)
+            query = query.overlaps('tags_array', tagNames);
+          } else {
+            // AND logic: member must have all selected tags
+            // Using PostgreSQL array contains operator (@>)
+            query = query.contains('tags_array', tagNames);
+          }
         }
       }
 
+      // Apply sorting - use sortConfig if provided, otherwise fall back to filters or defaults
+      let sortField = 'full_name'; // Default sort field
+      let sortOrder: 'asc' | 'desc' = 'asc'; // Default sort order
+      
+      if (sortConfig) {
+        sortField = sortConfig.field;
+        sortOrder = sortConfig.direction;
+      } else if (filters?.sort_field) {
+        // Fallback to legacy filter-based sorting
+        sortField = filters.sort_field;
+        sortOrder = filters.sort_order || 'asc';
+      }
+      
+      query = query.order(sortField, { ascending: sortOrder === 'asc' });
+
+      // Apply pagination AFTER all filtering (including tag filtering)
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
       return { 
-        members: filteredMembers, 
-        total: filters?.tag_items && filters.tag_items.length > 0 
-          ? filteredMembers.length  // Use filtered count when tag filtering is applied
-          : count || 0              // Use database count when no tag filtering
+        members: data || [], 
+        total: count || 0
       };
     },
     enabled: !!organizationId,

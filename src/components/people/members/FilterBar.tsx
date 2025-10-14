@@ -27,6 +27,7 @@ import type {
 import { useDebounceValue } from '@/hooks/useDebounce';
 import { TagFilter } from '@/components/people/tags/TagFilter';
 import type { RelationalTagWithItems } from '@/hooks/useRelationalTags';
+import SortBar, { type SortConfig } from './SortBar';
 
 interface FilterBarProps {
   filters: MemberFilters;
@@ -35,6 +36,7 @@ interface FilterBarProps {
   membershipTypes?: MembershipType[];
   tags?: RelationalTagWithItems[];
   className?: string;
+  setSortConfig: (sortConfig: SortConfig | null) => void;
 }
 
 const membershipStatusOptions: {
@@ -67,6 +69,7 @@ export default function FilterBar({
   membershipTypes = [],
   tags = [],
   className,
+  setSortConfig
 }: FilterBarProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dateJoinedStart, setDateJoinedStart] = useState<string>('');
@@ -161,28 +164,32 @@ export default function FilterBar({
   const activeFiltersCount = getActiveFiltersCount();
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-4 flex-1', className)}>
       {/* Main Search and Quick Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row flex-wrap gap-4">
         {/* Search Input */}
-        <div className="relative md:flex-1">
+        <div className="relative md:flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search members by name, email, phone, or membership ID..."
+            placeholder="Search members by name, email, phone, or ID..."
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             className="pl-10"
           />
         </div>
 
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Sort Bar */}
+          <SortBar onSortChange={setSortConfig} />
+
           {/* Quick Status Filter */}
           <Select
             value={filters.membership_status || 'all'}
             onValueChange={(value) => updateFilter('membership_status', value)}
           >
             <SelectTrigger className="w-full sm:w-auto min-w-0">
-              <UserCheck className="mr-2 h-4 w-4 flex-shrink-0" />
+              <UserCheck className="mr-1 h-4 w-4 flex-shrink-0" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -200,7 +207,7 @@ export default function FilterBar({
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="relative w-full sm:w-auto"
           >
-            <Filter className="mr-2 h-4 w-4 flex-shrink-0" />
+            <Filter className="mr-1 h-4 w-4 flex-shrink-0" />
             <span className="truncate">Filters</span>
             {activeFiltersCount > 0 && (
               <Badge
@@ -627,8 +634,11 @@ export default function FilterBar({
                 size="sm"
                 className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
                 onClick={() => {
-                  updateFilter('tag_items', undefined);
-                  updateFilter('tag_filter_mode', undefined);
+                  // Clear both properties at once using the same logic as TagFilter
+                  const newFilters = { ...filters };
+                  delete newFilters.tag_items;
+                  delete newFilters.tag_filter_mode;
+                  onFiltersChange(newFilters);
                 }}
               >
                 <X className="h-2 w-2" />

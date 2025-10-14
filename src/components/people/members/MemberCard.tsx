@@ -130,7 +130,7 @@ export function MemberCard({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg truncate">
+              <h3 className="font-semibold text-lg leading-tight break-words">
                 {member.full_name}
               </h3>
               <p className="text-sm text-muted-foreground">
