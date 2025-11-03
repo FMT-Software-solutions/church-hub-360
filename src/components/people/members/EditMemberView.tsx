@@ -2,10 +2,11 @@ import { MemberStatusRenderer } from '@/components/shared/MemberStatusRenderer'
 import { Separator } from '@/components/ui/separator'
 import  { useCallback, useEffect, useRef, useState } from 'react'
 import { TagRenderer } from '../tags'
+import { GroupsRenderer, type GroupAssignment } from '../groups'
 import { Label } from '@/components/ui/label'
 import { BranchSelector } from '@/components/shared/BranchSelector'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Save, User, X } from 'lucide-react'
+import { ArrowLeft, Save, User, X, Users } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { MemberFormWrapper, type MemberFormWrapperMethods } from '@/components/people/forms/MemberFormWrapper'
 import { Button } from '@/components/ui/button'
@@ -15,10 +16,12 @@ import type { RelationalTagWithItems } from '@/hooks/useRelationalTags'
 import { useUpdateMember } from '@/hooks/useMemberQueries'
 import { useBulkTagOperations } from '@/hooks/useBulkTagOperations'
 import { useMemberTagAssignments, type MemberTagAssignment } from '@/hooks/useMemberTagAssignments'
+import { useAllGroups, useMemberGroupAssignments, useBulkCreateGroupAssignments, useBulkDeleteGroupAssignments } from '@/hooks/useGroups'
 import { useMembershipFormManagement } from '@/hooks/usePeopleConfigurationQueries'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { type UpdateMemberData } from '@/types/members'
 import { compareTagAssignments } from '@/utils/tagAssignmentUtils'
+import { compareGroupAssignments } from '@/utils/groupAssignmentUtils'
 import { toast } from 'sonner'
 
 interface EditMemberViewProps {
@@ -32,6 +35,7 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
   const formRef = useRef<MemberFormWrapperMethods>(null);
   const [tagValues, setTagValues] = useState<Record<string, string[]>>({});
   const [tagErrors, setTagErrors] = useState<Record<string, string>>({});
+  const [groupAssignments, setGroupAssignments] = useState<GroupAssignment[]>([]);
   const [branchId, setBranchId] = useState<string | null>(member?.branch_id || null);
   const [branchError, setBranchError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,12 +43,16 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
   // Hooks
   const updateMemberMutation = useUpdateMember();
   const { currentOrganization } = useOrganization();
+  const { data: groups } = useAllGroups();
   const { 
     assignments,
     assignmentsByTag
   } = useMemberTagAssignments(member.id);
+  const { data: memberGroupAssignments } = useMemberGroupAssignments(member.id);
   const { membershipFormSchema } = useMembershipFormManagement(currentOrganization?.id);
   const { bulkUpdateTags } = useBulkTagOperations();
+  const bulkCreateGroupAssignmentsMutation = useBulkCreateGroupAssignments();
+  const bulkDeleteGroupAssignmentsMutation = useBulkDeleteGroupAssignments();
 
   // Initialize values when component mounts or member changes
   useEffect(() => {
@@ -63,6 +71,17 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
       setTagValues(initialTagValues);
     }
   }, [JSON.stringify(assignmentsByTag)]); // Use JSON.stringify to create a stable dependency
+
+  // Initialize group assignments when member group assignments change
+  useEffect(() => {
+    if (memberGroupAssignments) {
+      const initialGroupAssignments: GroupAssignment[] = memberGroupAssignments.map(assignment => ({
+        groupId: assignment.group_id,
+        position: assignment.position || undefined,
+      }));
+      setGroupAssignments(initialGroupAssignments);
+    }
+  }, [memberGroupAssignments]);
 
   // Callback handlers for branch and tag changes
   const handleBranchChange = useCallback((value: string | string[] | undefined) => {
@@ -173,6 +192,67 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
             memberId: member.id,
             changes: tagComparison.changes
           });
+        }
+      }
+
+      // Handle group assignment changes
+      if (memberGroupAssignments) {
+        const currentGroupAssignments = memberGroupAssignments.map(assignment => ({
+          // Prefer assignment_id from view; fall back to legacy id
+          id: assignment.assignment_id ?? '',
+          group_id: assignment.group_id,
+          position: assignment.position,
+        }));
+
+        const groupComparison = compareGroupAssignments(currentGroupAssignments, groupAssignments);
+
+        if (groupComparison.hasChanges) {
+          // Process deletions
+          const deletions = groupComparison.changes.filter(change => change.action === 'delete');
+          if (deletions.length > 0) {
+            await bulkDeleteGroupAssignmentsMutation.mutateAsync({
+              memberId: member.id,
+              assignmentIds: deletions.map(change => change.assignmentId!),
+            });
+          }
+
+          // Process additions
+          const additions = groupComparison.changes.filter(change => change.action === 'add');
+          if (additions.length > 0) {
+            const groupIds = additions.map(change => change.groupId);
+            const positions = additions.reduce((acc, change) => {
+              if (change.position) {
+                acc[change.groupId] = change.position;
+              }
+              return acc;
+            }, {} as Record<string, string>);
+
+            await bulkCreateGroupAssignmentsMutation.mutateAsync({
+              memberId: member.id,
+              groupIds,
+              positions,
+            });
+          }
+
+          // Process updates (position changes)
+          const updates = groupComparison.changes.filter(change => change.action === 'update');
+          for (const update of updates) {
+            // For position updates, we can use the existing useUpdateMemberPosition hook
+            // But since we don't have direct access to it here, we'll delete and recreate
+            if (update.assignmentId) {
+              await bulkDeleteGroupAssignmentsMutation.mutateAsync({
+                memberId: member.id,
+                assignmentIds: [update.assignmentId],
+              });
+              
+              const positions = update.position ? { [update.groupId]: update.position } : {};
+              await bulkCreateGroupAssignmentsMutation.mutateAsync({
+                memberId: member.id,
+                groupIds: [update.groupId],
+                positions,
+              });
+            }
+          }
         }
       }
 
@@ -326,6 +406,25 @@ export const EditMemberView = ({ member, tags, onCancel, onUpdateSuccess }: Edit
                           error={tagErrors[tag.id]}
                         />
                       ))}
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Groups Renderer */}
+                {groups && groups.length > 0 && (
+                  <>
+                    <div className="space-y-4">
+                      <Label className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Groups
+                      </Label>
+                      <GroupsRenderer
+                        groups={groups}
+                        value={groupAssignments}
+                        onChange={setGroupAssignments}
+                        allowPositions={true}
+                      />
                     </div>
                     <Separator />
                   </>

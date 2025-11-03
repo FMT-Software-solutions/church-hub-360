@@ -19,6 +19,7 @@ import { useMemberTagAssignments } from '@/hooks/useMemberTagAssignments';
 import type { MemberTagAssignment } from '@/hooks/useMemberTagAssignments';
 import { type MemberSearchResult } from '@/hooks/useMemberSearch';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
+import { useMemberGroupAssignments } from '@/hooks/useGroups';
 import { useTemplateSelection } from '@/hooks/useTemplateSelection';
 import { format } from 'date-fns';
 import {
@@ -34,6 +35,7 @@ import {
   Phone,
   Printer,
   Tags,
+  Users,
   User
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -57,6 +59,8 @@ export function MemberDetail() {
   const { assignments } = useMemberTagAssignments(memberId!);
   const { tags } = useRelationalTags();
   const { selectTemplate } = useTemplateSelection();
+  // Fetch group memberships for this member (read-only display)
+  const { data: memberGroups } = useMemberGroupAssignments(memberId!);
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
@@ -596,6 +600,39 @@ export function MemberDetail() {
           )}
 
           
+          
+          {/* Groups Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Groups
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {memberGroups && memberGroups.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {memberGroups.map((assignment) => (
+                    <Badge
+                      key={assignment.group_id}
+                      variant="secondary"
+                      className="border"
+                    >
+                      {(assignment.group_name || 'Unnamed Group') + (assignment.position ? ` • ${assignment.position}` : '')}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                  <p className="text-muted-foreground">No groups assigned to this member</p>
+                  <p className="text-sm text-muted-foreground/70 mt-1">
+                    Groups help organize members into ministries and committees
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Tags Section */}
           <Card>

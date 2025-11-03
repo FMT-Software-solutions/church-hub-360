@@ -5,22 +5,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Group } from '@/hooks/useGroups';
+import type { Group, GroupMember } from '@/hooks/useGroups';
 import { toPng } from 'html-to-image';
 import { Download, Printer } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { GroupMembersPrintView } from './GroupMembersPrintView';
 
-interface GroupMember {
-  id: string;
-  member_id: string;
-  member_full_name: string;
-  member_email: string | null;
-  member_phone: string | null;
-  position: string | null;
-  assigned_at: string;
-}
 
 interface GroupMembersPrintModalProps {
   isOpen: boolean;

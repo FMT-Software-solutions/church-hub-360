@@ -1,15 +1,6 @@
 import { forwardRef } from 'react';
-import type { Group } from '@/hooks/useGroups';
+import type { Group, GroupMember } from '@/hooks/useGroups';
 
-interface GroupMember {
-  id: string;
-  member_id: string;
-  member_full_name: string;
-  member_email: string | null;
-  member_phone: string | null;
-  position: string | null;
-  assigned_at: string;
-}
 
 interface GroupMembersPrintViewProps {
   group: Group;
@@ -83,7 +74,7 @@ export const GroupMembersPrintView = forwardRef<
               </th>
             </tr>
           </thead>
-          <tbody>
+  <tbody>
             {members.length === 0 ? (
               <tr>
                 <td
@@ -95,7 +86,7 @@ export const GroupMembersPrintView = forwardRef<
               </tr>
             ) : (
               members.map((member, index) => (
-                <tr key={member.id} className="hover:bg-gray-50">
+                <tr key={`${member.member_id}-${member.assigned_at}`} className="hover:bg-gray-50">
                   <td className="border border-gray-300 px-4 py-3">
                     {index + 1}
                   </td>

@@ -1,14 +1,16 @@
 import { MemberFormWrapper, type MemberFormWrapperMethods, type MemberFormData } from '@/components/people/forms/MemberFormWrapper';
 import { TagRenderer } from '@/components/people/tags/TagRenderer';
+import { GroupsRenderer, type GroupAssignment } from '@/components/people/groups';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useCreateMember } from '@/hooks/useMemberQueries';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
 import { useMemberTagAssignments } from '@/hooks/useMemberTagAssignments';
+import { useAllGroups, useBulkCreateGroupAssignments } from '@/hooks/useGroups';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 import type { CreateMemberData } from '@/types/members';
-import { ArrowLeft, Save, X, Tags, Upload } from 'lucide-react';
+import { ArrowLeft, Save, X, Tags, Upload, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -23,13 +25,16 @@ export function AddMember() {
   const [formData, setFormData] = useState<MemberFormData | null>(null);
   const [tagValues, setTagValues] = useState<Record<string, any>>({});
   const [tagErrors, setTagErrors] = useState<Record<string, string>>({});
+  const [groupAssignments, setGroupAssignments] = useState<GroupAssignment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [branchId, setBranchId] = useState<string | string[]>('');
   const [branchError, setBranchError] = useState<string>('');
   
   const createMemberMutation = useCreateMember();
   const { tags } = useRelationalTags();
-  const {  bulkCreateAssignments } = useMemberTagAssignments();
+  const { data: groups } = useAllGroups();
+  const { bulkCreateAssignments } = useMemberTagAssignments();
+  const bulkCreateGroupAssignmentsMutation = useBulkCreateGroupAssignments();
   const { isUploading } = useCloudinaryUpload(); // Check if any upload is in progress
   
   const organizationId = currentOrganization?.id;
@@ -149,6 +154,23 @@ export function AddMember() {
           });
         }
       }
+
+      // Create group assignments for the new member
+      if (groupAssignments.length > 0) {
+        const groupIds = groupAssignments.map(assignment => assignment.groupId);
+        const positions = groupAssignments.reduce((acc, assignment) => {
+          if (assignment.position) {
+            acc[assignment.groupId] = assignment.position;
+          }
+          return acc;
+        }, {} as Record<string, string>);
+
+        await bulkCreateGroupAssignmentsMutation.mutateAsync({
+          memberId: newMember.id,
+          groupIds,
+          positions,
+        });
+      }
       
       toast.success('Member added successfully');
       
@@ -170,6 +192,7 @@ export function AddMember() {
     setFormData(null);
     setTagValues({});
     setTagErrors({});
+    setGroupAssignments([]);
     setBranchId('');
     setBranchError('');
   };
@@ -309,6 +332,29 @@ export function AddMember() {
                  </div>
                )}
              </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Groups
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {groups && groups.length > 0 ? (
+                <GroupsRenderer
+                  groups={groups}
+                  value={groupAssignments}
+                  onChange={setGroupAssignments}
+                  allowPositions={true}
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No groups available
+                </div>
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>

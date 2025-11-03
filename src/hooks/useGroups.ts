@@ -32,7 +32,11 @@ export interface GroupFormData {
 }
 
 export interface GroupMember {
-  id: string;
+  // Assignment identifiers
+  id?: string; // legacy field from direct table queries; may be undefined in view
+  assignment_id?: string; // alias from group_members_view
+
+  // Group relationship
   group_id: string;
   member_id: string;
   position: string | null;
@@ -40,7 +44,18 @@ export interface GroupMember {
   assigned_by: string | null;
   created_at: string;
   updated_at: string;
-  // Member details from join
+
+  // Group details from view
+  group_name?: string;
+  group_description?: string | null;
+  group_type?: 'temporal' | 'permanent';
+  group_is_active?: boolean;
+  group_is_closed?: boolean;
+
+  // Member details from view
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string | null;
   member_full_name: string;
   member_email: string | null;
   member_phone: string | null;
@@ -225,6 +240,30 @@ export function useGroupMembers(groupId: string | null) {
     enabled: !!groupId,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to fetch all group memberships for a specific member using group_members_view
+ */
+export function useMemberGroupAssignments(memberId: string | null) {
+  return useQuery({
+    queryKey: ['member-group-assignments', memberId || ''],
+    queryFn: async (): Promise<GroupMember[]> => {
+      if (!memberId) return [];
+
+      const { data, error } = await supabase
+        .from('group_members_view')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('assigned_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as GroupMember[];
+    },
+    enabled: !!memberId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
@@ -537,6 +576,94 @@ export function useCloseGroup() {
     onError: (error) => {
       console.error('Failed to close group:', error);
       toast.error('Failed to close group');
+    },
+  });
+}
+
+/**
+ * Hook to bulk create group assignments for a member
+ */
+export function useBulkCreateGroupAssignments() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (variables: {
+      memberId: string;
+      groupIds: string[];
+      positions?: Record<string, string>;
+    }) => {
+      const assignments = variables.groupIds.map(groupId => ({
+        member_id: variables.memberId,
+        group_id: groupId,
+        position: variables.positions?.[groupId] || null,
+        assigned_by: user?.id,
+        assigned_at: new Date().toISOString(),
+      }));
+
+      const { data, error } = await supabase
+        .from('member_assigned_groups')
+        .insert(assignments)
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate member-related queries
+      queryClient.invalidateQueries({ 
+        queryKey: ['member-group-assignments', variables.memberId] 
+      });
+      
+      // Invalidate group member queries for each affected group
+      variables.groupIds.forEach(groupId => {
+        queryClient.invalidateQueries({ 
+          queryKey: groupKeys.groupMembers(groupId) 
+        });
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to create group assignments:', error);
+      toast.error('Failed to assign member to groups');
+    },
+  });
+}
+
+/**
+ * Hook to bulk delete group assignments for a member
+ */
+export function useBulkDeleteGroupAssignments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (variables: {
+      memberId: string;
+      assignmentIds: string[];
+    }) => {
+      const { data, error } = await supabase
+        .from('member_assigned_groups')
+        .delete()
+        .in('id', variables.assignmentIds)
+        .eq('member_id', variables.memberId)
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate member-related queries
+      queryClient.invalidateQueries({ 
+        queryKey: ['member-group-assignments', variables.memberId] 
+      });
+      
+      // Invalidate all group member queries since we don't know which groups were affected
+      queryClient.invalidateQueries({ 
+        queryKey: groupKeys.lists() 
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to delete group assignments:', error);
+      toast.error('Failed to remove member from groups');
     },
   });
 }

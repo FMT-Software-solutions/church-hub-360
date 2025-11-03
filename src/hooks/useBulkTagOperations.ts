@@ -122,7 +122,6 @@ export function useBulkTagOperations() {
         // Invalidate relevant queries to refresh data
         queryClient.invalidateQueries({ queryKey: ['member-tag-assignments', memberId] });
         queryClient.invalidateQueries({ queryKey: ['member', memberId] });
-        toast.success('Tag assignments updated successfully');
       } else {
         toast.error(result.error || 'Failed to update tag assignments');
       }

@@ -57,33 +57,9 @@ import {
   SelectValue,
 } from '../../ui/select';
 import { Separator } from '@/components/ui/separator';
+import { POSITION_GROUPS } from '@/constants/groupPositions';
 
-// Grouped positions data structure
-const POSITION_GROUPS = {
-  'Leadership Positions': [
-    'Chairperson',
-    'President',
-    'Leader',
-    'Patron',
-    'Matron',
-    'Coordinator',
-  ],
-  'Assistant Leadership': [
-    'Vice Chairperson',
-    'Vice President',
-    'Assistant Leader',
-    'Assistant Coordinator',
-  ],
-  'Administrative Positions': [
-    'Secretary',
-    'Assistant Secretary',
-    'Treasurer',
-    'Financial Secretary',
-    'Accountant',
-    'Public Relations Officer (PRO)',
-  ],
-  General: ['Member'],
-} as const;
+// Positions now sourced from shared constants in '@/constants/groupPositions'
 
 interface GroupDetailsPanelProps {
   group: Group | null;
