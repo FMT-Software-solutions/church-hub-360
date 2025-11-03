@@ -9,17 +9,17 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { useOrganization } from '../../contexts/OrganizationContext';
 import { useBranches } from '../../hooks/queries';
-import { useGroups, useCreateGroup, useDeleteGroup, useUpdateGroup, type Group, type GroupFormData } from '../../hooks/useGroups';
+import { useAllGroups, useCreateGroup, useDeleteGroup, useUpdateGroup, useGroup, type Group, type GroupFormData } from '../../hooks/useGroups';
 
 export function Groups() {
   const { currentOrganization } = useOrganization();
 
-  // Groups data and mutations
+  // Groups data and mutations - using useAllGroups for backward compatibility
   const { 
     data: groups = [], 
     isLoading: groupsIsLoading, 
     error: groupsError 
-  } = useGroups();
+  } = useAllGroups(currentOrganization?.id || '');
   
   // Branches data for default selection
   const { data: branches = [] } = useBranches(currentOrganization?.id);
@@ -38,6 +38,12 @@ export function Groups() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(
     null
   );
+  
+  // Fetch selected group data separately (after selectedGroup is declared)
+  const { 
+    data: selectedGroupData, 
+    isLoading: selectedGroupLoading 
+  } = useGroup(selectedGroup);
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
   const [showAddGroup, setShowAddGroup] = useState(false);
 
@@ -162,10 +168,6 @@ export function Groups() {
     );
   }
 
-  const selectedGroupData = selectedGroup
-    ? groups.find(g => g.id === selectedGroup) || null
-    : null;
-
   const isUpdating = createGroupMutation.isPending || 
                     updateGroupMutation.isPending || 
                     deleteGroupMutation.isPending;
@@ -190,19 +192,15 @@ export function Groups() {
       />
 
       {/* Single view layout - switches between list and details */}
-      <div className="h-[calc(100vh-200px)]">
+      <div>
         {/* List Panel - Show when in list view */}
         {currentView === 'list' && (
-          <div className="h-full">
-            <GroupsListPanel
-              groups={groups}
-              selectedGroup={selectedGroup}
-              onSelectGroup={handleSelectGroup}
-              onEditGroup={startEditingGroup}
-              onDeleteGroup={handleDeleteGroup}
-              isLoading={groupsIsLoading}
-            />
-          </div>
+          <GroupsListPanel
+            selectedGroup={selectedGroup}
+            onSelectGroup={handleSelectGroup}
+            onEditGroup={startEditingGroup}
+            onDeleteGroup={handleDeleteGroup}
+          />
         )}
 
         {/* Details Panel - Show when in details view */}
@@ -222,8 +220,8 @@ export function Groups() {
             </div>
             
             <GroupDetailsPanel
-              group={selectedGroupData}
-              isLoading={groupsIsLoading}
+              group={selectedGroupData || null}
+              isLoading={selectedGroupLoading}
             />
           </div>
         )}

@@ -1,5 +1,9 @@
-import { Calendar, Edit, Trash2, Users, Loader2 } from 'lucide-react';
-import type { Group } from '../../../hooks/useGroups';
+import { cn } from '@/lib/utils';
+import { Calendar, Edit, Filter, Loader2, Search, Trash2, Users } from 'lucide-react';
+import { useState } from 'react';
+import { useDebounceValue } from '../../../hooks/useDebounce';
+import { useGroups, type Group } from '../../../hooks/useGroups';
+import { Pagination } from '../../shared/Pagination';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import {
@@ -9,24 +13,74 @@ import {
   CardHeader,
   CardTitle,
 } from '../../ui/card';
+import { Input } from '../../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../ui/select';
 
 interface GroupsListPanelProps {
-  groups: Group[];
   selectedGroup: string | null;
   onSelectGroup: (groupId: string) => void;
   onEditGroup: (groupId: string, group: Group) => void;
   onDeleteGroup: (groupId: string) => void;
-  isLoading?: boolean;
 }
 
 export function GroupsListPanel({
-  groups,
   selectedGroup,
   onSelectGroup,
   onEditGroup,
   onDeleteGroup,
-  isLoading = false,
 }: GroupsListPanelProps) {
+  // Search and pagination state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [groupType, setGroupType] = useState<'permanent' | 'temporal' | 'all'>('all');
+  
+  // Debounce search term
+  const debouncedSearchTerm = useDebounceValue(searchTerm, 1000);
+  
+  // Fetch groups with search and pagination
+  const { 
+    data: groupsData, 
+    isLoading
+  } = useGroups({
+    search: debouncedSearchTerm,
+    page: currentPage,
+    pageSize,
+    groupType,
+  });
+  
+  const groups = groupsData?.data || [];
+  const totalCount = groupsData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+  
+  // Show empty state only when we have no data and are not loading
+  const showEmptyState = groups.length === 0 && !isLoading;
+  
+  // Event handlers
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+  
+  const handleGroupTypeChange = (value: 'permanent' | 'temporal' | 'all') => {
+    setGroupType(value);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+  
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+  
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
@@ -58,50 +112,69 @@ export function GroupsListPanel({
     );
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Groups
-          </CardTitle>
-          <CardDescription>
-            Manage church groups and their members
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            <p>Loading groups...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="h-5 w-5" />
           Groups
+          {isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </CardTitle>
-        <CardDescription>
+        <CardDescription className='flex justify-between flex-wrap gap-3'>
           Manage church groups and their members
+
+           {/* Search and Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          {/* Group Type Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={groupType} onValueChange={handleGroupTypeChange}>
+              <SelectTrigger className="">
+                <SelectValue placeholder="All Groups" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                <SelectItem value="permanent">Permanent</SelectItem>
+                <SelectItem value="temporal">Temporal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search groups..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {groups.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No groups yet</p>
-            <p className="text-sm">Create your first group to get started</p>
-          </div>
-        ) : (
-          groups
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((group) => {
+      <CardContent className="space-y-4">
+        {/* Groups List */}
+        <div className={cn("space-y-2", isLoading && "opacity-50 transition-opacity duration-200")}>
+          {showEmptyState ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              {debouncedSearchTerm ? (
+                <>
+                  <p>No groups found</p>
+                  <p className="text-sm">Try adjusting your search terms</p>
+                </>
+              ) : (
+                <>
+                  <p>No groups yet</p>
+                  <p className="text-sm">Create your first group to get started</p>
+                </>
+              )}
+            </div>
+          ) : (
+            groups.map((group) => {
               const isSelected = selectedGroup === group.id;
 
               return (
@@ -171,6 +244,21 @@ export function GroupsListPanel({
                 </div>
               );
             })
+          )}
+        </div>
+
+        {/* Pagination - only show if there are groups */}
+        {totalCount > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalCount}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            itemName="group"
+            pageSizeOptions={[5, 10, 20, 50]}
+          />
         )}
       </CardContent>
     </Card>

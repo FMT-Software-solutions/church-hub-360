@@ -50,12 +50,29 @@ export interface GroupMember {
   member_is_active: boolean;
 }
 
+// Pagination and search types
+export interface GroupsQueryParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  branchId?: string;
+  groupType?: 'permanent' | 'temporal' | 'all';
+}
+
+export interface PaginatedGroupsResponse {
+  data: Group[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
 // Query keys
 export const groupKeys = {
   all: ['groups'] as const,
   lists: () => [...groupKeys.all, 'list'] as const,
-  list: (organizationId: string, branchId?: string) => 
-    [...groupKeys.lists(), organizationId, branchId] as const,
+  list: (organizationId: string, params?: GroupsQueryParams) => 
+    [...groupKeys.lists(), organizationId, params] as const,
   details: () => [...groupKeys.all, 'detail'] as const,
   detail: (id: string) => [...groupKeys.details(), id] as const,
   members: () => [...groupKeys.all, 'members'] as const,
@@ -64,13 +81,80 @@ export const groupKeys = {
 };
 
 /**
- * Hook to fetch groups for an organization
+ * Hook to fetch groups for an organization with pagination and search
  */
-export function useGroups(branchId?: string) {
+export function useGroups(params?: GroupsQueryParams) {
+  const { currentOrganization } = useOrganization();
+  
+  const queryParams = {
+    page: 1,
+    pageSize: 10,
+    search: '',
+    ...params,
+  };
+  
+  return useQuery({
+    queryKey: groupKeys.list(currentOrganization?.id || '', queryParams),
+    queryFn: async (): Promise<PaginatedGroupsResponse> => {
+      if (!currentOrganization?.id) throw new Error('Organization ID is required');
+
+      // Build the base query
+      let query = supabase
+        .from('groups')
+        .select('*', { count: 'exact' })
+        .eq('organization_id', currentOrganization.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false }); // Default sort by created_at
+
+      // Apply branch filter if provided
+      if (queryParams.branchId) {
+        query = query.eq('branch_id', queryParams.branchId);
+      }
+
+      // Apply group type filter if provided
+      if (queryParams.groupType && queryParams.groupType !== 'all') {
+        query = query.eq('type', queryParams.groupType);
+      }
+
+      // Apply search filter if provided
+      if (queryParams.search && queryParams.search.trim()) {
+        query = query.or(`name.ilike.%${queryParams.search}%,description.ilike.%${queryParams.search}%`);
+      }
+
+      // Apply pagination
+      const from = (queryParams.page - 1) * queryParams.pageSize;
+      const to = from + queryParams.pageSize - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / queryParams.pageSize);
+
+      return {
+        data: data || [],
+        totalCount,
+        totalPages,
+        currentPage: queryParams.page,
+        pageSize: queryParams.pageSize,
+      };
+    },
+    enabled: !!currentOrganization?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+/**
+ * Legacy hook for backward compatibility - returns all groups without pagination
+ */
+export function useAllGroups(branchId?: string) {
   const { currentOrganization } = useOrganization();
   
   return useQuery({
-    queryKey: groupKeys.list(currentOrganization?.id || '', branchId),
+    queryKey: [...groupKeys.all, 'all', currentOrganization?.id, branchId],
     queryFn: async (): Promise<Group[]> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -79,7 +163,7 @@ export function useGroups(branchId?: string) {
         .select('*')
         .eq('organization_id', currentOrganization.id)
         .eq('is_active', true)
-        .order('name');
+        .order('created_at', { ascending: false });
 
       if (branchId) {
         query = query.eq('branch_id', branchId);

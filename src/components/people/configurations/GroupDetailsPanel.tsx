@@ -14,7 +14,6 @@ import {
   Check,
   Edit2,
   Loader2,
-  Plus,
   Printer,
   Settings,
   Trash2,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useDebounceValue } from '../../../hooks/useDebounce';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useOrganization } from '../../../contexts/OrganizationContext';
 import type { Group } from '../../../hooks/useGroups';
@@ -56,6 +56,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../ui/select';
+import { Separator } from '@/components/ui/separator';
+
+// Grouped positions data structure
+const POSITION_GROUPS = {
+  'Leadership Positions': [
+    'Chairperson',
+    'President',
+    'Leader',
+    'Patron',
+    'Matron',
+    'Coordinator',
+  ],
+  'Assistant Leadership': [
+    'Vice Chairperson',
+    'Vice President',
+    'Assistant Leader',
+    'Assistant Coordinator',
+  ],
+  'Administrative Positions': [
+    'Secretary',
+    'Assistant Secretary',
+    'Treasurer',
+    'Financial Secretary',
+    'Accountant',
+    'Public Relations Officer (PRO)',
+  ],
+  General: ['Member'],
+} as const;
 
 interface GroupDetailsPanelProps {
   group: Group | null;
@@ -73,11 +101,15 @@ export function GroupDetailsPanel({
   const [selectedMembers, setSelectedMembers] = useState<MemberSearchResult[]>(
     []
   );
-  const [memberPosition, setMemberPosition] = useState<string>('');
+  const [memberPosition, setMemberPosition] = useState<string>('Member');
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
   const [editPositionValue, setEditPositionValue] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
+  const [positionSearchTerm, setPositionSearchTerm] = useState<string>('');
+
+  // Debounce the search term with 1 second delay
+  const debouncedSearchTerm = useDebounceValue(positionSearchTerm, 500);
 
   const { data: groupMembers, isLoading: membersLoading } = useGroupMembers(
     group?.id || ''
@@ -87,6 +119,27 @@ export function GroupDetailsPanel({
   const removeMemberMutation = useRemoveMemberFromGroup();
   const updatePositionMutation = useUpdateMemberPosition();
   const closeGroupMutation = useCloseGroup();
+
+  // Filter positions based on debounced search term
+  const getFilteredPositionGroups = () => {
+    if (!debouncedSearchTerm.trim()) {
+      return POSITION_GROUPS;
+    }
+
+    const searchTerm = debouncedSearchTerm.toLowerCase();
+    const filteredGroups: Record<string, string[]> = {};
+
+    Object.entries(POSITION_GROUPS).forEach(([groupName, positions]) => {
+      const filteredPositions = positions.filter((position) =>
+        position.toLowerCase().includes(searchTerm)
+      );
+      if (filteredPositions.length > 0) {
+        filteredGroups[groupName] = filteredPositions;
+      }
+    });
+
+    return filteredGroups;
+  };
 
   if (isLoading) {
     return (
@@ -333,17 +386,36 @@ export function GroupDetailsPanel({
                       value={memberPosition}
                       onValueChange={setMemberPosition}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="min-w-[300px] w-full">
                         <SelectValue placeholder="Select position" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Chairperson">Chairperson</SelectItem>
-                        <SelectItem value="Vice Chairperson">
-                          Vice Chairperson
-                        </SelectItem>
-                        <SelectItem value="Secretary">Secretary</SelectItem>
-                        <SelectItem value="Treasurer">Treasurer</SelectItem>
-                        <SelectItem value="Member">Member</SelectItem>
+                      <SelectContent className="relative">
+                        <div className="p-2 fixed top-0 left-0 right-0 z-50 bg-background">
+                          <Input
+                            placeholder="Search positions..."
+                            value={positionSearchTerm}
+                            onChange={(e) =>
+                              setPositionSearchTerm(e.target.value)
+                            }
+                            className="mb-1"
+                          />
+                        </div>
+                        <div className="h-[50px]" />
+                        {Object.entries(getFilteredPositionGroups()).map(
+                          ([groupName, positions], groupIndex) => (
+                            <div key={groupName}>
+                              {groupIndex > 0 && <Separator className="my-2" />}
+                              <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                                {groupName}
+                              </div>
+                              {positions.map((position: string) => (
+                                <SelectItem key={position} value={position}>
+                                  {position}
+                                </SelectItem>
+                              ))}
+                            </div>
+                          )
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -357,10 +429,8 @@ export function GroupDetailsPanel({
                         assignMemberMutation.isPending
                       }
                     >
-                      {assignMemberMutation.isPending ? (
+                      {assignMemberMutation.isPending && (
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        <Plus className="h-3 w-3 mr-1" />
                       )}
                       Add Member
                     </Button>
@@ -463,9 +533,6 @@ export function GroupDetailsPanel({
                               )}
                             </div>
                           )}
-                          <span>
-                            • Assigned {formatDate(member.assigned_at)}
-                          </span>
                         </div>
                       </div>
                       {!group.is_closed && (
