@@ -38,9 +38,9 @@ export interface AttendanceReportData {
     total_attendance: number;
     unique_members: number;
     /**
-     * Expected total attendance based solely on session restrictions.
-     * Sum of eligible members per session; sessions with no restrictions
-     * use the entire active church membership count.
+     * Expected total attendance.
+     * - Default: based solely on session restrictions (unrestricted uses active membership).
+     * - Tags/Groups mode: based on the selected cohort (tags/groups) across all sessions.
      */
     expected_total_members: number;
     /** Number of unique occasions represented by the sessions set */
@@ -141,6 +141,53 @@ async function getEligibleMemberCountForSession(
   return eligibleIds.size;
 }
 
+/**
+ * Compute expected eligible count for a session within a selected cohort (tags/groups).
+ * - If session has restrictions: return intersection size of cohort with allowed sets.
+ * - If no restrictions: expected = cohort size.
+ */
+async function getEligibleCohortCountForSession(
+  session: AttendanceSessionWithRelations,
+  organizationId: string,
+  cohortSet: Set<string>,
+): Promise<number> {
+  const hasAllowedMembers = Array.isArray((session as any).allowed_members) && (session as any).allowed_members.length > 0;
+  const hasAllowedGroups = Array.isArray((session as any).allowed_groups) && (session as any).allowed_groups.length > 0;
+  const hasAllowedTags = Array.isArray((session as any).allowed_tags) && (session as any).allowed_tags.length > 0;
+
+  const hasRestrictions = hasAllowedMembers || hasAllowedGroups || hasAllowedTags;
+  if (!hasRestrictions) {
+    return cohortSet.size;
+  }
+
+  const eligibleIds = new Set<string>();
+
+  if (hasAllowedMembers) {
+    ((session as any).allowed_members as string[]).forEach((id) => {
+      if (id && cohortSet.has(id)) eligibleIds.add(id);
+    });
+  }
+  if (hasAllowedGroups) {
+    const { data: groupAssignments, error: groupErr } = await supabase
+      .from('group_members_view')
+      .select('member_id')
+      .in('group_id', (session as any).allowed_groups as string[]);
+    if (groupErr) throw groupErr;
+    (groupAssignments || []).forEach((gm: any) => {
+      const id = gm?.member_id;
+      if (id && cohortSet.has(id)) eligibleIds.add(id);
+    });
+  }
+  if (hasAllowedTags) {
+    const tagMembers = await getMemberIdsForTags((session as any).allowed_tags as string[], organizationId);
+    tagMembers.forEach((id) => {
+      if (cohortSet.has(id)) eligibleIds.add(id);
+    });
+  }
+
+  return eligibleIds.size;
+}
+
 export function useAttendanceReport(params: ReportQueryParams | null) {
   const { currentOrganization } = useOrganization();
 
@@ -210,18 +257,19 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
       }
 
       // 2) Resolve member filter set (union of explicit members, tags, groups)
+      // Build member filter set and retain cohort arrays for tags/groups
       const memberFilterSet = new Set<string>();
+      const cohortGroupMembers: string[] = (params.group_ids && params.group_ids.length > 0)
+        ? await getMemberIdsForGroups(params.group_ids)
+        : [];
+      const cohortTagMembers: string[] = (params.tag_item_ids && params.tag_item_ids.length > 0)
+        ? await getMemberIdsForTags(params.tag_item_ids, orgId)
+        : [];
       if (params.member_ids && params.member_ids.length > 0) {
         params.member_ids.forEach((id) => memberFilterSet.add(id));
       }
-      if (params.group_ids && params.group_ids.length > 0) {
-        const groupMembers = await getMemberIdsForGroups(params.group_ids);
-        groupMembers.forEach((id) => memberFilterSet.add(id));
-      }
-      if (params.tag_item_ids && params.tag_item_ids.length > 0) {
-        const tagMembers = await getMemberIdsForTags(params.tag_item_ids, orgId);
-        tagMembers.forEach((id) => memberFilterSet.add(id));
-      }
+      cohortGroupMembers.forEach((id) => memberFilterSet.add(id));
+      cohortTagMembers.forEach((id) => memberFilterSet.add(id));
 
       // 3) Fetch attendance records for selected sessions and date range
       let recordsQuery = supabase
@@ -324,24 +372,35 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
       const total_attendance = records.length;
       const unique_members = memberIds.length;
       const sessions_count = sessions.length;
-      // Expected total attendance is based SOLELY on sessions' restrictions
-      const restrictedSessions = sessions.filter((s: any) => (
-        (Array.isArray(s.allowed_members) && s.allowed_members.length > 0) ||
-        (Array.isArray(s.allowed_groups) && s.allowed_groups.length > 0) ||
-        (Array.isArray(s.allowed_tags) && s.allowed_tags.length > 0)
-      ));
-      const unrestrictedSessionsCount = sessions.length - restrictedSessions.length;
-
+      // Compute expected totals
+      const isTagsGroupsMode = (params.group_ids && params.group_ids.length > 0) || (params.tag_item_ids && params.tag_item_ids.length > 0);
       let expected_total_members = 0;
-      if (unrestrictedSessionsCount > 0) {
-        const activeCount = await getActiveMemberCount(orgId);
-        expected_total_members += activeCount * unrestrictedSessionsCount;
-      }
-      if (restrictedSessions.length > 0) {
+      if (isTagsGroupsMode) {
+        // Cohort-based expectation across all sessions
+        const cohortSet = new Set<string>([...cohortGroupMembers, ...cohortTagMembers]);
         const perSessionCounts = await Promise.all(
-          restrictedSessions.map((s) => getEligibleMemberCountForSession(s, orgId)),
+          sessions.map((s) => getEligibleCohortCountForSession(s, orgId, cohortSet)),
         );
-        expected_total_members += perSessionCounts.reduce((sum, c) => sum + c, 0);
+        expected_total_members = perSessionCounts.reduce((sum, c) => sum + c, 0);
+      } else {
+        // Default behavior: based solely on session restrictions
+        const restrictedSessions = sessions.filter((s: any) => (
+          (Array.isArray(s.allowed_members) && s.allowed_members.length > 0) ||
+          (Array.isArray(s.allowed_groups) && s.allowed_groups.length > 0) ||
+          (Array.isArray(s.allowed_tags) && s.allowed_tags.length > 0)
+        ));
+        const unrestrictedSessionsCount = sessions.length - restrictedSessions.length;
+
+        if (unrestrictedSessionsCount > 0) {
+          const activeCount = await getActiveMemberCount(orgId);
+          expected_total_members += activeCount * unrestrictedSessionsCount;
+        }
+        if (restrictedSessions.length > 0) {
+          const perSessionCounts = await Promise.all(
+            restrictedSessions.map((s) => getEligibleMemberCountForSession(s, orgId)),
+          );
+          expected_total_members += perSessionCounts.reduce((sum, c) => sum + c, 0);
+        }
       }
       const occasions_count = occasionIdsSet.size;
       const days_span = trend.length > 0 ? trend.length : 0;

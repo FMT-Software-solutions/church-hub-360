@@ -6,19 +6,47 @@ import { formatDate } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTagsQuery } from '@/hooks/useRelationalTags';
+import { useAllGroups } from '@/hooks/useGroups';
 
 interface TableReportProps {
   report?: AttendanceReportData | null;
+  showTagsColumn?: boolean;
+  showGroupsColumn?: boolean;
+  selectedTagItemIds?: string[];
+  selectedGroupIds?: string[];
 }
 
-export function TableReport({ report }: TableReportProps) {
+export function TableReport({ report, showTagsColumn = false, showGroupsColumn = false, selectedTagItemIds = [], selectedGroupIds = [] }: TableReportProps) {
   const printableRef = useRef<HTMLDivElement>(null);
+  const { currentOrganization } = useOrganization();
+  const { data: relationalTags = [] } = useTagsQuery(currentOrganization?.id);
+  const { data: allGroups = [] } = useAllGroups();
 
   const rows = useMemo(() => {
     if (!report) return [];
     const sessionNameById = new Map(
       report.sessions.map((s) => [s.id, (s as any).name || 'Session'])
     );
+
+    // Build selected names sets for intersection
+    const selectedTagNames = new Set<string>();
+    for (const t of relationalTags) {
+      for (const item of t.tag_items || []) {
+        if (selectedTagItemIds.includes(item.id)) {
+          selectedTagNames.add(String(item.name));
+        }
+      }
+    }
+    const selectedGroupNames = new Set<string>();
+    for (const g of allGroups) {
+      if (selectedGroupIds.includes(g.id)) {
+        selectedGroupNames.add(String(g.name));
+      }
+    }
+
     const memberInfoById = new Map(
       report.members.map((m) => [
         m.id,
@@ -29,6 +57,10 @@ export function TableReport({ report }: TableReportProps) {
             'Member'
           ).trim(),
           avatar: m.profile_image_url || null,
+          tags: (Array.isArray(m.tags_array) ? m.tags_array : []).filter((t) => selectedTagNames.size === 0 || selectedTagNames.has(String(t))),
+          groups: (Array.isArray(m.member_groups)
+            ? m.member_groups.map((g) => String(g).split(' - ')[0] || String(g))
+            : []).filter((name) => selectedGroupNames.size === 0 || selectedGroupNames.has(String(name))),
         },
       ])
     );
@@ -38,8 +70,10 @@ export function TableReport({ report }: TableReportProps) {
       MemberId: r.member_id,
       MemberName: memberInfoById.get(r.member_id)?.name || r.member_id,
       AvatarUrl: memberInfoById.get(r.member_id)?.avatar || null,
+      Tags: (memberInfoById.get(r.member_id)?.tags || []).join(', '),
+      Groups: (memberInfoById.get(r.member_id)?.groups || []).join(', '),
     }));
-  }, [report]);
+  }, [report, relationalTags, allGroups, selectedTagItemIds, selectedGroupIds]);
 
   const summary = useMemo<Array<[string, unknown]>>(() => {
     if (!report) return [];
@@ -75,12 +109,14 @@ export function TableReport({ report }: TableReportProps) {
                   <th className="py-2 pr-4">Session</th>
                   <th className="py-2 pr-4">Recorded at</th>
                   <th className="py-2">Member</th>
+                  {showTagsColumn && <th className="py-2 pl-4">Tags</th>}
+                  {showGroupsColumn && <th className="py-2 pl-4">Groups</th>}
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="py-3 text-muted-foreground">
+                    <td colSpan={3 + (showTagsColumn ? 1 : 0) + (showGroupsColumn ? 1 : 0)} className="py-3 text-muted-foreground">
                       No records
                     </td>
                   </tr>
@@ -118,6 +154,64 @@ export function TableReport({ report }: TableReportProps) {
                         </span>
                       </div>
                     </td>
+                    {showTagsColumn && (
+                      <td className="py-2 pl-4 text-sm overflow-x-clip">
+                        {String(row.Tags || '').length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {String(row.Tags)
+                              .split(', ')
+                              .filter((t) => t && t.trim().length > 0)
+                              .slice(0, 2)
+                              .map((tag, index) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="text-xs px-1 py-0 text-wrap"
+                                  title={tag}
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                            {String(row.Tags).split(', ').filter((t) => t && t.trim().length > 0).length > 2 && (
+                              <Badge variant="outline" className="text-xs px-1 py-0">
+                                +{String(row.Tags).split(', ').filter((t) => t && t.trim().length > 0).length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    )}
+                    {showGroupsColumn && (
+                      <td className="py-2 pl-4 text-sm overflow-x-clip">
+                        {String(row.Groups || '').length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {String(row.Groups)
+                              .split(', ')
+                              .filter((g) => g && g.trim().length > 0)
+                              .slice(0, 2)
+                              .map((group, index) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="text-xs px-1 py-0 text-wrap"
+                                  title={group}
+                                >
+                                  {group}
+                                </Badge>
+                              ))}
+                            {String(row.Groups).split(', ').filter((g) => g && g.trim().length > 0).length > 2 && (
+                              <Badge variant="outline" className="text-xs px-1 py-0">
+                                +{String(row.Groups).split(', ').filter((g) => g && g.trim().length > 0).length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

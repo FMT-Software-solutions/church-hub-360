@@ -7,6 +7,7 @@ import { AgeGroupReport } from '@/components/attendance/reports/widgets/AgeGroup
 import { GenderReport } from '@/components/attendance/reports/widgets/GenderReport';
 import { StatsReport } from '@/components/attendance/reports/widgets/StatsReport';
 import { TableReport } from '@/components/attendance/reports/widgets/TableReport';
+import { TagsGroupsReport } from '@/components/attendance/reports/widgets/TagsGroupsReport';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAttendanceReport } from '@/hooks/attendance/useAttendanceReports';
@@ -188,11 +189,26 @@ export function ReportsInsights() {
       {showReportWidgets && (
         <div className="space-y-6">
           <StatsReport report={report} />
-          <TableReport report={report} />
+          <TableReport
+            report={report}
+            showTagsColumn={filters.mode === 'tags_groups' && filters.tagsGroups.tagItemIds.length > 0}
+            showGroupsColumn={filters.mode === 'tags_groups' && filters.tagsGroups.groupIds.length > 0}
+            selectedTagItemIds={filters.tagsGroups.tagItemIds}
+            selectedGroupIds={filters.tagsGroups.groupIds}
+          />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AgeGroupReport report={report} />
             <GenderReport report={report} disabled={!showGenderWidget} />
           </div>
+          {filters.mode === 'tags_groups' && (
+            <TagsGroupsReport
+              report={report}
+              showTags={filters.tagsGroups.tagItemIds.length > 0}
+              showGroups={filters.tagsGroups.groupIds.length > 0}
+              selectedTagItemIds={filters.tagsGroups.tagItemIds}
+              selectedGroupIds={filters.tagsGroups.groupIds}
+            />
+          )}
         </div>
       )}
     </div>
