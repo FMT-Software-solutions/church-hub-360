@@ -11,10 +11,15 @@ import {
   Crown,
   ChevronDown,
   ChevronUp,
+  Edit,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { MemberStatistics as MemberStatisticsType } from '@/types/members';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import AgeGroupEditorModal from '@/components/shared/AgeGroupEditorModal';
+import { useAgeGroupManagement } from '@/hooks/usePeopleConfigurationQueries';
+import { formatAgeGroupLabel } from '@/constants/defaultAgeGroups';
 
 interface MemberStatisticsProps {
   statistics: MemberStatisticsType;
@@ -79,7 +84,7 @@ function StatGroup({
     : childrenArray.slice(0, defaultItemsToShow);
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           {icon}
@@ -119,6 +124,9 @@ export default function MemberStatistics({
   statistics,
   isLoading,
 }: MemberStatisticsProps) {
+  const { currentOrganization } = useOrganization();
+  const [showAgeEditor, setShowAgeEditor] = useState(false);
+  const { ageGroups } = useAgeGroupManagement(currentOrganization?.id);
   if (isLoading) {
     return (
       <Card>
@@ -240,60 +248,70 @@ export default function MemberStatistics({
       </StatGroup>
 
       {/* Age Groups */}
-      <StatGroup
-        title="Age Distribution"
-        icon={<GraduationCap className="h-3 w-3" />}
-      >
-        <CompactStat
-          label="Children (0-17)"
-          value={statistics.members_by_age_group['0-17'] || 0}
-          icon={<Baby className="h-4 w-4" />}
-          color="text-green-600"
+      <div className="relative">
+        <StatGroup
+          title="Age Distribution"
+          icon={<GraduationCap className="h-3 w-3" />}
+        >
+          {ageGroups.map((g) => {
+            const labelKey = formatAgeGroupLabel(g);
+            let iconEl: React.ReactNode = (
+              <Users className="h-4 w-4 text-orange-600" />
+            );
+            const nameLower = g.name.toLowerCase();
+            if (nameLower.includes('child'))
+              iconEl = <Baby className="h-4 w-4 text-pink-500" />;
+            else if (nameLower.includes('young'))
+              iconEl = <GraduationCap className="h-4 w-4 text-teal-500" />;
+            else if (
+              nameLower.includes('senior') ||
+              nameLower.includes('mature')
+            )
+              iconEl = <Crown className="h-4 w-4 text-blue-500" />;
+            return (
+              <CompactStat
+                key={labelKey}
+                label={`${g.name} (${labelKey})`}
+                value={statistics.members_by_age_group[labelKey] || 0}
+                icon={iconEl}
+                color="text-muted-foreground"
+              />
+            );
+          })}
+          {statistics.total_members -
+            Object.values(statistics.members_by_age_group).reduce(
+              (sum, count) => sum + count,
+              0
+            ) >
+            0 && (
+            <CompactStat
+              label="Unknown Age"
+              value={
+                statistics.total_members -
+                Object.values(statistics.members_by_age_group).reduce(
+                  (sum, count) => sum + count,
+                  0
+                )
+              }
+              icon={<Users className="h-4 w-4" />}
+              color="text-gray-600"
+            />
+          )}
+        </StatGroup>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-3 right-3 p-0 hover:bg-transparent"
+          onClick={() => setShowAgeEditor(true)}
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+        <AgeGroupEditorModal
+          open={showAgeEditor}
+          onOpenChange={setShowAgeEditor}
+          organizationId={currentOrganization?.id}
         />
-        <CompactStat
-          label="Young Adults (18-30)"
-          value={statistics.members_by_age_group['18-30'] || 0}
-          icon={<GraduationCap className="h-4 w-4" />}
-          color="text-blue-600"
-        />
-        <CompactStat
-          label="Adults (31-50)"
-          value={statistics.members_by_age_group['31-50'] || 0}
-          icon={<Users className="h-4 w-4" />}
-          color="text-purple-600"
-        />
-        <CompactStat
-          label="Mature (51-70)"
-          value={statistics.members_by_age_group['51-70'] || 0}
-          icon={<Users className="h-4 w-4" />}
-          color="text-orange-600"
-        />
-        <CompactStat
-          label="Seniors (71+)"
-          value={statistics.members_by_age_group['71+'] || 0}
-          icon={<Crown className="h-4 w-4" />}
-          color="text-red-600"
-        />
-        {statistics.total_members -
-          Object.values(statistics.members_by_age_group).reduce(
-            (sum, count) => sum + count,
-            0
-          ) >
-          0 && (
-          <CompactStat
-            label="Unknown Age"
-            value={
-              statistics.total_members -
-              Object.values(statistics.members_by_age_group).reduce(
-                (sum, count) => sum + count,
-                0
-              )
-            }
-            icon={<Users className="h-4 w-4" />}
-            color="text-gray-600"
-          />
-        )}
-      </StatGroup>
+      </div>
     </div>
   );
 }

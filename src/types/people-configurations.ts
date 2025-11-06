@@ -90,6 +90,11 @@ export interface PeopleConfiguration {
   id: string;
   organization_id: string;
   membership_form_schema?: MembershipFormSchema;
+  age_group?: {
+    name: string;
+    min_age: number;
+    max_age: number;
+  }[];
   created_at: string;
   updated_at: string;
   created_by?: string;
@@ -144,6 +149,11 @@ export interface CreatePeopleConfigurationRequest {
 
 export interface UpdatePeopleConfigurationRequest {
   membership_form_schema?: MembershipFormSchema;
+  age_group?: {
+    name: string;
+    min_age: number;
+    max_age: number;
+  }[];
 }
 
 // Tag form data types
@@ -273,6 +283,23 @@ export interface UseMembershipFormManagementReturn {
   updateMembershipFormSchema: (newMembershipFormSchema: MembershipFormSchema, skipOptimistic?: boolean) => Promise<void>;
   saveMembershipForm: (formData: MembershipFormData) => Promise<void>;
   updateFormMetadata: (metadata: Partial<MembershipFormData>) => Promise<void>;
+}
+
+// Age group management hook types
+export interface UseAgeGroupManagementReturn {
+  ageGroups: {
+    name: string;
+    min_age: number;
+    max_age: number;
+  }[];
+  loading: boolean;
+  operationLoading: boolean;
+  error: string | null;
+  updateAgeGroups: (newAgeGroups: {
+    name: string;
+    min_age: number;
+    max_age: number;
+  }[]) => Promise<void>;
 }
 
 // Validation types

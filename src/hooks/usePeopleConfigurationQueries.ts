@@ -7,8 +7,10 @@ import {
   type MembershipFormSchema,
   type UseMembershipFormManagementReturn,
   type UsePeopleConfigurationReturn,
+  type UseAgeGroupManagementReturn,
 } from '../types/people-configurations';
 import { useState, useCallback } from 'react';
+import { DEFAULT_AGE_GROUPS } from '@/constants/defaultAgeGroups';
 
 // Query Keys
 export const peopleConfigurationKeys = {
@@ -248,5 +250,63 @@ export function useMembershipFormManagement(organizationId: string | undefined):
     updateMembershipFormSchema,
     saveMembershipForm,
     updateFormMetadata,
+  };
+}
+
+// Age group management hook
+export function useAgeGroupManagement(organizationId: string | undefined): UseAgeGroupManagementReturn {
+  const { configuration, loading, error } = usePeopleConfiguration(organizationId);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [operationLoading, setOperationLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const ageGroups = (configuration?.age_group && configuration.age_group.length > 0)
+    ? configuration.age_group
+    : DEFAULT_AGE_GROUPS;
+
+  const updateAgeGroups = useCallback(async (newAgeGroups: { name: string; min_age: number; max_age: number }[]) => {
+    if (!organizationId) {
+      setLocalError('Organization ID is required');
+      return;
+    }
+
+    try {
+      setOperationLoading(true);
+      const { data: result, error: sbError } = await supabase
+        .from('people_configurations')
+        .upsert(
+          {
+            organization_id: organizationId,
+            age_group: newAgeGroups,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'organization_id' }
+        )
+        .select()
+        .single();
+
+      if (sbError) throw sbError;
+
+      // Update cache
+      queryClient.setQueryData(
+        peopleConfigurationKeys.organization(organizationId),
+        result as PeopleConfiguration
+      );
+
+      setLocalError(null);
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'An error occurred');
+      throw err;
+    } finally {
+      setOperationLoading(false);
+    }
+  }, [organizationId, queryClient]);
+
+  return {
+    ageGroups,
+    loading,
+    operationLoading,
+    error: localError || error,
+    updateAgeGroups,
   };
 }

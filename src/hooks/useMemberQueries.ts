@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
+import { DEFAULT_AGE_GROUPS, formatAgeGroupLabel } from '@/constants/defaultAgeGroups';
 import type {
   Member,
   MemberSummary,
@@ -488,6 +489,17 @@ export function useMemberStatistics(organizationId: string | undefined) {
 
         if (membersError) throw membersError;
 
+        // Fetch age group configuration (fallback to defaults if not present)
+        let configAgeGroups: { name: string; min_age: number; max_age: number }[] = DEFAULT_AGE_GROUPS;
+        const { data: configRow, error: cfgErr } = await supabase
+          .from('people_configurations')
+          .select('age_group')
+          .eq('organization_id', organizationId)
+          .single();
+        if (!cfgErr && configRow?.age_group && Array.isArray(configRow.age_group) && configRow.age_group.length > 0) {
+          configAgeGroups = configRow.age_group as { name: string; min_age: number; max_age: number }[];
+        }
+
         // Calculate members by status
         const membersByStatus: Record<MembershipStatus, number> = {
           active: members?.filter(m => m.membership_status === 'active').length || 0,
@@ -514,23 +526,22 @@ export function useMemberStatistics(organizationId: string | undefined) {
           }
         });
 
-        // Calculate members by age group
-        const membersByAgeGroup: Record<string, number> = {
-          '0-17': 0,
-          '18-30': 0,
-          '31-50': 0,
-          '51-70': 0,
-          '71+': 0,
-        };
-
+        // Calculate members by configurable age groups
+        const membersByAgeGroup: Record<string, number> = {};
+        const labels = configAgeGroups.map(formatAgeGroupLabel);
+        for (const label of labels) {
+          membersByAgeGroup[label] = 0;
+        }
         members?.forEach(member => {
-          if (member.date_of_birth) {
-            const age = new Date().getFullYear() - new Date(member.date_of_birth).getFullYear();
-            if (age <= 17) membersByAgeGroup['0-17']++;
-            else if (age <= 30) membersByAgeGroup['18-30']++;
-            else if (age <= 50) membersByAgeGroup['31-50']++;
-            else if (age <= 70) membersByAgeGroup['51-70']++;
-            else membersByAgeGroup['71+']++;
+          if (!member.date_of_birth) return;
+          const age = new Date().getFullYear() - new Date(member.date_of_birth).getFullYear();
+          for (let i = 0; i < configAgeGroups.length; i++) {
+            const g = configAgeGroups[i];
+            if (age >= g.min_age && age <= g.max_age) {
+              const label = formatAgeGroupLabel(g);
+              membersByAgeGroup[label] = (membersByAgeGroup[label] || 0) + 1;
+              break;
+            }
           }
         });
 
