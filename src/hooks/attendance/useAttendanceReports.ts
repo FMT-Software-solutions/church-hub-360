@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
+import { DEFAULT_AGE_GROUPS, formatAgeGroupLabel } from '@/constants/defaultAgeGroups';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import type { AttendanceSessionWithRelations } from '@/types/attendance';
 import type { MemberSummary } from '@/types/members';
@@ -12,7 +13,6 @@ export interface ReportQueryParams {
   member_ids?: string[];
   tag_item_ids?: string[];
   group_ids?: string[];
-  demographic_groups?: Array<'children' | 'young_adults' | 'adults'>;
 }
 
 export interface ReportTrendPoint {
@@ -37,6 +37,16 @@ export interface AttendanceReportData {
   summary: {
     total_attendance: number;
     unique_members: number;
+    /**
+     * Expected total attendance based solely on session restrictions.
+     * Sum of eligible members per session; sessions with no restrictions
+     * use the entire active church membership count.
+     */
+    expected_total_members: number;
+    /** Number of unique occasions represented by the sessions set */
+    occasions_count: number;
+    /** Attendance rate as a fraction of expected_total_members (0–1) */
+    attendance_rate: number;
     sessions_count: number;
     days_span: number;
     average_per_day: number;
@@ -78,6 +88,59 @@ async function getMemberIdsForTags(tag_item_ids: string[], organizationId: strin
   return Array.from(new Set(ids));
 }
 
+/** Count active members in the organization (active church membership) */
+async function getActiveMemberCount(organizationId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('members_summary')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId);
+  if (error) throw error;
+  return count || 0;
+}
+
+/**
+ * Compute eligible expected members for a single session based solely on its restrictions.
+ * - If session has allowed_members/groups/tags: union IDs across these restrictions and return unique count.
+ * - If no restrictions present: expected = active membership count for the organization.
+ */
+async function getEligibleMemberCountForSession(
+  session: AttendanceSessionWithRelations,
+  organizationId: string,
+): Promise<number> {
+  const hasAllowedMembers = Array.isArray((session as any).allowed_members) && (session as any).allowed_members.length > 0;
+  const hasAllowedGroups = Array.isArray((session as any).allowed_groups) && (session as any).allowed_groups.length > 0;
+  const hasAllowedTags = Array.isArray((session as any).allowed_tags) && (session as any).allowed_tags.length > 0;
+
+  const hasRestrictions = hasAllowedMembers || hasAllowedGroups || hasAllowedTags;
+  if (!hasRestrictions) {
+    return getActiveMemberCount(organizationId);
+  }
+
+  const eligibleIds = new Set<string>();
+
+  if (hasAllowedMembers) {
+    ((session as any).allowed_members as string[]).forEach((id) => {
+      if (id) eligibleIds.add(id);
+    });
+  }
+  if (hasAllowedGroups) {
+    const { data: groupAssignments, error: groupErr } = await supabase
+      .from('group_members_view')
+      .select('member_id')
+      .in('group_id', (session as any).allowed_groups as string[]);
+    if (groupErr) throw groupErr;
+    (groupAssignments || []).forEach((gm: any) => {
+      if (gm?.member_id) eligibleIds.add(gm.member_id);
+    });
+  }
+  if (hasAllowedTags) {
+    const tagMembers = await getMemberIdsForTags((session as any).allowed_tags as string[], organizationId);
+    tagMembers.forEach((id) => eligibleIds.add(id));
+  }
+
+  return eligibleIds.size;
+}
+
 export function useAttendanceReport(params: ReportQueryParams | null) {
   const { currentOrganization } = useOrganization();
 
@@ -96,23 +159,33 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
         .eq('organization_id', orgId)
         .eq('is_deleted', false);
 
+      // Always exclude future/upcoming sessions. Include past or closed sessions.
+      const nowIso = new Date().toISOString();
+      sessionQuery = sessionQuery.or(`end_time.lte.${nowIso},and(is_open.eq.false,start_time.lte.${nowIso})`);
+
       if (params.session_ids && params.session_ids.length > 0) {
         sessionQuery = sessionQuery.in('id', params.session_ids);
       } else if (params.occasion_ids && params.occasion_ids.length > 0) {
         sessionQuery = sessionQuery.in('occasion_id', params.occasion_ids);
       }
-
-      if (params.date_from) {
-        sessionQuery = sessionQuery.gte('start_time', params.date_from);
-      }
-      if (params.date_to) {
-        sessionQuery = sessionQuery.lte('end_time', params.date_to);
+      // Only restrict sessions by date when specific sessions are explicitly selected.
+      // If only an occasion is selected (and sessions are "All"), we do NOT restrict by session dates;
+      // we will filter attendance records by their marked_at timestamps instead.
+      const restrictSessionsByDate = !!(params.session_ids && params.session_ids.length > 0);
+      if (restrictSessionsByDate) {
+        if (params.date_from) {
+          sessionQuery = sessionQuery.gte('start_time', params.date_from);
+        }
+        if (params.date_to) {
+          sessionQuery = sessionQuery.lte('end_time', params.date_to);
+        }
       }
 
       const { data: sessionsData, error: sessionsErr } = await sessionQuery;
       if (sessionsErr) throw sessionsErr;
       const sessions = (sessionsData || []) as AttendanceSessionWithRelations[];
       const sessionIds = sessions.map((s) => s.id);
+      const occasionIdsSet = new Set<string>(sessions.map((s: any) => s.occasion_id));
 
       // If no sessions matched, return empty report
       if (sessionIds.length === 0) {
@@ -120,6 +193,9 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
           summary: {
             total_attendance: 0,
             unique_members: 0,
+            expected_total_members: 0,
+            occasions_count: 0,
+            attendance_rate: 0,
             sessions_count: 0,
             days_span: 0,
             average_per_day: 0,
@@ -183,20 +259,6 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
         members = (membersData || []) as MemberSummary[];
       }
 
-      // 4b) Apply demographic filters if provided (age-based categories)
-      if (params.demographic_groups && params.demographic_groups.length > 0) {
-        const inGroups = new Set<string>();
-        for (const m of members) {
-          const age = m.age ?? null;
-          if (age === null) continue;
-          if (age <= 12 && params.demographic_groups.includes('children')) inGroups.add(m.id);
-          else if (age >= 13 && age <= 24 && params.demographic_groups.includes('young_adults')) inGroups.add(m.id);
-          else if (age >= 25 && params.demographic_groups.includes('adults')) inGroups.add(m.id);
-        }
-        members = members.filter((m) => inGroups.has(m.id));
-        records = records.filter((r) => inGroups.has(r.member_id));
-      }
-
       // 5) Compute trend by day
       const trendMap = new Map<string, number>();
       for (const r of records) {
@@ -221,38 +283,79 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
       })).sort((a, b) => b.count - a.count);
 
       // 7) Demographic breakdown by age groups and gender
-      const byAgeGroup: Record<string, number> = {
-        Children: 0, // 0-12
-        Youth: 0,    // 13-25
-        Adults: 0,   // 26-59
-        Seniors: 0,  // 60+
-      };
+      // Resolve age groups from people_configurations, fallback to DEFAULT_AGE_GROUPS
+      let configuredAgeGroups: Array<{ name: string; min_age: number; max_age: number }> = DEFAULT_AGE_GROUPS;
+      try {
+        const { data: configRow } = await supabase
+          .from('people_configurations')
+          .select('age_group')
+          .eq('organization_id', orgId)
+          .single();
+        if (configRow && Array.isArray((configRow as any).age_group) && (configRow as any).age_group.length > 0) {
+          configuredAgeGroups = (configRow as any).age_group as Array<{ name: string; min_age: number; max_age: number }>;
+        }
+      } catch (_) {
+        // Ignore and use defaults
+      }
+
+      const byAgeGroup: Record<string, number> = {};
+      for (const g of configuredAgeGroups) {
+        const label = formatAgeGroupLabel(g);
+        byAgeGroup[label] = 0;
+      }
       const byGender: Record<string, number> = {};
       for (const m of members) {
         const age = m.age ?? null;
         if (age !== null) {
-          if (age <= 12) byAgeGroup.Children++;
-          else if (age <= 25) byAgeGroup.Youth++;
-          else if (age <= 59) byAgeGroup.Adults++;
-          else byAgeGroup.Seniors++;
+          // Increment first matching configured age group bucket
+          for (const g of configuredAgeGroups) {
+            if (age >= g.min_age && age <= g.max_age) {
+              const label = formatAgeGroupLabel(g);
+              byAgeGroup[label] = (byAgeGroup[label] || 0) + 1;
+              break;
+            }
+          }
         }
-        const g = (m.gender || 'unknown').toString();
-        byGender[g] = (byGender[g] || 0) + 1;
+        const genderKey = (m.gender || 'unknown').toString();
+        byGender[genderKey] = (byGender[genderKey] || 0) + 1;
       }
 
       // 8) Summary
       const total_attendance = records.length;
       const unique_members = memberIds.length;
       const sessions_count = sessions.length;
+      // Expected total attendance is based SOLELY on sessions' restrictions
+      const restrictedSessions = sessions.filter((s: any) => (
+        (Array.isArray(s.allowed_members) && s.allowed_members.length > 0) ||
+        (Array.isArray(s.allowed_groups) && s.allowed_groups.length > 0) ||
+        (Array.isArray(s.allowed_tags) && s.allowed_tags.length > 0)
+      ));
+      const unrestrictedSessionsCount = sessions.length - restrictedSessions.length;
+
+      let expected_total_members = 0;
+      if (unrestrictedSessionsCount > 0) {
+        const activeCount = await getActiveMemberCount(orgId);
+        expected_total_members += activeCount * unrestrictedSessionsCount;
+      }
+      if (restrictedSessions.length > 0) {
+        const perSessionCounts = await Promise.all(
+          restrictedSessions.map((s) => getEligibleMemberCountForSession(s, orgId)),
+        );
+        expected_total_members += perSessionCounts.reduce((sum, c) => sum + c, 0);
+      }
+      const occasions_count = occasionIdsSet.size;
       const days_span = trend.length > 0 ? trend.length : 0;
       const average_per_day = days_span > 0 ? Math.round((total_attendance / days_span) * 100) / 100 : 0;
+      const attendance_rate = expected_total_members > 0
+        ? Math.round(((total_attendance / expected_total_members) * 10000)) / 10000
+        : 0;
       const peak_day = trend.length > 0 ? trend.reduce((acc, cur) => (cur.count > acc.count ? cur : acc), trend[0]) : undefined;
       const top_session = sessionBreakdown.length > 0
         ? { session_id: sessionBreakdown[0].session_id, name: sessionBreakdown[0].session_name, count: sessionBreakdown[0].count }
         : undefined;
 
       return {
-        summary: { total_attendance, unique_members, sessions_count, days_span, average_per_day, peak_day, top_session },
+        summary: { total_attendance, unique_members, expected_total_members, occasions_count, attendance_rate, sessions_count, days_span, average_per_day, peak_day, top_session },
         trend,
         sessionBreakdown,
         demographic: { byAgeGroup, byGender },

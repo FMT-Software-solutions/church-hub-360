@@ -1,9 +1,7 @@
-import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
-import MultipleSelector, { type Option } from '@/components/ui/multiselect';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAttendanceOccasions } from '@/hooks/attendance/useAttendanceOccasions';
-import { useAttendanceSessions } from '@/hooks/attendance/useAttendanceSessions';
+import { OccasionSearchTypeahead } from '@/components/shared/OccasionSearchTypeahead';
+import { SessionSearchTypeahead } from '@/components/shared/SessionSearchTypeahead';
+import { useOccasionDetails, useSessionDetails } from '@/hooks/attendance/useAttendanceSearch';
 
 export type OccasionSessionMode = 'all' | 'selected';
 
@@ -18,76 +16,44 @@ interface OccasionsSessionsFilterProps {
 }
 
 export function OccasionsSessionsFilter({
-  mode,
-  onModeChange,
   selectedOccasionIds,
   onOccasionsChange,
   selectedSessionIds,
   onSessionsChange,
   className,
 }: OccasionsSessionsFilterProps) {
-
-  const { data: occasions = [], isLoading: occasionsLoading } = useAttendanceOccasions();
-  const { data: sessions = [], isLoading: sessionsLoading } = useAttendanceSessions(
-    selectedOccasionIds.length === 1 ? { occasion_id: selectedOccasionIds[0] } : undefined
-  );
-
-  const occasionOptions: Option[] = useMemo(() => {
-    return occasions.map((o) => ({ value: o.id, label: o.name || 'Unnamed Occasion' }));
-  }, [occasions]);
-
-  const sessionOptions: Option[] = useMemo(() => {
-    return sessions.map((s) => ({ value: s.id, label: (s as any).name || new Date(s.start_time).toLocaleString() }));
-  }, [sessions]);
-
-  const selectedOccasionOptions = useMemo<Option[]>(() => {
-    return occasionOptions.filter((o) => selectedOccasionIds.includes(o.value));
-  }, [occasionOptions, selectedOccasionIds]);
-
-  const selectedSessionOptions = useMemo<Option[]>(() => {
-    return sessionOptions.filter((s) => selectedSessionIds.includes(s.value));
-  }, [sessionOptions, selectedSessionIds]);
+  const { data: occasionDetails = [] } = useOccasionDetails(selectedOccasionIds);
+  const { data: sessionDetails = [] } = useSessionDetails(selectedSessionIds);
 
   return (
     <div className={className}>
-      <div className="flex flex-col md:flex-row md:items-end gap-3">
-        <div className="space-y-2 md:w-48">
-          <Label>Scope</Label>
-          <Select value={mode} onValueChange={(val) => onModeChange(val as OccasionSessionMode)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All occasions & sessions</SelectItem>
-              <SelectItem value="selected">Selected occasions/sessions</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Occasions</Label>
+          <OccasionSearchTypeahead
+            value={occasionDetails}
+            onChange={(items) => {
+              const ids = items.map((i) => i.id);
+              onOccasionsChange(ids);
+              // If occasion selection is cleared, also reset selected sessions
+              if (ids.length === 0) {
+                onSessionsChange([]);
+              }
+            }}
+            placeholder="All occasions — type to search"
+          />
         </div>
 
-        {mode === 'selected' && (
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Occasions</Label>
-              <MultipleSelector
-                value={selectedOccasionOptions}
-                options={occasionOptions}
-                placeholder={occasionsLoading ? 'Loading occasions...' : 'Select occasions'}
-                onChange={(opts: Option[]) => onOccasionsChange(opts.map((o: Option) => o.value))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Sessions</Label>
-              <MultipleSelector
-                value={selectedSessionOptions}
-                options={sessionOptions}
-                placeholder={sessionsLoading ? 'Loading sessions...' : 'Select sessions'}
-                onChange={(opts: Option[]) => onSessionsChange(opts.map((o: Option) => o.value))}
-              />
-              <div className="text-xs text-muted-foreground">Selecting sessions narrows report strictly to those sessions.</div>
-            </div>
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label>Sessions</Label>
+          <SessionSearchTypeahead
+            value={sessionDetails}
+            onChange={(items) => onSessionsChange(items.map(i => i.id))}
+            placeholder="All sessions — type to search"
+            multiSelect
+            occasionId={selectedOccasionIds.length === 1 ? selectedOccasionIds[0] : undefined}
+          />
+        </div>
       </div>
     </div>
   );
