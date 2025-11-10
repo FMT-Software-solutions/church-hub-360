@@ -35,6 +35,7 @@ import { useCreateIncome, useUpdateIncome, type CreateIncomeInput } from '@/hook
 import { useGroup } from '@/hooks/useGroups';
 import { useMember } from '@/hooks/useMemberQueries';
 import { useTagsQuery } from '@/hooks/useRelationalTags';
+import { supabase } from '@/utils/supabase';
 import type {
   IncomeResponseRow,
   IncomeType,
@@ -94,7 +95,8 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
 
   const { currentOrganization } = useOrganization();
 
-  const [editingId] = useState<string | undefined>((initialData as any)?.id);
+  // Derive editing id from current initialData to ensure it updates when selection changes
+  const editingId: string | undefined = (initialData as any)?.id;
 
   const initialIncomeType: IncomeType = (initialData as any)?.income_type || 'general_income';
 
@@ -112,8 +114,8 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     },
     general_income: {
       envelope_number: false,
-      attendance_occasion_id: false,
-      attendance_session_id: false,
+      attendance_occasion_id: true,
+      attendance_session_id: true,
     },
     pledge_payment: {
       envelope_number: false,
@@ -157,7 +159,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     member_id: (initialData as any)?.member_id,
     group_id: (initialData as any)?.group_id,
     tag_item_id: (initialData as any)?.tag_item_id,
-    receipt_number: (initialData as any)?.receipt_number ?? '',
+    receipt_number: (initialData as any)?.receipt_number ?? undefined,
     branch_id: (initialData as any)?.branch_id ?? null,
     income_type: initialIncomeType,
     envelope_number: (initialData as any)?.envelope_number ?? '',
@@ -188,6 +190,47 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
  
 
   const visibility = useMemo(() => computeVisibility(form.income_type as IncomeType), [form.income_type, fieldVisibility]);
+
+  // Sync form state with incoming initialData when dialog opens or when selection changes
+  useEffect(() => {
+    if (!computedOpen) return;
+
+    const data = initialData as any;
+    if (data) {
+      setForm((prev) => ({
+        ...prev,
+        amount: data?.amount ?? 0,
+        extended_income_type: data?.extended_income_type ?? extendedIncomeTypes[0],
+        payment_method: data?.payment_method ?? 'cash',
+        date: data?.date ?? new Date().toISOString(),
+        description: data?.description ?? '',
+        notes: data?.notes ?? '',
+        occasion_name: data?.occasion_name ?? '',
+        attendance_occasion_id: data?.attendance_occasion_id,
+        attendance_session_id: data?.attendance_session_id,
+        source: data?.source ?? '',
+        source_type: data?.source_type ?? 'member',
+        member_id: data?.member_id,
+        group_id: data?.group_id,
+        tag_item_id: data?.tag_item_id,
+        receipt_number: data?.receipt_number ?? undefined,
+        branch_id: data?.branch_id ?? null,
+        income_type: data?.income_type || 'general_income',
+        envelope_number: data?.envelope_number ?? '',
+        tax_deductible: data?.tax_deductible ?? undefined,
+        receipt_issued: data?.receipt_issued ?? undefined,
+      }));
+
+      // Pre-populate selector values for typeaheads/selectors
+      setMemberValue(data?.member_id ? [{ id: data.member_id } as any] : []);
+      setOccasionValue(data?.attendance_occasion_id ? [{ id: data.attendance_occasion_id } as any] : []);
+      setSessionValue(data?.attendance_session_id ? [{ id: data.attendance_session_id } as any] : []);
+    } else if (mode === 'add') {
+      // For add mode without provided defaults, reset to baseline
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computedOpen, mode, initialData]);
 
   // Income type options
   const allIncomeTypeOptions: { value: IncomeType; label: string }[] = [
@@ -244,7 +287,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
       member_id: undefined,
       group_id: undefined,
       tag_item_id: undefined,
-      receipt_number: '',
+      receipt_number: undefined,
       envelope_number: '',
       tax_deductible: undefined,
       receipt_issued: undefined,
@@ -312,6 +355,33 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
+    }
+    // Guard: ensure receipt_number is unique per organization
+    const receipt = (form.receipt_number || '').trim();
+    if (receipt && currentOrganization?.id) {
+      try {
+        let query = supabase
+          .from('income')
+          .select('id', { count: 'exact' })
+          .eq('organization_id', currentOrganization.id)
+          .eq('is_deleted', false)
+          .eq('receipt_number', receipt);
+        if (mode === 'edit' && editingId) {
+          query = query.neq('id', editingId);
+        }
+        const { error, count } = await query;
+        if (error) {
+          setErrors((prev) => ({ ...prev, receipt_number: 'Could not verify receipt number uniqueness.' }));
+          return;
+        }
+        if ((count || 0) > 0) {
+          setErrors((prev) => ({ ...prev, receipt_number: 'Receipt number already exists in this organization.' }));
+          return;
+        }
+      } catch (err) {
+        setErrors((prev) => ({ ...prev, receipt_number: 'Could not verify receipt number uniqueness.' }));
+        return;
+      }
     }
     try {
       if (mode === 'edit' && editingId) {

@@ -8,25 +8,27 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import type { IncomeResponseRow } from '@/types/finance';
+import type { IncomeResponseRow, IncomeType } from '@/types/finance';
 import { format } from 'date-fns';
 import {
   useOccasionDetails,
   useSessionDetails,
 } from '@/hooks/attendance/useAttendanceSearch';
 
-interface ContributionViewDialogProps {
+interface IncomeViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contribution: IncomeResponseRow | null;
   onEdit: (record: IncomeResponseRow) => void;
+  incomeType?: IncomeType;
 }
 
-export const ContributionViewDialog: React.FC<ContributionViewDialogProps> = ({
+export const IncomeViewDialog: React.FC<IncomeViewDialogProps> = ({
   open,
   onOpenChange,
   contribution,
   onEdit,
+  incomeType,
 }) => {
   const occasionIds = contribution?.attendance_occasion_id
     ? [contribution.attendance_occasion_id]
@@ -48,7 +50,7 @@ export const ContributionViewDialog: React.FC<ContributionViewDialogProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">
-                  Contributor
+                  {incomeType === 'contribution' ? 'Contributor' : 'Source'}
                 </Label>
                 <p className="font-semibold">
                   {(contribution as any).contributor_name}

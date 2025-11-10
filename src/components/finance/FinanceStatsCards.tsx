@@ -261,7 +261,6 @@ export const incomeStatsConfig = (data: {
       title: 'Total Income',
       value: formatCurrency(data.totalIncome),
       icon: <DollarSign className="h-4 w-4" />,
-      trend: { direction: 'up', value: 12, label: 'vs last month' },
       color: 'success',
     },
     {

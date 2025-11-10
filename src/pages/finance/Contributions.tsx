@@ -1,33 +1,45 @@
 import { contributionTypes } from '@/components/finance/constants';
 import { contributionDonationStatsConfig } from '@/components/finance/contributions/ContributionDonationStatsConfig';
 import { ContributionsTable } from '@/components/finance/contributions/ContributionsTable';
-import { ContributionViewDialog } from '@/components/finance/contributions/ContributionViewDialog';
+import { IncomeViewDialog } from '@/components/finance/IncomeViewDialog';
 import { FinanceFilterBar } from '@/components/finance/FinanceFilterBar';
 import { FinanceReportGenerator } from '@/components/finance/FinanceReportGenerator';
 import { FinanceStatsCards } from '@/components/finance/FinanceStatsCards';
 import { IncomeFormDialog } from '@/components/finance/IncomeFormDialog';
+import { ReceiptPrintDialog } from '@/components/finance/ReceiptPrintDialog';
 import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { Pagination } from '@/components/shared/Pagination';
 // import { useOrganization } from '@/contexts/OrganizationContext';
 import { useDeleteIncome, useIncomes } from '@/hooks/finance/income';
-import type { FinanceFilter, IncomeResponseRow, IncomeType } from '@/types/finance';
+import type {
+  FinanceFilter,
+  IncomeResponseRow,
+  IncomeType,
+} from '@/types/finance';
 import { Heart } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
+import type { AmountComparison } from '@/utils/finance/search';
 
 const Contributions: React.FC = () => {
   // Data: use contributions from income table
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [search] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState<string | undefined>(undefined);
+  const [amountSearch, setAmountSearch] = useState<AmountComparison | null>(
+    null
+  );
   const [filters, setFilters] = useState<FinanceFilter>({
     date_filter: { type: 'preset', preset: 'this_month' },
   });
-  const [recordTypeFilter, setRecordTypeFilter] = useState<'all' | IncomeType>('all');
+  const [recordTypeFilter, setRecordTypeFilter] = useState<'all' | IncomeType>(
+    'all'
+  );
 
   const contributionsQuery = useIncomes({
     page,
     pageSize,
     search,
+    amount_comparison: amountSearch || undefined,
     filters,
     income_types:
       recordTypeFilter === 'all'
@@ -46,6 +58,8 @@ const Contributions: React.FC = () => {
     setSelectedContribution,
   ] = useState<IncomeResponseRow | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [receiptRecord, setReceiptRecord] = useState<IncomeResponseRow | null>(null);
 
   // Mutations
   const deleteIncome = useDeleteIncome();
@@ -192,12 +206,15 @@ const Contributions: React.FC = () => {
         filters={filters}
         onFiltersChange={setFilters}
         categoryOptions={contributionTypes}
+        onSearchChange={setSearch}
+        amountSearch={amountSearch}
+        onAmountSearchChange={setAmountSearch}
         showAddButton={true}
         onAddClick={() => setIsAddDialogOpen(true)}
         addButtonLabel="Add Record"
         recordTypeFilter={recordTypeFilter}
         onRecordTypeFilterChange={setRecordTypeFilter}
-        incomeTypeFilterOptions={["contribution", "donation"]}
+        incomeTypeFilterOptions={['contribution', 'donation']}
       />
 
       {/* Data Table */}
@@ -206,6 +223,10 @@ const Contributions: React.FC = () => {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onReceipt={(record) => {
+          setReceiptRecord(record);
+          setIsReceiptDialogOpen(true);
+        }}
       />
 
       {/* Pagination */}
@@ -236,11 +257,22 @@ const Contributions: React.FC = () => {
       )}
 
       {/* View Dialog */}
-      <ContributionViewDialog
+      <IncomeViewDialog
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
         contribution={selectedContribution as any}
         onEdit={handleEdit}
+        incomeType="contribution"
+      />
+
+      {/* Receipt Dialog */}
+      <ReceiptPrintDialog
+        open={isReceiptDialogOpen}
+        onOpenChange={(o) => {
+          setIsReceiptDialogOpen(o);
+          if (!o) setReceiptRecord(null);
+        }}
+        record={receiptRecord}
       />
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
@@ -254,7 +286,7 @@ const Contributions: React.FC = () => {
           setSelectedContribution(null);
         }}
         title="Delete Record"
-        description="Are you sure you want to delete this record? This action cannot be undone."
+        description="Are you sure you want to delete this record?"
         confirmButtonText="Delete"
         cancelButtonText="Cancel"
         isLoading={deleteIncome.isPending}

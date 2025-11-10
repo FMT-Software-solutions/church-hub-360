@@ -11,6 +11,7 @@ import type {
   IncomeType,
   IncomeResponseRow,
 } from '@/types/finance';
+import type { AmountComparison } from '@/utils/finance/search';
 
 export interface IncomeQueryParams {
   page?: number;
@@ -19,6 +20,7 @@ export interface IncomeQueryParams {
   filters?: FinanceFilter;
   income_type?: IncomeType; // optional, single type filter
   income_types?: IncomeType[]; // optional, multi-type filter
+  amount_comparison?: AmountComparison | null; // dedicated amount operator search
 }
 
 export interface PaginatedIncomeResponse {
@@ -92,10 +94,12 @@ function applyFinanceFilters(
   if (filters.date_filter) {
     const df = filters.date_filter;
     if (df.start_date) {
-      query = query.gte('date', df.start_date);
+      const start = df.start_date.length >= 10 ? df.start_date.slice(0, 10) : df.start_date;
+      query = query.gte('date', start);
     }
     if (df.end_date) {
-      query = query.lte('date', df.end_date);
+      const end = df.end_date.length >= 10 ? df.end_date.slice(0, 10) : df.end_date;
+      query = query.lte('date', end);
     }
   }
 
@@ -122,7 +126,9 @@ export function useIncomes(params?: IncomeQueryParams) {
           `*,
            member:members(id, first_name, middle_name, last_name, profile_image_url),
            group:groups(id, name),
-           tag_item:tag_items(id, name, color)`,
+           tag_item:tag_items(id, name, color),
+           attendance_occasions(name),
+           attendance_sessions(name, attendance_occasions(name))`,
           { count: 'exact' }
         )
         .eq('organization_id', currentOrganization.id)
@@ -136,11 +142,41 @@ export function useIncomes(params?: IncomeQueryParams) {
         query = query.eq('income_type', queryParams.income_type);
       }
 
-      if (queryParams.search && queryParams.search.trim()) {
+      // Dedicated amount comparison takes precedence over text search
+      if (queryParams.amount_comparison && queryParams.amount_comparison.value !== undefined) {
+        const comp = queryParams.amount_comparison;
+        switch (comp.operator) {
+          case '>':
+            query = query.gt('amount', comp.value);
+            break;
+          case '>=':
+            query = query.gte('amount', comp.value);
+            break;
+          case '<':
+            query = query.lt('amount', comp.value);
+            break;
+          case '<=':
+            query = query.lte('amount', comp.value);
+            break;
+          case '=':
+            query = query.eq('amount', comp.value);
+            break;
+          case '!=':
+            query = query.neq('amount', comp.value);
+            break;
+        }
+      } else if (queryParams.search && queryParams.search.trim()) {
         const q = queryParams.search.trim();
-        query = query.or(
-          `description.ilike.%${q}%,occasion_name.ilike.%${q}%,source.ilike.%${q}%,receipt_number.ilike.%${q}%`
-        );
+        const orClauses: string[] = [
+          `description.ilike.%${q}%`,
+          `occasion_name.ilike.%${q}%`,
+          `source.ilike.%${q}%`,
+          `receipt_number.ilike.%${q}%`,
+          `payment_method.ilike.%${q}%`,
+          `income_type.ilike.%${q}%`,
+          `extended_income_type.ilike.%${q}%`,
+        ];
+        query = query.or(orClauses.join(','));
       }
 
       query = applyFinanceFilters(query, queryParams.filters);
@@ -156,6 +192,7 @@ export function useIncomes(params?: IncomeQueryParams) {
         let contributor_name: string | undefined;
         let contributor_avatar_url: string | undefined;
         let contributor_tag_color: string | undefined;
+        let occasion_name: string | undefined = r.occasion_name || r.attendance_occasions?.name || r.attendance_sessions?.attendance_occasions?.name || r.attendance_sessions?.name || undefined;
 
         switch (r.source_type) {
           case 'member': {
@@ -177,7 +214,7 @@ export function useIncomes(params?: IncomeQueryParams) {
             break;
           }
           case 'church': {
-            contributor_name = currentOrganization?.name || 'Church';
+            contributor_name = 'Church';
             break;
           }
           case 'other': {
@@ -189,7 +226,7 @@ export function useIncomes(params?: IncomeQueryParams) {
             break;
           }
         }
-        return { ...r, contributor_name, contributor_avatar_url, contributor_tag_color } as IncomeResponseRow;
+        return { ...r, occasion_name, contributor_name, contributor_avatar_url, contributor_tag_color } as IncomeResponseRow;
       });
 
       const totalCount = count || 0;
@@ -308,7 +345,13 @@ export function useCreateIncome() {
     },
     onError: (error) => {
       console.error('Error creating income:', error);
-      toast.error('Failed to create income');
+      const msg = String((error as any)?.message || '');
+      const code = (error as any)?.code;
+      if (code === '23505' || msg.includes('uniq_income_receipt_per_org')) {
+        toast.error('Receipt number already exists for your organization. Please use a unique number or leave it blank.');
+      } else {
+        toast.error('Failed to create income');
+      }
     },
   });
 }
@@ -328,11 +371,17 @@ export function useUpdateIncome() {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
       if (!user?.id) throw new Error('User not authenticated');
 
+      // Normalize fields: ensure blank receipt_number is stored as NULL to avoid unique constraint collisions
+      const normalizedUpdates: Record<string, any> = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'receipt_number')) {
+        const raw = normalizedUpdates.receipt_number as string | undefined;
+        const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
+        normalizedUpdates.receipt_number = trimmed ? trimmed : null;
+      }
+
       const { data, error } = await supabase
         .from('income')
-        .update({
-          ...updates,
-        })
+        .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
         .eq('created_by', user.id) // RLS requires creator
@@ -349,7 +398,13 @@ export function useUpdateIncome() {
     },
     onError: (error) => {
       console.error('Error updating income:', error);
-      toast.error('Failed to update income');
+      const msg = String((error as any)?.message || '');
+      const code = (error as any)?.code;
+      if (code === '23505' || msg.includes('uniq_income_receipt_per_org')) {
+        toast.error('Receipt number already exists for your organization. Please use a unique number or leave it blank.');
+      } else {
+        toast.error('Failed to update income');
+      }
     },
   });
 }

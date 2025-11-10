@@ -1,147 +1,88 @@
-import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { CalendarIcon, Edit, Trash2, Eye, Receipt } from 'lucide-react';
-import { format } from 'date-fns';
+import React, { useMemo, useState } from 'react';
+import { Edit, Eye, Receipt, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Finance components
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   FinanceDataTable,
   FinanceFilterBar,
-  FinanceStatsCards,
   FinanceReportGenerator,
+  FinanceStatsCards,
   incomeStatsConfig,
 } from '@/components/finance';
-import type { TableColumn, TableAction } from '@/components/finance';
-
-// Types and mock data
+import type { TableAction, TableColumn } from '@/components/finance';
+import { IncomeFormDialog } from '@/components/finance/IncomeFormDialog';
+import { ReceiptPrintDialog } from '@/components/finance/ReceiptPrintDialog';
+import { IncomeViewDialog } from '@/components/finance/IncomeViewDialog';
+import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
+import { Pagination } from '@/components/shared/Pagination';
+import { extendedIncomeTypes } from '@/constants/finance/income';
+import { paymentMethodOptions } from '@/components/finance/constants';
+import { useDeleteIncome, useIncomes } from '@/hooks/finance/income';
 import type {
-  IncomeRecord,
-  IncomeFormData,
-  ExtendedIncomeType,
-  PaymentMethod,
   FinanceFilter,
+  IncomeResponseRow,
   ReportConfig,
 } from '@/types/finance';
-import {
-  mockIncomeRecords,
-  generateMockIncomeRecord,
-} from '@/data/mock/finance';
+import type { AmountComparison } from '@/utils/finance/search';
 
 const Income: React.FC = () => {
-  // State management
-  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>(
-    mockIncomeRecords
-  );
+  // Filters, search, sorting
   const [filters, setFilters] = useState<FinanceFilter>({
     date_filter: { type: 'preset', preset: 'this_month' },
   });
-  const [sortKey, setSortKey] = useState<string>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showViewDialog, setShowViewDialog] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<IncomeRecord | null>(
+  const [search, setSearch] = useState<string | undefined>(undefined);
+  const [amountSearch, setAmountSearch] = useState<AmountComparison | null>(
     null
   );
-  const [loading, setLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<string>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Form state
-  const [formData, setFormData] = useState<IncomeFormData>({
-    amount: 0,
-    extended_income_type: 'Offering',
-    payment_method: 'cash',
-    date: new Date().toISOString().split('T')[0],
-    description: '',
-    notes: '',
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Dialogs & selection
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [receiptRecord, setReceiptRecord] = useState<IncomeResponseRow | null>(null);
+  const [
+    selectedRecord,
+    setSelectedRecord,
+  ] = useState<IncomeResponseRow | null>(null);
+
+  // Query hooks
+  const incomesQuery = useIncomes({
+    page,
+    pageSize,
+    search,
+    filters,
+    income_type: 'general_income',
+    amount_comparison: amountSearch || undefined,
   });
+  const deleteIncome = useDeleteIncome();
 
-  // Occasion type options
-  const occasionTypeOptions = [
-    { value: 'Offering', label: 'Offering' },
-    { value: 'Tithe', label: 'Tithe' },
-    { value: 'Contribution', label: 'Contribution' },
-    { value: 'Donation', label: 'Donation' },
-    { value: 'Fundraising', label: 'Fundraising' },
-    { value: 'Special Offering', label: 'Special Offering' },
-    { value: 'Thanksgiving', label: 'Thanksgiving' },
-    { value: 'Harvest', label: 'Harvest' },
-    { value: 'Special Thanksgiving', label: 'Special Thanksgiving' },
-    { value: 'Fund', label: 'Fund' },
-    { value: 'Grant', label: 'Grant' },
-    { value: 'Special Grant', label: 'Special Grant' },
-    { value: 'Other', label: 'Other' },
-  ];
-
-  // Payment method options
-  const paymentMethodOptions = [
-    { value: 'cash', label: 'Cash' },
-    { value: 'check', label: 'Check' },
-    { value: 'credit_card', label: 'Credit Card' },
-    { value: 'debit_card', label: 'Debit Card' },
-    { value: 'bank_transfer', label: 'Bank Transfer' },
-    { value: 'mobile_payment', label: 'Mobile Payment' },
-    { value: 'online', label: 'Online' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  // Filter and sort data
+  // Filter and sort data (client-side, after server filters/search)
   const filteredAndSortedData = useMemo(() => {
-    let filtered = [...incomeRecords];
+    let filtered = [...(incomesQuery.data?.data || [])];
 
-    // Apply filters (simplified for demo)
     if (filters.category_filter?.length) {
       filtered = filtered.filter((record) =>
-        filters.category_filter!.includes(record.extended_income_type)
+        (filters.category_filter || []).includes(record.extended_income_type)
       );
     }
 
     if (filters.payment_method_filter?.length) {
       filtered = filtered.filter((record) =>
-        filters.payment_method_filter!.includes(record.payment_method)
+        (filters.payment_method_filter || []).includes(record.payment_method)
       );
     }
 
-    if (filters.amount_range?.min !== undefined) {
-      filtered = filtered.filter(
-        (record) => record.amount >= filters.amount_range!.min!
-      );
-    }
-
-    if (filters.amount_range?.max !== undefined) {
-      filtered = filtered.filter(
-        (record) => record.amount <= filters.amount_range!.max!
-      );
-    }
-
-    // Apply sorting
     filtered.sort((a, b) => {
-      let aValue = a[sortKey as keyof IncomeRecord];
-      let bValue = b[sortKey as keyof IncomeRecord];
+      let aValue = a[sortKey as keyof IncomeResponseRow] as any;
+      let bValue = b[sortKey as keyof IncomeResponseRow] as any;
 
       if (typeof aValue === 'string') aValue = aValue.toLowerCase();
       if (typeof bValue === 'string') bValue = bValue.toLowerCase();
@@ -156,24 +97,22 @@ const Income: React.FC = () => {
     });
 
     return filtered;
-  }, [incomeRecords, filters, sortKey, sortDirection]);
+  }, [incomesQuery.data?.data, filters, sortKey, sortDirection]);
 
   // Calculate statistics
   const stats = useMemo(() => {
     const totalIncome = filteredAndSortedData.reduce(
-      (sum, record) => sum + record.amount,
+      (sum, r) => sum + (r.amount || 0),
       0
     );
     const recordCount = filteredAndSortedData.length;
     const averageIncome = recordCount > 0 ? totalIncome / recordCount : 0;
 
-    // Find top occasion
-    const occasionTotals = filteredAndSortedData.reduce((acc, record) => {
-      acc[record.extended_income_type] =
-        (acc[record.extended_income_type] || 0) + record.amount;
+    const occasionTotals = filteredAndSortedData.reduce((acc, r) => {
+      acc[r.extended_income_type] =
+        (acc[r.extended_income_type] || 0) + (r.amount || 0);
       return acc;
     }, {} as Record<string, number>);
-
     const topOccasionEntry = Object.entries(occasionTotals).sort(
       ([, a], [, b]) => b - a
     )[0];
@@ -184,9 +123,7 @@ const Income: React.FC = () => {
       totalIncome,
       recordCount,
       averageIncome,
-      topOccasion:
-        occasionTypeOptions.find((opt) => opt.value === topOccasion)?.label ||
-        topOccasion,
+      topOccasion,
       topOccasionAmount,
     });
   }, [filteredAndSortedData]);
@@ -194,15 +131,65 @@ const Income: React.FC = () => {
   // Table columns
   const columns: TableColumn[] = [
     {
+      key: 'contributor_name',
+      label: 'Source',
+      sortable: true,
+      render: (_value, record) => {
+        const r: any = record || {};
+        const name: string = r.contributor_name || 'Unknown';
+        const sourceType: string = r.source_type || '';
+
+        const initials = name
+          .split(' ')
+          .map((n: string) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2);
+
+        if (sourceType === 'member') {
+          const avatarUrl: string | undefined =
+            r.contributor_avatar_url ||
+            r.member?.profile_image_url ||
+            r.members?.profile_image_url;
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarImage src={avatarUrl} />
+                <AvatarFallback className="text-[10px]">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate max-w-[220px]">{name}</span>
+            </div>
+          );
+        }
+
+        if (sourceType === 'tag_item') {
+          const color: string | undefined =
+            r.contributor_tag_color || r.tag_item?.color || r.tag_items?.color;
+          return (
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full border shrink-0"
+                style={{ backgroundColor: color || 'transparent' }}
+              />
+              <span className="truncate max-w-[220px]">{name}</span>
+            </div>
+          );
+        }
+
+        return <span className="truncate max-w-[240px]">{name}</span>;
+      },
+    },
+    {
       key: 'date',
       label: 'Date',
       sortable: true,
     },
     {
       key: 'extended_income_type',
-      label: 'Occasion',
-      render: (value) =>
-        occasionTypeOptions.find((opt) => opt.value === value)?.label || value,
+      label: 'Category',
+      render: (value) => value || '-',
     },
     {
       key: 'occasion_name',
@@ -218,12 +205,8 @@ const Income: React.FC = () => {
       key: 'payment_method',
       label: 'Payment Method',
       render: (value) =>
-        paymentMethodOptions.find((opt) => opt.value === value)?.label || value,
-    },
-    {
-      key: 'source',
-      label: 'Source',
-      render: (value) => value || '-',
+        (paymentMethodOptions.find((opt) => opt.value === value)?.label ||
+          value) as string,
     },
     {
       key: 'receipt_number',
@@ -239,8 +222,8 @@ const Income: React.FC = () => {
       label: 'View Details',
       icon: <Eye className="h-4 w-4" />,
       onClick: (record) => {
-        setSelectedRecord(record);
-        setShowViewDialog(true);
+        setSelectedRecord(record as IncomeResponseRow);
+        setIsViewDialogOpen(true);
       },
     },
     {
@@ -248,19 +231,8 @@ const Income: React.FC = () => {
       label: 'Edit',
       icon: <Edit className="h-4 w-4" />,
       onClick: (record) => {
-        setSelectedRecord(record);
-        setFormData({
-          amount: record.amount,
-          extended_income_type: record.extended_income_type,
-          occasion_name: record.occasion_name || '',
-          source: record.source || '',
-          payment_method: record.payment_method,
-          date: record.date,
-          description: record.description || '',
-          notes: record.notes || '',
-          receipt_number: record.receipt_number || '',
-        });
-        setShowEditDialog(true);
+        setSelectedRecord(record as IncomeResponseRow);
+        setIsEditDialogOpen(true);
       },
     },
     {
@@ -268,9 +240,8 @@ const Income: React.FC = () => {
       label: 'Generate Receipt',
       icon: <Receipt className="h-4 w-4" />,
       onClick: (record) => {
-        toast.success(
-          `Receipt generated for ${record.receipt_number || 'income record'}`
-        );
+        setReceiptRecord(record as IncomeResponseRow);
+        setIsReceiptDialogOpen(true);
       },
     },
     {
@@ -278,66 +249,14 @@ const Income: React.FC = () => {
       label: 'Delete',
       icon: <Trash2 className="h-4 w-4" />,
       onClick: (record) => {
-        if (confirm('Are you sure you want to delete this income record?')) {
-          setIncomeRecords((prev) => prev.filter((r) => r.id !== record.id));
-          toast.success('Income record deleted successfully');
-        }
+        setSelectedRecord(record as IncomeResponseRow);
+        setIsDeleteDialogOpen(true);
       },
       variant: 'destructive',
     },
   ];
 
   // Form handlers
-  const resetForm = () => {
-    setFormData({
-      amount: 0,
-      extended_income_type: 'Offering',
-      payment_method: 'cash',
-      date: new Date().toISOString().split('T')[0],
-      description: '',
-      notes: '',
-    });
-  };
-
-  const handleAdd = () => {
-    setLoading(true);
-    setTimeout(() => {
-      const newRecord = generateMockIncomeRecord({
-        ...formData,
-        id: `income-${Date.now()}`,
-        receipt_number: `INC-2024-${String(incomeRecords.length + 1).padStart(
-          3,
-          '0'
-        )}`,
-      });
-      setIncomeRecords((prev) => [newRecord, ...prev]);
-      setShowAddDialog(false);
-      resetForm();
-      setLoading(false);
-      toast.success('Income record added successfully');
-    }, 1000);
-  };
-
-  const handleEdit = () => {
-    if (!selectedRecord) return;
-
-    setLoading(true);
-    setTimeout(() => {
-      setIncomeRecords((prev) =>
-        prev.map((record) =>
-          record.id === selectedRecord.id
-            ? { ...record, ...formData, updated_at: new Date().toISOString() }
-            : record
-        )
-      );
-      setShowEditDialog(false);
-      setSelectedRecord(null);
-      resetForm();
-      setLoading(false);
-      toast.success('Income record updated successfully');
-    }, 1000);
-  };
-
   const handleSort = (key: string, direction: 'asc' | 'desc') => {
     setSortKey(key);
     setSortDirection(direction);
@@ -354,9 +273,6 @@ const Income: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold">Income Management</h1>
-          <p className="text-muted-foreground">
-            Track and manage church income from various sources and occasions
-          </p>
         </div>
         <div className="flex gap-2">
           <FinanceReportGenerator
@@ -375,16 +291,35 @@ const Income: React.FC = () => {
       </div>
 
       {/* Statistics Cards */}
-      <FinanceStatsCards stats={stats} loading={loading} />
+      <FinanceStatsCards stats={stats} loading={incomesQuery.isLoading} />
 
       {/* Filter Bar */}
       <FinanceFilterBar
         filters={filters}
         onFiltersChange={setFilters}
-        categoryOptions={occasionTypeOptions}
+        categoryOptions={extendedIncomeTypes.map((t) => ({
+          value: t,
+          label: t,
+        }))}
+        paymentMethodOptions={paymentMethodOptions}
         searchPlaceholder="Search income records..."
-        onAddClick={() => setShowAddDialog(true)}
+        onSearchChange={setSearch}
+        amountSearch={amountSearch}
+        onAmountSearchChange={setAmountSearch}
+        showAddButton={true}
+        onAddClick={() => setIsAddDialogOpen(true)}
         addButtonLabel="Add Income"
+        incomeTypeFilterOptions={['general_income']}
+        recordTypeFilter={'general_income'}
+        filterVisibility={{
+          category: true,
+          payment_method: true,
+          amount_range: true,
+          group: true,
+          tag_item: true,
+          occasion: true,
+          session: true,
+        }}
       />
 
       {/* Data Table */}
@@ -392,548 +327,92 @@ const Income: React.FC = () => {
         data={filteredAndSortedData}
         columns={columns}
         actions={actions}
-        loading={loading}
+        loading={incomesQuery.isLoading || deleteIncome.isPending}
         onSort={handleSort}
         sortKey={sortKey}
         sortDirection={sortDirection}
         emptyMessage="No income records found"
       />
 
-      {/* Add Income Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add Income Record</DialogTitle>
-            <DialogDescription>
-              Record a new income entry for the church
-            </DialogDescription>
-          </DialogHeader>
+      {/* Pagination */}
+      <Pagination
+        currentPage={page}
+        totalPages={incomesQuery.data?.totalPages || 1}
+        pageSize={pageSize}
+        totalItems={incomesQuery.data?.totalCount || 0}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        itemName="records"
+      />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="amount">Amount *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    amount: parseFloat(e.target.value) || 0,
-                  }))
-                }
-                className="mt-1"
-              />
-            </div>
+      {/* Add/Edit Dialogs */}
+      <IncomeFormDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        mode="add"
+        title="Add Income"
+        onSuccess={() => setIsAddDialogOpen(false)}
+        initialData={{
+          income_type: 'general_income',
+          extended_income_type: 'Offering',
+          source_type: 'church',
+        }}
+        allowedIncomeTypes={['general_income']}
+      />
 
-            <div>
-              <Label htmlFor="extended_income_type">Occasion Type *</Label>
-              <Select
-                value={formData.extended_income_type}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    extended_income_type: value as ExtendedIncomeType,
-                  }))
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {occasionTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <IncomeFormDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        mode="edit"
+        title="Edit Income"
+        onSuccess={() => setIsEditDialogOpen(false)}
+        initialData={selectedRecord || undefined}
+        allowedIncomeTypes={['general_income']}
+      />
 
-            <div>
-              <Label htmlFor="occasion_name">Occasion Name</Label>
-              <Input
-                id="occasion_name"
-                value={formData.occasion_name || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    occasion_name: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                placeholder="e.g., Sunday Morning Service"
-              />
-            </div>
+      {/* View Dialog */}
+      <IncomeViewDialog
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+        contribution={selectedRecord}
+        onEdit={(record) => {
+          setSelectedRecord(record);
+          setIsViewDialogOpen(false);
+          setIsEditDialogOpen(true);
+        }}
+        incomeType="general_income"
+      />
 
-            <div>
-              <Label htmlFor="source">Source</Label>
-              <Input
-                id="source"
-                value={formData.source || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, source: e.target.value }))
-                }
-                className="mt-1"
-                placeholder="e.g., Congregation, Special Collection"
-              />
-            </div>
+      {/* Receipt Dialog */}
+      <ReceiptPrintDialog
+        open={isReceiptDialogOpen}
+        onOpenChange={(o) => {
+          setIsReceiptDialogOpen(o);
+          if (!o) setReceiptRecord(null);
+        }}
+        record={receiptRecord}
+      />
 
-            <div>
-              <Label htmlFor="payment_method">Payment Method *</Label>
-              <Select
-                value={formData.payment_method}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    payment_method: value as PaymentMethod,
-                  }))
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethodOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="date">Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal mt-1"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.date
-                      ? format(new Date(formData.date), 'PPP')
-                      : 'Select date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={
-                      formData.date ? new Date(formData.date) : undefined
-                    }
-                    onSelect={(date) => {
-                      if (date) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          date: date.toISOString().split('T')[0],
-                        }));
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label htmlFor="receipt_number">Receipt Number</Label>
-              <Input
-                id="receipt_number"
-                value={formData.receipt_number || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    receipt_number: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                placeholder="Auto-generated if empty"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                rows={3}
-                placeholder="Brief description of the income..."
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                className="mt-1"
-                rows={2}
-                placeholder="Additional notes or comments..."
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={loading || !formData.amount}>
-              {loading ? 'Adding...' : 'Add Income'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Income Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Income Record</DialogTitle>
-            <DialogDescription>
-              Update the income record details
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Same form fields as Add dialog */}
-            <div>
-              <Label htmlFor="edit_amount">Amount *</Label>
-              <Input
-                id="edit_amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    amount: parseFloat(e.target.value) || 0,
-                  }))
-                }
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit_occasion_type">Occasion Type *</Label>
-              <Select
-                value={formData.extended_income_type}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    extended_income_type: value as ExtendedIncomeType,
-                  }))
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {occasionTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="edit_occasion_name">Occasion Name</Label>
-              <Input
-                id="edit_occasion_name"
-                value={formData.occasion_name || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    occasion_name: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                placeholder="e.g., Sunday Morning Service"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit_source">Source</Label>
-              <Input
-                id="edit_source"
-                value={formData.source || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, source: e.target.value }))
-                }
-                className="mt-1"
-                placeholder="e.g., Congregation, Special Collection"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit_payment_method">Payment Method *</Label>
-              <Select
-                value={formData.payment_method}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    payment_method: value as PaymentMethod,
-                  }))
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethodOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="edit_date">Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal mt-1"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.date
-                      ? format(new Date(formData.date), 'PPP')
-                      : 'Select date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={
-                      formData.date ? new Date(formData.date) : undefined
-                    }
-                    onSelect={(date) => {
-                      if (date) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          date: date.toISOString().split('T')[0],
-                        }));
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label htmlFor="edit_receipt_number">Receipt Number</Label>
-              <Input
-                id="edit_receipt_number"
-                value={formData.receipt_number || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    receipt_number: e.target.value,
-                  }))
-                }
-                className="mt-1"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="edit_description">Description</Label>
-              <Textarea
-                id="edit_description"
-                value={formData.description || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                rows={3}
-                placeholder="Brief description of the income..."
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="edit_notes">Notes</Label>
-              <Textarea
-                id="edit_notes"
-                value={formData.notes || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                className="mt-1"
-                rows={2}
-                placeholder="Additional notes or comments..."
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEdit} disabled={loading || !formData.amount}>
-              {loading ? 'Updating...' : 'Update Income'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Income Dialog */}
-      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Income Record Details</DialogTitle>
-            <DialogDescription>
-              View detailed information about this income record
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRecord && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Amount
-                </Label>
-                <p className="text-lg font-semibold">
-                  GHS{selectedRecord.amount.toLocaleString()}
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Occasion Type
-                </Label>
-                <p>
-                  {
-                    occasionTypeOptions.find(
-                      (opt) => opt.value === selectedRecord.extended_income_type
-                    )?.label
-                  }
-                </p>
-              </div>
-
-              {selectedRecord.occasion_name && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Occasion Name
-                  </Label>
-                  <p>{selectedRecord.occasion_name}</p>
-                </div>
-              )}
-
-              {selectedRecord.source && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Source
-                  </Label>
-                  <p>{selectedRecord.source}</p>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Payment Method
-                </Label>
-                <p>
-                  {
-                    paymentMethodOptions.find(
-                      (opt) => opt.value === selectedRecord.payment_method
-                    )?.label
-                  }
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Date
-                </Label>
-                <p>{format(new Date(selectedRecord.date), 'PPP')}</p>
-              </div>
-
-              {selectedRecord.receipt_number && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Receipt Number
-                  </Label>
-                  <p>{selectedRecord.receipt_number}</p>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Created
-                </Label>
-                <p>{format(new Date(selectedRecord.created_at), 'PPP p')}</p>
-              </div>
-
-              {selectedRecord.description && (
-                <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Description
-                  </Label>
-                  <p className="mt-1">{selectedRecord.description}</p>
-                </div>
-              )}
-
-              {selectedRecord.notes && (
-                <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Notes
-                  </Label>
-                  <p className="mt-1">{selectedRecord.notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowViewDialog(false)}>
-              Close
-            </Button>
-            {selectedRecord && (
-              <Button
-                onClick={() => {
-                  setFormData({
-                    amount: selectedRecord.amount,
-                    extended_income_type: selectedRecord.extended_income_type,
-                    occasion_name: selectedRecord.occasion_name || '',
-                    source: selectedRecord.source || '',
-                    payment_method: selectedRecord.payment_method,
-                    date: selectedRecord.date,
-                    description: selectedRecord.description || '',
-                    notes: selectedRecord.notes || '',
-                    receipt_number: selectedRecord.receipt_number || '',
-                  });
-                  setShowViewDialog(false);
-                  setShowEditDialog(true);
-                }}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Record
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Confirmation */}
+      <DeleteConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={async () => {
+          if (!selectedRecord?.id) return;
+          try {
+            await deleteIncome.mutateAsync(selectedRecord.id);
+            setIsDeleteDialogOpen(false);
+            setSelectedRecord(null);
+          } catch (err) {
+            // useDeleteIncome already shows toast on error
+          }
+        }}
+        title="Delete Income Record"
+        description="Are you sure you want to delete this record?"
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+        isLoading={deleteIncome.isPending}
+      />
     </div>
   );
 };

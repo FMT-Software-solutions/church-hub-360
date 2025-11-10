@@ -42,6 +42,8 @@ import { useOccasionDetails, useSessionDetails } from '@/hooks/attendance/useAtt
 import { useGroup } from '@/hooks/useGroups';
 import { useTagsQuery } from '@/hooks/useRelationalTags';
 import { useDebounceValue } from '@/hooks/useDebounce';
+import { Switch } from '@/components/ui/switch';
+import type { AmountComparison, AmountOperator } from '@/utils/finance/search';
 
 interface FilterOption {
   value: string;
@@ -65,6 +67,9 @@ interface FinanceFilterBarProps {
   categoryOptions?: FilterOption[];
   paymentMethodOptions?: FilterOption[];
   searchPlaceholder?: string;
+  onSearchChange?: (search?: string) => void;
+  amountSearch?: AmountComparison | null;
+  onAmountSearchChange?: (cmp: AmountComparison | null) => void;
   showAddButton?: boolean;
   onAddClick?: () => void;
   onExportClick?: () => void;
@@ -204,6 +209,9 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
   categoryOptions = [],
   paymentMethodOptions = [],
   searchPlaceholder = 'Search records...',
+  onSearchChange,
+  amountSearch,
+  onAmountSearchChange,
   showAddButton = true,
   onAddClick,
   onExportClick,
@@ -218,6 +226,34 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
   const [showFilters, setShowFilters] = React.useState(false);
   const [pendingFilters, setPendingFilters] = React.useState<FinanceFilter>(filters);
   const { currentOrganization } = useOrganization();
+
+  // Local amount search mode state
+  const [searchMode, setSearchMode] = React.useState<'text' | 'amount'>('text');
+  const [amountOperator, setAmountOperator] = React.useState<AmountOperator>('=');
+  const [amountInput, setAmountInput] = React.useState<string>('');
+
+  // Propagate debounced search term to parent
+  React.useEffect(() => {
+    const next = debouncedSearchTerm?.trim();
+    if (!onSearchChange) return;
+    if (searchMode === 'text') {
+      onSearchChange(next ? next : undefined);
+    }
+  }, [debouncedSearchTerm, onSearchChange, searchMode]);
+
+  // When switching modes, clear counterpart search
+  React.useEffect(() => {
+    if (searchMode === 'amount') {
+      // Clear text search when entering amount mode
+      setSearchTerm('');
+      onSearchChange?.(undefined);
+    } else {
+      // Clear amount search when switching back to text mode
+      setAmountInput('');
+      setAmountOperator('=');
+      onAmountSearchChange?.(null);
+    }
+  }, [searchMode]);
 
   // Sync pending filters when advanced panel opens or when external filters change
   React.useEffect(() => {
@@ -367,15 +403,79 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
       {/* Top row with search, date filter, and actions */}
       <div className="flex flex-col sm:flex-row gap-8 items-start sm:items-center justify-between">
         <div className="flex flex-1 gap-2 items-center">
+          {/* Search mode toggle */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="amount-mode" className="text-xs">Amount</Label>
+            <Switch
+              id="amount-mode"
+              checked={searchMode === 'amount'}
+              onCheckedChange={(checked) => setSearchMode(checked ? 'amount' : 'text')}
+            />
+          </div>
+
+          {/* Operator select when amount mode */}
+          {searchMode === 'amount' && (
+            <div className="min-w-[110px]">
+              <Select
+                value={amountOperator}
+                onValueChange={(v) => setAmountOperator(v as AmountOperator)}
+              >
+                <SelectTrigger className="w-[110px]">
+                  <SelectValue placeholder=">" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value=">">&gt;</SelectItem>
+                  <SelectItem value=">=">&gt;=</SelectItem>
+                  <SelectItem value="=">=</SelectItem>
+                  <SelectItem value="<">{'<'}</SelectItem>
+                  <SelectItem value="<=">{'<='}</SelectItem>
+                  <SelectItem value="!=">!=</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Unified input: displays either text or amount with operator */}
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder={searchPlaceholder}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={searchMode === 'amount' ? 'Enter amount (e.g., 100 or 1,000.50)' : searchPlaceholder}
+              value={searchMode === 'amount' ? `${amountOperator} ${amountInput}` : searchTerm}
+              onChange={(e) => {
+                if (searchMode === 'amount') {
+                  const raw = e.target.value;
+                  // Strip leading operator if user edits it inline, keep only numeric part after operator
+                  const cleaned = raw.replace(/^\s*([<>]=?|!?=)?\s*/, '');
+                  // Allow digits, commas, dot
+                  const numericPart = cleaned.replace(/[^0-9.,]/g, '');
+                  setAmountInput(numericPart);
+                } else {
+                  setSearchTerm(e.target.value);
+                }
+              }}
               className="pl-9"
             />
           </div>
+
+          {/* Apply button when in amount mode */}
+          {searchMode === 'amount' && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const numStr = amountInput.replace(/,/g, '');
+                const num = Number(numStr);
+                if (!Number.isNaN(num)) {
+                  onAmountSearchChange?.({ operator: amountOperator, value: num });
+                } else {
+                  // If invalid, clear any applied amount search
+                  onAmountSearchChange?.(null);
+                }
+              }}
+              disabled={!amountInput.trim()}
+            >
+              Apply
+            </Button>
+          )}
 
           {/* Income Type Filter (Dynamic) */}
           <div>
@@ -462,7 +562,7 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
       </div>
 
       {/* Active Filters Display */}
-      {(dateBadgeLabel || debouncedSearchTerm ||
+      {(dateBadgeLabel || (searchMode === 'text' && debouncedSearchTerm) || amountSearch ||
         (filters.category_filter && filters.category_filter.length) ||
         (filters.member_filter && filters.member_filter.length) ||
         (filters.payment_method_filter && filters.payment_method_filter.length) ||
@@ -493,15 +593,37 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
             </Badge>
           )}
 
-          {/* Search term */}
-          {debouncedSearchTerm && (
+          {/* Search term (text mode) */}
+          {searchMode === 'text' && debouncedSearchTerm && (
             <Badge variant="secondary" className="gap-1">
               Search: {debouncedSearchTerm}
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
-                onClick={() => setSearchTerm('')}
+                onClick={() => {
+                  setSearchTerm('');
+                  onSearchChange?.(undefined);
+                }}
+              >
+                <X className="h-2 w-2" />
+              </Button>
+            </Badge>
+          )}
+
+          {/* Amount search badge (amount mode) */}
+          {amountSearch && (
+            <Badge variant="secondary" className="gap-1">
+              Amount: {amountSearch.operator} {amountSearch.value}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                onClick={() => {
+                  setAmountInput('');
+                  setAmountOperator('=');
+                  onAmountSearchChange?.(null);
+                }}
               >
                 <X className="h-2 w-2" />
               </Button>

@@ -5,7 +5,7 @@ import type {
 } from '@/components/finance/FinanceDataTable';
 import { FinanceDataTable } from '@/components/finance/FinanceDataTable';
 import type { IncomeResponseRow } from '@/types/finance';
-import { Edit, Eye, Trash2 } from 'lucide-react';
+import { Edit, Eye, Trash2, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -14,6 +14,7 @@ interface ContributionsTableProps {
   onView: (record: IncomeResponseRow) => void;
   onEdit: (record: IncomeResponseRow) => void;
   onDelete: (record: IncomeResponseRow) => void;
+  onReceipt?: (record: IncomeResponseRow) => void;
 }
 
 export const ContributionsTable: React.FC<ContributionsTableProps> = ({
@@ -21,6 +22,7 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
   onView,
   onEdit,
   onDelete,
+  onReceipt,
 }) => {
   const columns: TableColumn[] = [
     {
@@ -93,8 +95,8 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
           .replace(/\b\w/g, (l) => l.toUpperCase()),
     },
     {
-      key: 'extended_income_type',
-      label: 'Record Type',
+      key: 'description',
+      label: 'Description',
       sortable: true,
       render: (value) =>
         String(value)
@@ -136,6 +138,12 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
       label: 'Edit',
       icon: <Edit className="h-4 w-4" />,
       onClick: onEdit,
+    },
+    {
+      key: 'receipt',
+      label: 'Receipt',
+      icon: <Receipt className="h-4 w-4" />,
+      onClick: onReceipt || (() => {}),
     },
     {
       key: 'delete',
