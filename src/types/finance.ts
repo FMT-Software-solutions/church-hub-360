@@ -75,29 +75,17 @@ export type IncomeType = 'general_income' | 'contribution' | 'donation' | 'pledg
 
 // Expense types
 export interface ExpenseRecord extends BaseFinanceRecord {
-  category: ExpenseCategory;
+  purpose?: string;
   vendor?: string;
   receipt_number?: string;
   payment_method: PaymentMethod;
   approved_by?: string;
   approval_date?: string;
+  created_by_user?: {
+    first_name: string;
+    last_name: string;
+  };
 }
-
-export type ExpenseCategory = 
-  | 'utilities'
-  | 'maintenance'
-  | 'supplies'
-  | 'equipment'
-  | 'salaries'
-  | 'benefits'
-  | 'ministry_expenses'
-  | 'outreach'
-  | 'missions'
-  | 'events'
-  | 'transportation'
-  | 'insurance'
-  | 'professional_services'
-  | 'other';
 
 // Contribution types
 export interface ContributionRecord extends BaseFinanceRecord {
@@ -269,7 +257,9 @@ export type DatePreset =
 export interface FinanceFilter {
   date_filter: DateFilter;
   category_filter?: string[];
+  purpose_filter?: string[];
   member_filter?: string[];
+  approved_by_filter?: string[];
   amount_range?: {
     min?: number;
     max?: number;
@@ -340,7 +330,7 @@ export interface IncomeFormData {
 
 export interface ExpenseFormData {
   amount: number;
-  category: ExpenseCategory;
+  purpose?: string;
   vendor?: string;
   payment_method: PaymentMethod;
   date: string;

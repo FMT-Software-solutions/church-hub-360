@@ -2,7 +2,6 @@ import type {
   BudgetLineItem,
   BudgetPlan,
   ContributionRecord,
-  ExpenseCategory,
   ExpenseRecord,
   PaymentMethod
 } from '@/types/finance';
@@ -16,7 +15,6 @@ export const mockExpenseRecords: ExpenseRecord[] = [
     organization_id: 'org-1',
     branch_id: 'branch-1',
     amount: 450.00,
-    category: 'utilities',
     vendor: 'City Electric Company',
     payment_method: 'bank_transfer',
     date: '2024-01-05',
@@ -33,7 +31,6 @@ export const mockExpenseRecords: ExpenseRecord[] = [
     organization_id: 'org-1',
     branch_id: 'branch-1',
     amount: 1200.00,
-    category: 'maintenance',
     vendor: 'ABC Cleaning Services',
     payment_method: 'check',
     date: '2024-01-10',
@@ -50,7 +47,6 @@ export const mockExpenseRecords: ExpenseRecord[] = [
     organization_id: 'org-1',
     branch_id: 'branch-1',
     amount: 300.00,
-    category: 'supplies',
     vendor: 'Office Depot',
     payment_method: 'credit_card',
     date: '2024-01-15',
@@ -67,7 +63,6 @@ export const mockExpenseRecords: ExpenseRecord[] = [
     organization_id: 'org-1',
     branch_id: 'branch-1',
     amount: 2500.00,
-    category: 'salaries',
     vendor: 'Staff Payroll',
     payment_method: 'bank_transfer',
     date: '2024-01-31',
@@ -238,7 +233,7 @@ export const mockFinanceMembers = [
 ];
 
 export const generateMockExpenseRecord = (overrides: Partial<ExpenseRecord> = {}): ExpenseRecord => {
-  const categories: ExpenseCategory[] = ['utilities', 'maintenance', 'supplies', 'salaries', 'ministry_expenses'];
+  const purposes: string[] = ['Utilities', 'Maintenance', 'Supplies', 'Salaries', 'Ministry Expenses'];
   const paymentMethods: PaymentMethod[] = ['cash', 'check', 'bank_transfer', 'credit_card'];
   
   return {
@@ -246,7 +241,7 @@ export const generateMockExpenseRecord = (overrides: Partial<ExpenseRecord> = {}
     organization_id: 'org-1',
     branch_id: 'branch-1',
     amount: Math.floor(Math.random() * 3000) + 50,
-    category: categories[Math.floor(Math.random() * categories.length)],
+    description: purposes[Math.floor(Math.random() * purposes.length)],
     payment_method: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
     date: new Date().toISOString().split('T')[0],
     created_by: 'user-1',

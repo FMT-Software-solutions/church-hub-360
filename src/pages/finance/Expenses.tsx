@@ -21,33 +21,42 @@ import React, { useMemo, useState } from 'react';
 
 import {
   FinanceDataTable,
-  FinanceFilterBar,
-  FinanceReportGenerator,
+  ExpenseFilterBar,
   FinanceStatsCards,
 } from '@/components/finance';
 import type {
   TableAction,
   TableColumn,
 } from '@/components/finance/FinanceDataTable';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { mockExpenseRecords } from '@/data/mock/finance';
+import { DatePicker } from '@/components/shared/DatePicker';
+import { Pagination } from '@/components/shared/Pagination';
+import { EditableField } from '@/components/shared/EditableField';
+import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSearch';
+import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from '@/hooks/finance/expenses';
+import { useExpensePreferences } from '@/hooks/finance/useExpensePreferences';
 import type {
-  ExpenseCategory,
   ExpenseFormData,
   ExpenseRecord,
   FinanceFilter,
   PaymentMethod,
 } from '@/types/finance';
 import { format } from 'date-fns';
-import { CalendarIcon, Edit, Eye, Trash2 } from 'lucide-react';
+import { Edit, Eye, Trash2 } from 'lucide-react';
+import { paymentMethodOptions } from '@/components/finance/constants';
+import { PledgeOptionsSelect } from '@/components/finance/pledges/PledgeOptionsSelect';
 
 const Expenses: React.FC = () => {
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(mockExpenseRecords);
+  const { currentOrganization } = useOrganization();
+  const createExpense = useCreateExpense();
+  const updateExpense = useUpdateExpense();
+  const deleteExpense = useDeleteExpense();
+  const { purposeOptions, addPurpose } = useExpensePreferences();
+
+  // Pagination & server data
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -59,15 +68,25 @@ const Expenses: React.FC = () => {
       type: 'preset',
       preset: 'this_month',
     },
-    category_filter: [],
     payment_method_filter: [],
-    status_filter: [],
+    purpose_filter: undefined,
+    approved_by_filter: undefined,
+  });
+
+  // Text search for expenses
+  const [search, setSearch] = useState<string | undefined>(undefined);
+
+  const { data: paginatedExpenses, isLoading } = useExpenses({
+    page,
+    pageSize,
+    filters,
+    search,
   });
 
   // Form state
   const [formData, setFormData] = useState<ExpenseFormData>({
     amount: 0,
-    category: 'utilities',
+    purpose: 'Utilities',
     description: '',
     date: new Date().toISOString().split('T')[0],
     payment_method: 'cash',
@@ -76,11 +95,35 @@ const Expenses: React.FC = () => {
     notes: '',
   });
 
+  const [approvedBy, setApprovedBy] = useState<string | null>(null);
+  const [approvalDate, setApprovalDate] = useState<string>('');
+
+  // Prefill approved by typeahead and display
+  const { data: approvedByDetails = [] } = useMemberDetails(approvedBy ? [approvedBy] : []);
+  const approvedTypeaheadValueSingle: MemberSearchResult[] = React.useMemo(() => {
+    return approvedByDetails.map((m: any) => ({
+      ...m,
+      display_name: m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Member',
+      display_subtitle: m.email || m.phone || '',
+    }));
+  }, [approvedByDetails]);
+
+  // Member details for view dialog (Approved By display)
+  const { data: approvedByViewDetails = [] } = useMemberDetails(
+    selectedExpense?.approved_by ? [selectedExpense.approved_by] : []
+  );
+  const approvedByViewName: string | undefined = React.useMemo(() => {
+    const m: any = approvedByViewDetails?.[0];
+    if (!m) return undefined;
+    const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim();
+    return name || undefined;
+  }, [approvedByViewDetails]);
+
   // Reset form
   const resetForm = () => {
     setFormData({
       amount: 0,
-      category: 'utilities',
+      purpose: 'Utilities',
       description: '',
       date: new Date().toISOString().split('T')[0],
       payment_method: 'cash',
@@ -88,40 +131,51 @@ const Expenses: React.FC = () => {
       receipt_number: '',
       notes: '',
     });
+    setApprovedBy(null);
+    setApprovalDate('');
   };
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedExpense) {
-      // Edit existing expense
-      const updatedExpense: ExpenseRecord = {
-        ...selectedExpense,
-        ...formData,
-        updated_at: new Date().toISOString(),
-        date: formData.date,
-      };
+    // Map purpose to description if description is empty
+    const finalDescription = formData.description && formData.description.trim()
+      ? formData.description.trim()
+      : (formData.purpose && formData.purpose.trim()) || undefined;
 
-      setExpenses((prev) =>
-        prev.map((expense) =>
-          expense.id === selectedExpense.id ? updatedExpense : expense
-        )
-      );
+    if (selectedExpense) {
+      // Update existing expense via hook
+      await updateExpense.mutateAsync({
+        id: selectedExpense.id,
+        updates: {
+          amount: formData.amount,
+          purpose: formData.purpose,
+          payment_method: formData.payment_method,
+          date: formData.date,
+          description: finalDescription,
+          vendor: formData.vendor,
+          receipt_number: formData.receipt_number,
+          notes: formData.notes,
+          approved_by: approvedBy ?? null,
+          approval_date: approvalDate ? approvalDate : null,
+        },
+      });
       setIsEditDialogOpen(false);
     } else {
-      // Add new expense
-      const newExpense: ExpenseRecord = {
-        id: Date.now().toString(),
-        organization_id: 'org-1', // TODO: Get from context
-        branch_id: 'branch-1', // TODO: Get from context
-        created_by: 'user-1', // TODO: Get from auth context
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...formData,
-      };
-
-      setExpenses((prev) => [newExpense, ...prev]);
+      // Create new expense via hook
+      await createExpense.mutateAsync({
+        amount: formData.amount,
+        purpose: formData.purpose,
+        payment_method: formData.payment_method,
+        date: formData.date,
+        description: finalDescription,
+        vendor: formData.vendor,
+        receipt_number: formData.receipt_number,
+        notes: formData.notes,
+        approved_by: approvedBy ?? null,
+        approval_date: approvalDate ? approvalDate : null,
+      });
       setIsAddDialogOpen(false);
     }
 
@@ -134,7 +188,7 @@ const Expenses: React.FC = () => {
     setSelectedExpense(expense);
     setFormData({
       amount: expense.amount,
-      category: expense.category,
+      purpose: expense.purpose || '',
       description: expense.description || '',
       date: expense.date,
       payment_method: expense.payment_method,
@@ -142,6 +196,8 @@ const Expenses: React.FC = () => {
       receipt_number: expense.receipt_number || '',
       notes: expense.notes || '',
     });
+    setApprovedBy(expense.approved_by ?? null);
+    setApprovalDate(expense.approval_date || '');
     setIsEditDialogOpen(true);
   };
 
@@ -152,65 +208,43 @@ const Expenses: React.FC = () => {
   };
 
   // Handle delete
-  const handleDelete = (expense: ExpenseRecord) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== expense.id));
+  const handleDelete = async (expense: ExpenseRecord) => {
+    await deleteExpense.mutateAsync(expense.id);
   };
 
   // Filter expenses based on current filters
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      // Category filter
-      if (
-        filters.category_filter &&
-        filters.category_filter.length > 0 &&
-        !filters.category_filter.includes(expense.category)
-      ) {
-        return false;
-      }
-
-      // Payment method filter
-      if (
-        filters.payment_method_filter &&
-        filters.payment_method_filter.length > 0 &&
-        !filters.payment_method_filter.includes(expense.payment_method)
-      ) {
-        return false;
-      }
-
-      // Date filter (simplified for now)
-      // TODO: Implement proper date filtering based on date_filter structure
-
-      return true;
-    });
-  }, [expenses, filters]);
+    return paginatedExpenses?.data || [];
+  }, [paginatedExpenses]);
 
   // Calculate statistics
   const stats = useMemo(() => {
+
     const totalExpenses = filteredExpenses.reduce(
       (sum, expense) => sum + expense.amount,
       0
     );
+
     const recordCount = filteredExpenses.length;
     const averageExpense = recordCount > 0 ? totalExpenses / recordCount : 0;
-
-    // Find top category
-    const categoryTotals = filteredExpenses.reduce((acc, expense) => {
-      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+    const purposeTotals = filteredExpenses.reduce((acc, expense) => {
+      const key = (expense.purpose || 'N/A');
+      acc[key] = (acc[key] || 0) + expense.amount ;
       return acc;
     }, {} as Record<string, number>);
 
-    const topCategoryEntry = Object.entries(categoryTotals).sort(
+    const topPurposeEntry = Object.entries(purposeTotals).sort(
       ([, a], [, b]) => b - a
     )[0];
-    const topCategory = topCategoryEntry ? topCategoryEntry[0] : 'N/A';
-    const topCategoryAmount = topCategoryEntry ? topCategoryEntry[1] : 0;
+    const topPurpose = topPurposeEntry ? topPurposeEntry[0] : 'N/A';
+    const topPurposeAmount = topPurposeEntry ? topPurposeEntry[1] : 0;
 
     return {
       totalExpenses,
       recordCount,
       averageExpense,
-      topCategory,
-      topCategoryAmount,
+      topPurpose,
+      topPurposeAmount,
     };
   }, [filteredExpenses]);
 
@@ -218,22 +252,21 @@ const Expenses: React.FC = () => {
   const columns: TableColumn[] = [
     {
       key: 'date',
-      label: 'Date',
+      label: 'Expense Date',
       sortable: true,
       render: (value: string) => format(new Date(value), 'MMM dd, yyyy'),
+    },
+    {
+      key: 'purpose',
+      label: 'Purpose',
+      sortable: true,
+      render: (_: any, row: any) => row.purpose || '-',
     },
     {
       key: 'description',
       label: 'Description',
       sortable: true,
-    },
-    {
-      key: 'category',
-      label: 'Category',
-      sortable: true,
-      render: (value: ExpenseCategory) => (
-        <span className="capitalize">{value.replace('_', ' ')}</span>
-      ),
+      render: (_: any, row: any) => row.description || '-',
     },
     {
       key: 'amount',
@@ -257,6 +290,22 @@ const Expenses: React.FC = () => {
       sortable: true,
       render: (value: PaymentMethod) => (
         <span className="capitalize">{value.replace('_', ' ')}</span>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: 'Created At',
+      sortable: true,
+      render: (value: string) => format(new Date(value), 'MMM dd, yyyy hh:mm:aa'),
+    },
+    {
+      key: 'created_by_user',
+      label: 'Created User',
+      sortable: true,
+      render: (value: any) => (
+        <span>
+          {value?.first_name || '-'} {value?.last_name || '-'}
+        </span>
       ),
     },
   ];
@@ -284,26 +333,7 @@ const Expenses: React.FC = () => {
     },
   ];
 
-  // Filter options
-  const filterOptions = {
-    categories: [
-      { value: 'utilities', label: 'Utilities' },
-      { value: 'maintenance', label: 'Maintenance' },
-      { value: 'supplies', label: 'Supplies' },
-      { value: 'equipment', label: 'Equipment' },
-      { value: 'ministry', label: 'Ministry' },
-      { value: 'administrative', label: 'Administrative' },
-      { value: 'events', label: 'Events' },
-      { value: 'other', label: 'Other' },
-    ],
-    paymentMethods: [
-      { value: 'cash', label: 'Cash' },
-      { value: 'check', label: 'Check' },
-      { value: 'credit_card', label: 'Credit Card' },
-      { value: 'bank_transfer', label: 'Bank Transfer' },
-      { value: 'online', label: 'Online Payment' },
-    ],
-  };
+  
 
   return (
     <div className="space-y-6">
@@ -316,16 +346,7 @@ const Expenses: React.FC = () => {
           </p>
         </div>
 
-        {/* Report Generator */}
-        <FinanceReportGenerator
-          data={filteredExpenses}
-          title="Expense Report"
-          filters={filters}
-          onGenerateReport={(config) => {
-            console.log('Generating report with config:', config);
-            // TODO: Implement report generation
-          }}
-        />
+        
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -353,25 +374,23 @@ const Expenses: React.FC = () => {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value: ExpenseCategory) =>
-                      setFormData((prev) => ({ ...prev, category: value }))
+                <div>
+                  <PledgeOptionsSelect
+                    label="Purpose"
+                    value={formData.purpose || null}
+                    options={purposeOptions}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        purpose: val || '',
+                      }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filterOptions.categories.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onCreateOption={async (label) => {
+                      await addPurpose(label);
+                    }}
+                    placeholder="Search purposes..."
+                    buttonClassName="w-full justify-start"
+                  />
                 </div>
               </div>
 
@@ -390,39 +409,18 @@ const Expenses: React.FC = () => {
                   required
                 />
               </div>
-
+             
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Date *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.date
-                          ? format(new Date(formData.date), 'PPP')
-                          : 'Pick a date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={
-                          formData.date ? new Date(formData.date) : undefined
-                        }
-                        onSelect={(date) =>
-                          date &&
-                          setFormData((prev) => ({
-                            ...prev,
-                            date: date.toISOString().split('T')[0],
-                          }))
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <DatePicker
+                    value={formData.date}
+                    onChange={(date) =>
+                      setFormData((prev) => ({ ...prev, date }))
+                    }
+                    label={undefined}
+                    formatDateLabel={(date) => format(date, 'MMM dd, yyyy')}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="paymentMethod">Payment Method *</Label>
@@ -435,17 +433,44 @@ const Expenses: React.FC = () => {
                       }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className='w-full'>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {filterOptions.paymentMethods.map((method) => (
+                      {paymentMethodOptions.map((method) => (
                         <SelectItem key={method.value} value={method.value}>
                           {method.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <EditableField
+                    label="Approved By"
+                    value={approvedTypeaheadValueSingle[0]?.display_name || 'None'}
+                    renderEditor={() => (
+                      <MemberSearchTypeahead
+                        organizationId={currentOrganization?.id || ''}
+                        value={approvedTypeaheadValueSingle}
+                        onChange={(items) => setApprovedBy(items[0]?.id ? String(items[0].id) : null)}
+                        placeholder="Search members"
+                      />
+                    )}
+                    startInEdit={false}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Approval Date</Label>
+                  <DatePicker
+                    value={approvalDate}
+                    onChange={(date) => setApprovalDate(date)}
+                    label={undefined}
+                    disableFuture={false}
+                  />
                 </div>
               </div>
 
@@ -537,10 +562,10 @@ const Expenses: React.FC = () => {
             subtitle: 'per record',
           },
           {
-            id: 'top_category',
-            title: 'Top Category',
-            value: stats.topCategory.replace('_', ' '),
-            subtitle: `GHS${stats.topCategoryAmount.toLocaleString('en-US', {
+            id: 'top_purpose',
+            title: 'Top Item',
+            value: stats.topPurpose,
+            subtitle: `GHS${stats.topPurposeAmount.toLocaleString('en-US', {
               minimumFractionDigits: 2,
             })}`,
             icon: <span>🏷️</span>,
@@ -549,29 +574,20 @@ const Expenses: React.FC = () => {
       />
 
       {/* Filter Bar */}
-      <FinanceFilterBar
+      <ExpenseFilterBar
         filters={filters}
         onFiltersChange={setFilters}
-        categoryOptions={[
-          { value: 'utilities', label: 'Utilities' },
-          { value: 'maintenance', label: 'Maintenance' },
-          { value: 'supplies', label: 'Supplies' },
-          { value: 'equipment', label: 'Equipment' },
-          { value: 'travel', label: 'Travel' },
-          { value: 'food', label: 'Food & Catering' },
-          { value: 'marketing', label: 'Marketing' },
-          { value: 'insurance', label: 'Insurance' },
-          { value: 'professional_services', label: 'Professional Services' },
-          { value: 'other', label: 'Other' },
-        ]}
         paymentMethodOptions={[
           { value: 'cash', label: 'Cash' },
           { value: 'check', label: 'Check' },
           { value: 'credit_card', label: 'Credit Card' },
           { value: 'debit_card', label: 'Debit Card' },
           { value: 'bank_transfer', label: 'Bank Transfer' },
-          { value: 'online_payment', label: 'Online Payment' },
+          { value: 'mobile_payment', label: 'Mobile Payment' },
+          { value: 'online', label: 'Online' },
+          { value: 'other', label: 'Other' },
         ]}
+        onSearchChange={(term) => setSearch(term)}
         showAddButton={true}
         onAddClick={() => setIsAddDialogOpen(true)}
         addButtonLabel="Add Expense"
@@ -582,7 +598,24 @@ const Expenses: React.FC = () => {
         data={filteredExpenses}
         columns={columns}
         actions={actions}
+        loading={isLoading}
       />
+
+      <div className="mt-4">
+        <Pagination
+          currentPage={paginatedExpenses?.currentPage || page}
+          totalPages={paginatedExpenses?.totalPages || 1}
+          pageSize={paginatedExpenses?.pageSize || pageSize}
+          totalItems={paginatedExpenses?.totalCount || 0}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          itemName="expenses"
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -613,75 +646,55 @@ const Expenses: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-category">Category *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value: ExpenseCategory) =>
-                    setFormData((prev) => ({ ...prev, category: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filterOptions.categories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Category field removed from UI in edit dialog. Kept in formData for backend compatibility. */}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Description *</Label>
-              <Input
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder="Brief description of the expense"
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <PledgeOptionsSelect
+                  label="Purpose"
+                  value={formData.purpose || null}
+                  options={purposeOptions}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      purpose: val || '',
+                    }))
+                  }
+                  onCreateOption={async (label) => {
+                    await addPurpose(label);
+                  }}
+                  placeholder="Search purposes..."
+                  buttonClassName="w-full justify-start"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description *</Label>
+                <Input
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Brief description of the expense"
+                  required
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Date *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.date
-                        ? format(new Date(formData.date), 'PPP')
-                        : 'Pick a date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={
-                        formData.date ? new Date(formData.date) : undefined
-                      }
-                      onSelect={(date) =>
-                        date &&
-                        setFormData((prev) => ({
-                          ...prev,
-                          date: date.toISOString().split('T')[0],
-                        }))
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker
+                  value={formData.date}
+                  onChange={(date) => setFormData((prev) => ({ ...prev, date }))}
+                  label={undefined}
+                  formatDateLabel={(date) => format(date, 'MMM dd, yyyy')}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-paymentMethod">Payment Method *</Label>
@@ -695,7 +708,7 @@ const Expenses: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {filterOptions.paymentMethods.map((method) => (
+                    {paymentMethodOptions.map((method) => (
                       <SelectItem key={method.value} value={method.value}>
                         {method.label}
                       </SelectItem>
@@ -729,6 +742,32 @@ const Expenses: React.FC = () => {
                     }))
                   }
                   placeholder="Receipt or invoice number"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <EditableField
+                  label="Approved By"
+                  value={approvedTypeaheadValueSingle[0]?.display_name || 'None'}
+                  renderEditor={() => (
+                    <MemberSearchTypeahead
+                      organizationId={currentOrganization?.id || ''}
+                      value={approvedTypeaheadValueSingle}
+                      onChange={(items) => setApprovedBy(items[0]?.id ? String(items[0].id) : null)}
+                      placeholder="Search members"
+                    />
+                  )}
+                  startInEdit={false}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Approval Date</Label>
+                <DatePicker
+                  value={approvalDate}
+                  onChange={(date) => setApprovalDate(date)}
+                  label={undefined}
                 />
               </div>
             </div>
@@ -780,16 +819,16 @@ const Expenses: React.FC = () => {
                     })}
                   </p>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Category
-                  </Label>
-                  <p className="capitalize">
-                    {selectedExpense.category.replace('_', ' ')}
-                  </p>
-                </div>
+                {selectedExpense.purpose && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Purpose
+                    </Label>
+                    <p>{selectedExpense.purpose}</p>
+                  </div>
+                )}
               </div>
-
+              
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">
                   Description
@@ -813,6 +852,32 @@ const Expenses: React.FC = () => {
                   </p>
                 </div>
               </div>
+
+              {selectedExpense.approved_by && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Approved By
+                    </Label>
+                    <p>{approvedByViewName || selectedExpense.approved_by}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Approval Date
+                    </Label>
+                    <p>{selectedExpense.approval_date ? format(new Date(selectedExpense.approval_date), 'PPP') : '-'}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedExpense.created_by_user && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Record Created By
+                  </Label>
+                  <p>{`${selectedExpense.created_by_user.first_name} ${selectedExpense.created_by_user.last_name}`}</p>
+                </div>
+              )}
 
               {selectedExpense.vendor && (
                 <div>

@@ -3,6 +3,7 @@ export { FinanceDataTable, commonFinanceActions } from './FinanceDataTable';
 export type { TableColumn, TableAction } from './FinanceDataTable';
 
 export { FinanceFilterBar } from './FinanceFilterBar';
+export { ExpenseFilterBar } from './ExpenseFilterBar';
 
 export { 
   FinanceStatsCards, 

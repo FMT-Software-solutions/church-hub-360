@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface PledgeOptionsSelectProps {
   label: string;
@@ -64,8 +65,8 @@ export function PledgeOptionsSelect({
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-muted-foreground text-sm">{label}</p>
+    <div className="flex flex-col gap-1">
+      <Label className="text-sm">{label}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button

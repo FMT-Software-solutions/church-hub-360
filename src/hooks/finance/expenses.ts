@@ -3,7 +3,7 @@ import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import type { FinanceFilter, ExpenseRecord, ExpenseCategory, PaymentMethod } from '@/types/finance';
+import type { FinanceFilter, ExpenseRecord, PaymentMethod } from '@/types/finance';
 
 export interface ExpenseQueryParams {
   page?: number;
@@ -37,6 +37,16 @@ function applyFinanceFilters(
 
   if (filters.category_filter && filters.category_filter.length) {
     query = query.in('category', filters.category_filter as string[]);
+  }
+
+  // Purpose filter maps to `description` field values used as standardized purposes
+  if (filters.purpose_filter && filters.purpose_filter.length) {
+    query = query.in('description', filters.purpose_filter as string[]);
+  }
+
+  // Approved by filter matches member/user IDs stored in `approved_by`
+  if (filters.approved_by_filter && filters.approved_by_filter.length) {
+    query = query.in('approved_by', filters.approved_by_filter as string[]);
   }
 
   if (filters.payment_method_filter && filters.payment_method_filter.length) {
@@ -102,7 +112,7 @@ export function useExpenses(params?: ExpenseQueryParams) {
 
       let query = supabase
         .from('expenses')
-        .select('*', { count: 'exact' })
+        .select('*, created_by_user:profiles(first_name, last_name)')
         .eq('organization_id', currentOrganization.id)
         .eq('is_deleted', false)
         .order('date', { ascending: false })
@@ -168,7 +178,7 @@ export function useExpense(id: string | null) {
 
 export interface CreateExpenseInput {
   amount: number;
-  category: ExpenseCategory;
+  purpose?: string;
   payment_method: PaymentMethod;
   date: string; // YYYY-MM-DD
   description?: string;
@@ -176,6 +186,8 @@ export interface CreateExpenseInput {
   receipt_number?: string;
   notes?: string;
   branch_id?: string | null;
+  approved_by?: string | null;
+  approval_date?: string | null; // YYYY-MM-DD
 }
 
 export function useCreateExpense() {
@@ -192,13 +204,15 @@ export function useCreateExpense() {
         organization_id: currentOrganization.id,
         branch_id: input.branch_id || null,
         amount: input.amount,
-        category: input.category,
+        purpose: input.purpose || null,
         payment_method: input.payment_method,
         date: input.date,
         description: input.description || null,
         vendor: input.vendor || null,
         receipt_number: input.receipt_number || null,
         notes: input.notes || null,
+        approved_by: input.approved_by || null,
+        approval_date: input.approval_date || null,
         created_by: user.id,
       };
 
