@@ -625,11 +625,11 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
                 <div>
                   <Label className="mb-1 block">Report Style</Label>
                   <Select value={templateStyle} onValueChange={(v) => setTemplateStyle(v as any)}>
-                    <SelectTrigger>
+                    <SelectTrigger className='w-full'>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="income_statement">Income Statement</SelectItem>
+                      <SelectItem value="income_statement">Income & Expenditure Statement</SelectItem>
                       <SelectItem value="pledges_summary">Pledges Summary</SelectItem>
                       <SelectItem value="donations_breakdown">Contributions & Donations</SelectItem>
                     </SelectContent>
@@ -727,7 +727,13 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
             ) : (
               <div className="space-y-6">
                 {templateStyle === 'income_statement' && (
-                  <IncomeStatement incomes={incomes} expenses={expenses} periodLabel={rangeLabel} />
+                  <IncomeStatement
+                    incomes={incomes}
+                    expenses={expenses}
+                    periodLabel={rangeLabel}
+                    groupUnit={groupUnit}
+                    dateFilter={filters.date_filter}
+                  />
                 )}
                 {templateStyle === 'pledges_summary' && (
                   <PledgesSummary pledges={pledges} periodLabel={rangeLabel} />

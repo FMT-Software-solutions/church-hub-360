@@ -35,7 +35,8 @@ export type IncomeStatementLabelKey =
   | 'total_expenditure'
   | 'summary'
   | 'total_income'
-  | 'profit';
+  | 'profit'
+  | 'by_period';
 
 export const DEFAULT_INCOME_STATEMENT_LABELS: Record<IncomeStatementLabelKey, string> = {
   title: 'Statement of Comprehensive Income',
@@ -48,6 +49,7 @@ export const DEFAULT_INCOME_STATEMENT_LABELS: Record<IncomeStatementLabelKey, st
   summary: 'Summary',
   total_income: 'Total Income',
   profit: 'Profit',
+  by_period: 'By Period',
 };
 
 // Defaults for Donations Breakdown template label keys

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { IncomeResponseRow, ExpenseRecord } from '@/types/finance';
+import type { IncomeResponseRow, ExpenseRecord, DateFilter } from '@/types/finance';
 import { BaseTemplate } from './BaseTemplate';
 import {
   incomeSections,
@@ -11,17 +11,22 @@ import {
   DEFAULT_INCOME_STATEMENT_LABELS,
 } from '@/db/reportTemplatePrefsDb';
 import { useReportTemplateLabels } from '@/hooks/reports/useReportTemplateLabels';
+import { buildPivotSpec, dateToBucketKey, type GroupUnit } from '@/utils/finance/grouping';
 
 interface IncomeStatementProps {
   incomes: IncomeResponseRow[];
   expenses: ExpenseRecord[];
   periodLabel: string;
+  groupUnit?: GroupUnit;
+  dateFilter?: DateFilter;
 }
 
 export function IncomeStatement({
   incomes,
   expenses,
   periodLabel,
+  groupUnit,
+  dateFilter,
 }: IncomeStatementProps) {
   const inc = React.useMemo(() => incomeSections(incomes), [incomes]);
   const exp = React.useMemo(() => expenseSections(expenses), [expenses]);
@@ -34,6 +39,57 @@ export function IncomeStatement({
     'income_statement',
     DEFAULT_INCOME_STATEMENT_LABELS
   );
+
+  // Period grouping (optional): compute per-bucket totals for revenue, other income, expenditure, total income, and profit
+  const periodSpec = React.useMemo(() => {
+    if (!dateFilter || !groupUnit) return null;
+    return buildPivotSpec(dateFilter, groupUnit);
+  }, [dateFilter, groupUnit]);
+
+  const periodColumns = React.useMemo(() => {
+    if (!periodSpec) return null;
+    const columnOrder = periodSpec.buckets.map((b) => b.key);
+    const columnLabels = periodSpec.buckets.reduce<Record<string, string>>((acc, b) => { acc[b.key] = b.label; return acc; }, {});
+
+    const sumInto = (target: Record<string, number>, key: string, amount: number) => {
+      target[key] = (target[key] || 0) + (amount || 0);
+    };
+
+    const revenueCols: Record<string, number> = {};
+    const otherIncomeCols: Record<string, number> = {};
+    const expenseCols: Record<string, number> = {};
+
+    for (const r of incomes) {
+      if (!r.date) continue;
+      const bucket = dateToBucketKey(r.date, periodSpec.unit);
+      if (!columnOrder.includes(bucket)) continue;
+      if (r.income_type === 'general_income') {
+        sumInto(revenueCols, bucket, r.amount || 0);
+      } else {
+        sumInto(otherIncomeCols, bucket, r.amount || 0);
+      }
+    }
+
+    for (const e of expenses) {
+      if (!e.date) continue;
+      const bucket = dateToBucketKey(e.date, periodSpec.unit);
+      if (!columnOrder.includes(bucket)) continue;
+      sumInto(expenseCols, bucket, e.amount || 0);
+    }
+
+    const totalIncomeCols: Record<string, number> = {};
+    const profitCols: Record<string, number> = {};
+    columnOrder.forEach((k) => {
+      const rev = revenueCols[k] || 0;
+      const oth = otherIncomeCols[k] || 0;
+      const expAmt = expenseCols[k] || 0;
+      const ti = rev + oth;
+      totalIncomeCols[k] = ti;
+      profitCols[k] = ti - expAmt;
+    });
+
+    return { columnOrder, columnLabels, revenueCols, otherIncomeCols, expenseCols, totalIncomeCols, profitCols };
+  }, [periodSpec, incomes, expenses]);
 
   return (
     <BaseTemplate
@@ -153,6 +209,87 @@ export function IncomeStatement({
           </span>
         </div>
       </section>
+
+      {/* By Period (optional) */}
+      {periodColumns && (
+        <section className="my-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">
+              <EditableLabel
+                labelKey="by_period"
+                text={(labels as any).by_period || 'By Period'}
+                onSave={(key, v) => setLabel(key, v)}
+                className="text-base font-semibold"
+              />
+            </h3>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full table-fixed border-collapse">
+              <thead>
+                <tr className="bg-muted">
+                  <th className="text-left text-xs font-medium px-2 py-2 w-40">Metric</th>
+                  {periodColumns.columnOrder.map((k) => (
+                    <th key={k} className="text-right text-xs font-medium px-2 py-2 whitespace-nowrap">{periodColumns.columnLabels[k]}</th>
+                  ))}
+                  <th className="text-right text-xs font-medium px-2 py-2">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Revenue */}
+                <tr className="border-t">
+                  <td className="px-2 py-2 text-sm">{labels.revenue}</td>
+                  {periodColumns.columnOrder.map((k) => (
+                    <td key={k} className="px-2 py-2 text-sm text-right">{formatCurrency(periodColumns.revenueCols[k] || 0)}</td>
+                  ))}
+                  <td className="px-2 py-2 text-sm text-right font-semibold">
+                    {formatCurrency(periodColumns.columnOrder.reduce((s, k) => s + (periodColumns.revenueCols[k] || 0), 0))}
+                  </td>
+                </tr>
+                {/* Other Income */}
+                <tr className="border-t">
+                  <td className="px-2 py-2 text-sm">{labels.other_income}</td>
+                  {periodColumns.columnOrder.map((k) => (
+                    <td key={k} className="px-2 py-2 text-sm text-right">{formatCurrency(periodColumns.otherIncomeCols[k] || 0)}</td>
+                  ))}
+                  <td className="px-2 py-2 text-sm text-right font-semibold">
+                    {formatCurrency(periodColumns.columnOrder.reduce((s, k) => s + (periodColumns.otherIncomeCols[k] || 0), 0))}
+                  </td>
+                </tr>
+                {/* Expenditure */}
+                <tr className="border-t">
+                  <td className="px-2 py-2 text-sm">{labels.expenditure}</td>
+                  {periodColumns.columnOrder.map((k) => (
+                    <td key={k} className="px-2 py-2 text-sm text-right">{formatCurrency(periodColumns.expenseCols[k] || 0)}</td>
+                  ))}
+                  <td className="px-2 py-2 text-sm text-right font-semibold">
+                    {formatCurrency(periodColumns.columnOrder.reduce((s, k) => s + (periodColumns.expenseCols[k] || 0), 0))}
+                  </td>
+                </tr>
+                {/* Total Income */}
+                <tr className="border-t">
+                  <td className="px-2 py-2 text-sm">{labels.total_income}</td>
+                  {periodColumns.columnOrder.map((k) => (
+                    <td key={k} className="px-2 py-2 text-sm text-right">{formatCurrency(periodColumns.totalIncomeCols[k] || 0)}</td>
+                  ))}
+                  <td className="px-2 py-2 text-sm text-right font-semibold">
+                    {formatCurrency(periodColumns.columnOrder.reduce((s, k) => s + (periodColumns.totalIncomeCols[k] || 0), 0))}
+                  </td>
+                </tr>
+                {/* Profit */}
+                <tr className="border-t">
+                  <td className="px-2 py-2 text-sm">{labels.profit}</td>
+                  {periodColumns.columnOrder.map((k) => (
+                    <td key={k} className="px-2 py-2 text-sm text-right">{formatCurrency(periodColumns.profitCols[k] || 0)}</td>
+                  ))}
+                  <td className="px-2 py-2 text-sm text-right font-semibold">
+                    {formatCurrency(periodColumns.columnOrder.reduce((s, k) => s + (periodColumns.profitCols[k] || 0), 0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Totals */}
       <p className="mt-8 ">
