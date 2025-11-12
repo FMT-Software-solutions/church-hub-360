@@ -213,6 +213,11 @@ export function IncomeStatement({
       {/* By Period (optional) */}
       {periodColumns && (
         <section className="my-8">
+          {/* Hide scrollbars on the period table container (consistent with FinanceDataTable/Members export) */}
+          <style>{`
+            [data-slot="period-table-container"]::-webkit-scrollbar { display: none !important; }
+            [data-slot="period-table-container"] { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+          `}</style>
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold">
               <EditableLabel
@@ -223,7 +228,7 @@ export function IncomeStatement({
               />
             </h3>
           </div>
-          <div className="mt-3 overflow-x-auto">
+          <div className="mt-3 overflow-x-auto" data-slot="period-table-container">
             <table className="min-w-full table-fixed border-collapse">
               <thead>
                 <tr className="bg-muted">

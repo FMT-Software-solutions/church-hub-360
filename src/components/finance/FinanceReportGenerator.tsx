@@ -21,6 +21,11 @@ import { useReactToPrint } from 'react-to-print';
 import { parseISO, format as formatDate } from 'date-fns';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useReportTemplateLabels } from '@/hooks/reports/useReportTemplateLabels';
+import {
+  DEFAULT_INCOME_STATEMENT_LABELS,
+  DEFAULT_PLEDGES_SUMMARY_LABELS,
+  DEFAULT_DONATIONS_BREAKDOWN_LABELS,
+} from '@/db/reportTemplatePrefsDb';
 
 type FinanceItemType = 'general_income' | 'contributions' | 'donations' | 'pledge_payments' | 'expenses' | 'pledges' | 'all_income';
 
@@ -71,6 +76,11 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
   };
   const { labels: pivotLabels, setLabel: setPivotLabel } =
     useReportTemplateLabels<PivotLabels>('finance_pivot', DEFAULT_PIVOT_LABELS);
+
+  // Editable labels for template exports to ensure CSV/Excel reflect user changes
+  const { labels: incomeLabels } = useReportTemplateLabels('income_statement', DEFAULT_INCOME_STATEMENT_LABELS);
+  const { labels: pledgesLabels } = useReportTemplateLabels('pledges_summary', DEFAULT_PLEDGES_SUMMARY_LABELS);
+  const { labels: donationsLabels } = useReportTemplateLabels('donations_breakdown', DEFAULT_DONATIONS_BREAKDOWN_LABELS);
 
   React.useEffect(() => {
     setDatePresetValue(mapDateFilterToPicker(filters.date_filter));
@@ -267,12 +277,12 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
 
         // Pledge payments are part of incomes in this generator; use Income rows above
 
-        if (selectedItems.includes('all_income')) pushIncomeSheet('All Income', incomes);
-        if (selectedItems.includes('general_income')) pushIncomeSheet('General Income', incomes.filter((r) => r.income_type === 'general_income'));
-        if (selectedItems.includes('contributions')) pushIncomeSheet('Contributions', incomes.filter((r) => r.income_type === 'contribution'));
-        if (selectedItems.includes('donations')) pushIncomeSheet('Donations', incomes.filter((r) => r.income_type === 'donation'));
-        if (selectedItems.includes('pledge_payments')) pushIncomeSheet('Pledge Payments', incomes.filter((r) => r.income_type === 'pledge_payment'));
-        if (selectedItems.includes('expenses')) pushExpenseSheet('Expenses', expenses);
+        if (selectedItems.includes('all_income')) pushIncomeSheet(pivotLabels['all_income'], incomes);
+        if (selectedItems.includes('general_income')) pushIncomeSheet(pivotLabels['general_income'], incomes.filter((r) => r.income_type === 'general_income'));
+        if (selectedItems.includes('contributions')) pushIncomeSheet(pivotLabels['contributions'], incomes.filter((r) => r.income_type === 'contribution'));
+        if (selectedItems.includes('donations')) pushIncomeSheet(pivotLabels['donations'], incomes.filter((r) => r.income_type === 'donation'));
+        if (selectedItems.includes('pledge_payments')) pushIncomeSheet(pivotLabels['pledge_payments'], incomes.filter((r) => r.income_type === 'pledge_payment'));
+        if (selectedItems.includes('expenses')) pushExpenseSheet(pivotLabels['expenses'], expenses);
         if (selectedItems.includes('pledges')) {
           const header = ['Pledge Type', 'Campaign', 'Source', 'Amount', 'Start Date', 'End Date', 'Amount Paid', 'Outstanding'];
           const rows: (string | number)[][] = [header];
@@ -290,7 +300,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
             ]);
           });
           const ws = XLSX.utils.aoa_to_sheet(rows);
-          XLSX.utils.book_append_sheet(wb, ws, 'Pledges');
+          XLSX.utils.book_append_sheet(wb, ws, pivotLabels['pledges'].slice(0, 30));
         }
       } else if (layout === 'template') {
         // Minimal sheets per template style
@@ -305,38 +315,38 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
             arr.forEach((r) => m.set(r.category || 'Unknown', (m.get(r.category || 'Unknown') || 0) + (r.amount || 0)));
             return Array.from(m.entries());
           };
-          sumBy(gen).forEach(([label, amt]) => rows.push(['Revenue', label, amt]));
-          rows.push(['Revenue', 'Total Revenue', gen.reduce((s, r) => s + (r.amount || 0), 0)]);
-          sumBy(other).forEach(([label, amt]) => rows.push(['Other Income', label, amt]));
-          rows.push(['Other Income', 'Total Other Income', other.reduce((s, r) => s + (r.amount || 0), 0)]);
+          sumBy(gen).forEach(([label, amt]) => rows.push([incomeLabels.revenue, label, amt]));
+          rows.push([incomeLabels.revenue, incomeLabels.total_revenue, gen.reduce((s, r) => s + (r.amount || 0), 0)]);
+          sumBy(other).forEach(([label, amt]) => rows.push([incomeLabels.other_income, label, amt]));
+          rows.push([incomeLabels.other_income, incomeLabels.total_other_income, other.reduce((s, r) => s + (r.amount || 0), 0)]);
           const expMap = new Map<string, number>();
           expenses.forEach((r) => expMap.set(r.purpose || 'Unspecified', (expMap.get(r.purpose || 'Unspecified') || 0) + (r.amount || 0)));
-          Array.from(expMap.entries()).forEach(([label, amt]) => rows.push(['Expenditure', label, amt]));
-          rows.push(['Expenditure', 'Total Expenditure', expenses.reduce((s, r) => s + (r.amount || 0), 0)]);
+          Array.from(expMap.entries()).forEach(([label, amt]) => rows.push([incomeLabels.expenditure, label, amt]));
+          rows.push([incomeLabels.expenditure, incomeLabels.total_expenditure, expenses.reduce((s, r) => s + (r.amount || 0), 0)]);
           const totalIncome = incomes.reduce((s, r) => s + (r.amount || 0), 0);
           const totalExpense = expenses.reduce((s, r) => s + (r.amount || 0), 0);
-          rows.push(['Totals', 'Total Income', totalIncome]);
-          rows.push(['Totals', 'Surplus/(Deficit)', totalIncome - totalExpense]);
+          rows.push([incomeLabels.summary, incomeLabels.total_income, totalIncome]);
+          rows.push([incomeLabels.summary, incomeLabels.profit, totalIncome - totalExpense]);
           const ws = XLSX.utils.aoa_to_sheet(rows);
-          XLSX.utils.book_append_sheet(wb, ws, 'Income Statement');
+          XLSX.utils.book_append_sheet(wb, ws, (incomeLabels.title || 'Income Statement').slice(0, 30));
         } else if (templateStyle === 'pledges_summary') {
           const header = ['Metric', 'Amount'];
           const rows: (string | number)[][] = [header];
           const totalPledged = pledges.reduce((s, r) => s + (r.pledge_amount || 0), 0);
           const totalPaid = pledges.reduce((s, r) => s + (r.amount_paid || 0), 0);
           const totalRemaining = pledges.reduce((s, r) => s + (r.amount_remaining ?? Math.max(0, (r.pledge_amount || 0) - (r.amount_paid || 0))), 0);
-          rows.push(['Total Pledged', totalPledged]);
-          rows.push(['Total Paid', totalPaid]);
-          rows.push(['Outstanding', totalRemaining]);
+          rows.push([pledgesLabels.total_pledged, totalPledged]);
+          rows.push([pledgesLabels.total_paid, totalPaid]);
+          rows.push([pledgesLabels.outstanding, totalRemaining]);
           const m = new Map<string, number>();
           pledges.forEach((p) => m.set(p.pledge_type || 'Pledge', (m.get(p.pledge_type || 'Pledge') || 0) + (p.pledge_amount || 0)));
           rows.push(['', '']);
-          rows.push(['By Type', 'Amount']);
+          rows.push([pledgesLabels.by_pledge_type, 'Amount']);
           Array.from(m.entries()).forEach(([label, amt]) => rows.push([label, amt]));
           const ws = XLSX.utils.aoa_to_sheet(rows);
-          XLSX.utils.book_append_sheet(wb, ws, 'Pledges Summary');
+          XLSX.utils.book_append_sheet(wb, ws, (pledgesLabels.title || 'Pledges Summary').slice(0, 30));
         } else if (templateStyle === 'donations_breakdown') {
-          const header = ['Category', 'Amount'];
+          const header = [donationsLabels.categories || 'Category', 'Amount'];
           const rows: (string | number)[][] = [header];
           incomes
             .filter((r) => r.income_type === 'contribution' || r.income_type === 'donation')
@@ -347,7 +357,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
             }, new Map<string, number>())
             .forEach((amt, label) => rows.push([label, amt]));
           const ws = XLSX.utils.aoa_to_sheet(rows);
-          XLSX.utils.book_append_sheet(wb, ws, 'Contrib-Donate');
+          XLSX.utils.book_append_sheet(wb, ws, (donationsLabels.title || 'Contributions & Donations').slice(0, 30));
         }
       }
       XLSX.writeFile(wb, `${safeTitle}.xlsx`);
@@ -387,7 +397,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
           lines.push('');
         };
         const pushExpenses = (src: ExpenseRecord[]) => {
-          lines.push('# Expenses');
+          lines.push(`# ${pivotLabels['expenses']}`);
           lines.push('Date,Item,Amount,Method,Vendor,Receipt,Notes');
           src.forEach((r) => {
             const row = [
@@ -404,14 +414,14 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
           lines.push('');
         };
 
-        if (selectedItems.includes('all_income')) pushIncome('All Income', incomes);
-        if (selectedItems.includes('general_income')) pushIncome('General Income', incomes.filter((r) => r.income_type === 'general_income'));
-        if (selectedItems.includes('contributions')) pushIncome('Contributions', incomes.filter((r) => r.income_type === 'contribution'));
-        if (selectedItems.includes('donations')) pushIncome('Donations', incomes.filter((r) => r.income_type === 'donation'));
-        if (selectedItems.includes('pledge_payments')) pushIncome('Pledge Payments', incomes.filter((r) => r.income_type === 'pledge_payment'));
+        if (selectedItems.includes('all_income')) pushIncome(pivotLabels['all_income'], incomes);
+        if (selectedItems.includes('general_income')) pushIncome(pivotLabels['general_income'], incomes.filter((r) => r.income_type === 'general_income'));
+        if (selectedItems.includes('contributions')) pushIncome(pivotLabels['contributions'], incomes.filter((r) => r.income_type === 'contribution'));
+        if (selectedItems.includes('donations')) pushIncome(pivotLabels['donations'], incomes.filter((r) => r.income_type === 'donation'));
+        if (selectedItems.includes('pledge_payments')) pushIncome(pivotLabels['pledge_payments'], incomes.filter((r) => r.income_type === 'pledge_payment'));
         if (selectedItems.includes('expenses')) pushExpenses(expenses);
         if (selectedItems.includes('pledges')) {
-          lines.push('# Pledges');
+          lines.push(`# ${pivotLabels['pledges']}`);
           lines.push('Type,Campaign,Source,Amount,Start Date,End Date,Amount Paid,Outstanding');
           pledges.forEach((p) => {
             const source = p.member_name || p.group_name || p.tag_item_name || p.source || (p.source_type === 'church' ? 'Church' : '') || '';
@@ -439,33 +449,33 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
             arr.forEach((r) => m.set(r.category || 'Unknown', (m.get(r.category || 'Unknown') || 0) + (r.amount || 0)));
             return Array.from(m.entries());
           };
-          sumBy(gen).forEach(([label, amt]) => lines.push(`Revenue,${label},${amt}`));
-          lines.push(`Revenue,Total Revenue,${gen.reduce((s, r) => s + (r.amount || 0), 0)}`);
-          sumBy(other).forEach(([label, amt]) => lines.push(`Other Income,${label},${amt}`));
-          lines.push(`Other Income,Total Other Income,${other.reduce((s, r) => s + (r.amount || 0), 0)}`);
+          sumBy(gen).forEach(([label, amt]) => lines.push(`${incomeLabels.revenue},${label},${amt}`));
+          lines.push(`${incomeLabels.revenue},${incomeLabels.total_revenue},${gen.reduce((s, r) => s + (r.amount || 0), 0)}`);
+          sumBy(other).forEach(([label, amt]) => lines.push(`${incomeLabels.other_income},${label},${amt}`));
+          lines.push(`${incomeLabels.other_income},${incomeLabels.total_other_income},${other.reduce((s, r) => s + (r.amount || 0), 0)}`);
           const expMap = new Map<string, number>();
           expenses.forEach((r) => expMap.set(r.purpose || 'Unspecified', (expMap.get(r.purpose || 'Unspecified') || 0) + (r.amount || 0)));
-          Array.from(expMap.entries()).forEach(([label, amt]) => lines.push(`Expenditure,${label},${amt}`));
-          lines.push(`Expenditure,Total Expenditure,${expenses.reduce((s, r) => s + (r.amount || 0), 0)}`);
+          Array.from(expMap.entries()).forEach(([label, amt]) => lines.push(`${incomeLabels.expenditure},${label},${amt}`));
+          lines.push(`${incomeLabels.expenditure},${incomeLabels.total_expenditure},${expenses.reduce((s, r) => s + (r.amount || 0), 0)}`);
           const totalIncome = incomes.reduce((s, r) => s + (r.amount || 0), 0);
           const totalExpense = expenses.reduce((s, r) => s + (r.amount || 0), 0);
-          lines.push(`Totals,Total Income,${totalIncome}`);
-          lines.push(`Totals,Surplus/(Deficit),${totalIncome - totalExpense}`);
+          lines.push(`${incomeLabels.summary},${incomeLabels.total_income},${totalIncome}`);
+          lines.push(`${incomeLabels.summary},${incomeLabels.profit},${totalIncome - totalExpense}`);
         } else if (templateStyle === 'pledges_summary') {
           lines.push('Metric,Amount');
           const totalPledged = pledges.reduce((s, r) => s + (r.pledge_amount || 0), 0);
           const totalPaid = pledges.reduce((s, r) => s + (r.amount_paid || 0), 0);
           const totalRemaining = pledges.reduce((s, r) => s + (r.amount_remaining ?? Math.max(0, (r.pledge_amount || 0) - (r.amount_paid || 0))), 0);
-          lines.push(`Total Pledged,${totalPledged}`);
-          lines.push(`Total Paid,${totalPaid}`);
-          lines.push(`Outstanding,${totalRemaining}`);
+          lines.push(`${pledgesLabels.total_pledged},${totalPledged}`);
+          lines.push(`${pledgesLabels.total_paid},${totalPaid}`);
+          lines.push(`${pledgesLabels.outstanding},${totalRemaining}`);
           const m = new Map<string, number>();
           pledges.forEach((p) => m.set(p.pledge_type || 'Pledge', (m.get(p.pledge_type || 'Pledge') || 0) + (p.pledge_amount || 0)));
           lines.push('');
-          lines.push('By Type,Amount');
+          lines.push(`${pledgesLabels.by_pledge_type},Amount`);
           Array.from(m.entries()).forEach(([label, amt]) => lines.push(`${label},${amt}`));
         } else if (templateStyle === 'donations_breakdown') {
-          lines.push('Category,Amount');
+          lines.push(`${donationsLabels.categories || 'Category'},Amount`);
           incomes
             .filter((r) => r.income_type === 'contribution' || r.income_type === 'donation')
             .reduce((m, r) => {
@@ -518,7 +528,10 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
   const formatCurrency = (n: number) => `GHS${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
   // Print layout tuning: switch to landscape when pivot has many columns
-  const isLandscapePivot = layout === 'pivot' && columnOrder.length > 5;
+  // Also force landscape for Income Statement template when By Period columns > 5
+  const isLandscapePivot =
+    (layout === 'pivot' && columnOrder.length > 5) ||
+    (layout === 'template' && templateStyle === 'income_statement' && spec.buckets.length > 5);
   // Compute column width percentages and expose to CSS via variables
   const itemWidthPct = 18; // give item column room for labels
   const totalWidthPct = 10; // compact total column

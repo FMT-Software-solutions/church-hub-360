@@ -53,12 +53,25 @@ export const DEFAULT_INCOME_STATEMENT_LABELS: Record<IncomeStatementLabelKey, st
 };
 
 // Defaults for Donations Breakdown template label keys
-export type DonationsBreakdownLabelKey = 'title' | 'categories' | 'total';
+export type DonationsBreakdownLabelKey =
+  | 'title'
+  | 'categories'
+  | 'total'
+  | 'total_received'
+  | 'total_contributions'
+  | 'total_donations'
+  | 'contributions'
+  | 'donations';
 
 export const DEFAULT_DONATIONS_BREAKDOWN_LABELS: Record<DonationsBreakdownLabelKey, string> = {
   title: 'Contributions & Donations Breakdown',
-  categories: 'Categories',
+  categories: 'By Category',
   total: 'Total',
+  total_received: 'Total Received',
+  total_contributions: 'Total Contributions',
+  total_donations: 'Total Donations',
+  contributions: 'Contributions',
+  donations: 'Donations',
 };
 
 // Removed Pledges page label keys and defaults (page remains static)
