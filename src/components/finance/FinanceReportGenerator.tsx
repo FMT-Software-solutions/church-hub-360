@@ -1,394 +1,762 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Download,
-  FileText,
-  FileSpreadsheet,
-  Printer,
-  Mail,
-} from 'lucide-react';
-import type { ReportConfig, DateFilter } from '@/types/finance';
-import { format } from 'date-fns';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { FileText, FileSpreadsheet, Printer } from 'lucide-react';
+import type { FinanceFilter, IncomeResponseRow, ExpenseRecord, PledgeRecord, PledgePayment } from '@/types/finance';
+import { DatePresetPicker, type DatePresetValue } from '@/components/attendance/reports/DatePresetPicker';
+import { mapPickerToDateFilter, mapDateFilterToPicker } from '@/utils/finance/dateFilter';
+import { formatDateFilterLabel } from '@/utils/finance/dateRange';
+import { buildPivotSpec, dateToBucketKey, type GroupUnit } from '@/utils/finance/grouping';
+import { PivotTable, type PivotRow } from '@/components/finance/reports/PivotTable';
+import { IncomeStatement } from '@/components/finance/reports/templates/IncomeStatement';
+import { PledgesSummary } from '@/components/finance/reports/templates/PledgesSummary';
+import { DonationsBreakdown } from '@/components/finance/reports/templates/DonationsBreakdown';
+import { IncomeDetailListSection, ExpensesDetailListSection, PledgePaymentsDetailListSection } from '@/components/finance/reports/DetailList';
+import { PledgesTable } from '@/components/finance/pledges/PledgesTable';
+import * as XLSX from 'xlsx';
+import { useReactToPrint } from 'react-to-print';
+import { parseISO, format as formatDate } from 'date-fns';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useReportTemplateLabels } from '@/hooks/reports/useReportTemplateLabels';
+
+type FinanceItemType = 'general_income' | 'contributions' | 'donations' | 'pledge_payments' | 'expenses' | 'pledges' | 'all_income';
 
 interface FinanceReportGeneratorProps {
-  title: string;
-  data: any[];
-  filters: any;
-  onGenerateReport: (config: ReportConfig) => void;
+  filters: FinanceFilter;
+  onFiltersChange?: (next: FinanceFilter) => void;
+  incomes?: IncomeResponseRow[];
+  expenses?: ExpenseRecord[];
+  pledges?: PledgeRecord[];
+  payments?: PledgePayment[];
   loading?: boolean;
-  availableFormats?: ReportFormat[];
-  availableGroupBy?: GroupByOption[];
-  availableSortBy?: SortByOption[];
 }
-
-interface ReportFormat {
-  value: string;
-  label: string;
-  icon: React.ReactNode;
-  description?: string;
-}
-
-interface GroupByOption {
-  value: string;
-  label: string;
-}
-
-interface SortByOption {
-  value: string;
-  label: string;
-}
-
-const defaultFormats: ReportFormat[] = [
-  {
-    value: 'pdf',
-    label: 'PDF Report',
-    icon: <FileText className="h-4 w-4" />,
-    description: 'Formatted report for printing or sharing',
-  },
-  {
-    value: 'excel',
-    label: 'Excel Spreadsheet',
-    icon: <FileSpreadsheet className="h-4 w-4" />,
-    description: 'Data in spreadsheet format for analysis',
-  },
-  {
-    value: 'csv',
-    label: 'CSV File',
-    icon: <FileSpreadsheet className="h-4 w-4" />,
-    description: 'Raw data in comma-separated format',
-  },
-  {
-    value: 'print',
-    label: 'Print Preview',
-    icon: <Printer className="h-4 w-4" />,
-    description: 'Open print-friendly version',
-  },
-];
-
-const defaultGroupByOptions: GroupByOption[] = [
-  { value: 'date', label: 'Date' },
-  { value: 'category', label: 'Category' },
-  { value: 'member', label: 'Member' },
-  { value: 'payment_method', label: 'Payment Method' },
-  { value: 'amount_range', label: 'Amount Range' },
-];
-
-const defaultSortByOptions: SortByOption[] = [
-  { value: 'date', label: 'Date' },
-  { value: 'amount', label: 'Amount' },
-  { value: 'category', label: 'Category' },
-  { value: 'member_name', label: 'Member Name' },
-  { value: 'created_at', label: 'Created Date' },
-];
 
 export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
-  title,
-  data,
   filters,
-  onGenerateReport,
-  loading = false,
-  availableFormats = defaultFormats,
-  availableGroupBy = defaultGroupByOptions,
-  availableSortBy = defaultSortByOptions,
+  onFiltersChange,
+  incomes = [],
+  expenses = [],
+  pledges = [],
+  payments = [],
+  loading,
 }) => {
-  const [open, setOpen] = React.useState(false);
-  const [reportConfig, setReportConfig] = React.useState<ReportConfig>({
-    title: `${title} Report`,
-    date_range: filters.date_filter || { type: 'preset', preset: 'this_month' },
-    filters,
-    include_summary: true,
-    include_details: true,
-    sort_by: 'date',
-    sort_order: 'desc',
-  });
+  const [selectedItems, setSelectedItems] = React.useState<FinanceItemType[]>(['general_income']);
+  const [groupUnit, setGroupUnit] = React.useState<GroupUnit>('month');
+  const [layout, setLayout] = React.useState<'pivot' | 'list' | 'template'>('pivot');
+  const [templateStyle, setTemplateStyle] = React.useState<'income_statement' | 'pledges_summary' | 'donations_breakdown'>('income_statement');
+  const [datePresetValue, setDatePresetValue] = React.useState<DatePresetValue>(mapDateFilterToPicker(filters.date_filter));
+  const reportTitle = 'Finance Report';
 
-  // const handleGenerateReport = () => {
-  //   onGenerateReport(reportConfig);
-  //   setOpen(false);
-  // };
+  // Persistent editable titles for pivot sections (Dexie-backed)
+  type PivotLabelKey =
+    | 'all_income'
+    | 'general_income'
+    | 'contributions'
+    | 'donations'
+    | 'pledge_payments'
+    | 'expenses'
+    | 'pledges';
+  type PivotLabels = Record<PivotLabelKey, string>;
+  const DEFAULT_PIVOT_LABELS: PivotLabels = {
+    all_income: 'All Income',
+    general_income: 'General Income',
+    contributions: 'Contributions',
+    donations: 'Donations',
+    pledge_payments: 'Pledge Payments',
+    expenses: 'Expenses',
+    pledges: 'Pledges',
+  };
+  const { labels: pivotLabels, setLabel: setPivotLabel } =
+    useReportTemplateLabels<PivotLabels>('finance_pivot', DEFAULT_PIVOT_LABELS);
 
-  const updateConfig = (updates: Partial<ReportConfig>) => {
-    setReportConfig((prev) => ({ ...prev, ...updates }));
+  React.useEffect(() => {
+    setDatePresetValue(mapDateFilterToPicker(filters.date_filter));
+  }, [filters.date_filter]);
+
+  const handleDatePresetChange = (val: DatePresetValue) => {
+    setDatePresetValue(val);
+    const df = mapPickerToDateFilter(val);
+    const next: FinanceFilter = { ...filters, date_filter: df };
+    onFiltersChange?.(next);
   };
 
-  const formatDateRange = (dateFilter: DateFilter) => {
-    if (dateFilter.type === 'preset' && dateFilter.preset) {
-      return dateFilter.preset.replace('_', ' ').toUpperCase();
+  const toggleItem = (type: FinanceItemType, checked: boolean | 'indeterminate') => {
+    setSelectedItems((prev) => {
+      const exists = prev.includes(type);
+      if (checked && !exists) return [...prev, type];
+      if (!checked && exists) return prev.filter((t) => t !== type);
+      return prev;
+    });
+  };
+
+  const spec = buildPivotSpec(filters.date_filter, groupUnit);
+  const columnOrder = spec.buckets.map((b) => b.key);
+  const columnLabels = spec.buckets.reduce<Record<string, string>>((acc, b) => {
+    acc[b.key] = b.label;
+    return acc;
+  }, {});
+  const rangeLabel = formatDateFilterLabel(filters.date_filter) || '';
+
+  const sumInto = (target: Record<string, number>, key: string, amount: number) => {
+    target[key] = (target[key] || 0) + (amount || 0);
+  };
+
+  const buildIncomePivot = (source: IncomeResponseRow[], label: string, filterType?: 'general_income' | 'contribution' | 'donation' | 'pledge_payment'): { title: string; rows: PivotRow[] } => {
+    const filtered = filterType ? source.filter((r) => r.income_type === filterType) : source;
+    // For pledge payments, group by pledge_id (unique), but display a human-friendly label
+    const rowsMap = new Map<string, { label: string; columns: Record<string, number> }>();
+    for (const r of filtered) {
+      const bucket = dateToBucketKey(r.date, groupUnit);
+      if (!columnOrder.includes(bucket)) continue; // keep within range
+      if (filterType === 'pledge_payment') {
+        const key = String(r.pledge_id || 'Pledge');
+        const displayLabel = String(r.occasion_name || r.description || 'Pledge');
+        const entry = rowsMap.get(key) || { label: displayLabel, columns: {} };
+        sumInto(entry.columns, bucket, r.amount || 0);
+        rowsMap.set(key, entry);
+      } else {
+        const rowLabel = String(r.category || 'Unknown');
+        const entry = rowsMap.get(rowLabel) || { label: rowLabel, columns: {} };
+        sumInto(entry.columns, bucket, r.amount || 0);
+        rowsMap.set(rowLabel, entry);
+      }
     }
+    const rows: PivotRow[] = Array.from(rowsMap.values()).map(({ label, columns }) => ({ rowLabel: label, columns }));
+    return { title: label, rows };
+  };
 
-    if (dateFilter.start_date && dateFilter.end_date) {
-      return `${format(
-        new Date(dateFilter.start_date),
-        'MMM dd, yyyy'
-      )} - ${format(new Date(dateFilter.end_date), 'MMM dd, yyyy')}`;
+  const buildExpensesPivot = (source: ExpenseRecord[]): { title: string; rows: PivotRow[] } => {
+    const rowsMap = new Map<string, Record<string, number>>();
+    for (const r of source) {
+      const bucket = dateToBucketKey(r.date, groupUnit);
+      if (!columnOrder.includes(bucket)) continue;
+      const rowLabel = String(r.purpose || 'Unspecified');
+      const row = rowsMap.get(rowLabel) || {};
+      sumInto(row, bucket, r.amount || 0);
+      rowsMap.set(rowLabel, row);
     }
-
-    return 'Custom Range';
+    const rows: PivotRow[] = Array.from(rowsMap.entries()).map(([rowLabel, columns]) => ({ rowLabel, columns }));
+    return { title: 'Expenses', rows };
   };
 
-  const getRecordCount = () => {
-    return data.length;
+  const buildPledgesPivot = (source: PledgeRecord[]): { title: string; rows: PivotRow[] } => {
+    const rowsMap = new Map<string, Record<string, number>>();
+    for (const r of source) {
+      const bucket = dateToBucketKey(r.start_date, groupUnit);
+      if (!columnOrder.includes(bucket)) continue;
+      const rowLabel = String(r.pledge_type || 'Pledge');
+      const row = rowsMap.get(rowLabel) || {};
+      sumInto(row, bucket, r.pledge_amount || 0);
+      rowsMap.set(rowLabel, row);
+    }
+    const rows: PivotRow[] = Array.from(rowsMap.entries()).map(([rowLabel, columns]) => ({ rowLabel, columns }));
+    return { title: 'Pledges', rows };
   };
 
-  const getTotalAmount = () => {
-    return data.reduce((sum, record) => sum + (record.amount || 0), 0);
+  // (Optional) payments pivot can be added later using payments[] when needed
+
+  const sections = React.useMemo(() => {
+    const s: Array<{ key: string; title: string; rows: PivotRow[] }> = [];
+    if (selectedItems.includes('all_income')) {
+      const { rows } = buildIncomePivot(incomes, pivotLabels['all_income']);
+      s.push({ key: 'all_income', title: pivotLabels['all_income'], rows });
+    }
+    if (selectedItems.includes('general_income')) {
+      const { rows } = buildIncomePivot(incomes, pivotLabels['general_income'], 'general_income');
+      s.push({ key: 'general_income', title: pivotLabels['general_income'], rows });
+    }
+    if (selectedItems.includes('contributions')) {
+      const { rows } = buildIncomePivot(incomes, pivotLabels['contributions'], 'contribution');
+      s.push({ key: 'contributions', title: pivotLabels['contributions'], rows });
+    }
+    if (selectedItems.includes('donations')) {
+      const { rows } = buildIncomePivot(incomes, pivotLabels['donations'], 'donation');
+      s.push({ key: 'donations', title: pivotLabels['donations'], rows });
+    }
+    if (selectedItems.includes('pledge_payments')) {
+      const { rows } = buildIncomePivot(incomes, pivotLabels['pledge_payments'], 'pledge_payment');
+      s.push({ key: 'pledge_payments', title: pivotLabels['pledge_payments'], rows });
+    }
+    if (selectedItems.includes('expenses')) {
+      const { rows } = buildExpensesPivot(expenses);
+      s.push({ key: 'expenses', title: pivotLabels['expenses'], rows });
+    }
+    if (selectedItems.includes('pledges')) {
+      const { rows } = buildPledgesPivot(pledges);
+      s.push({ key: 'pledges', title: pivotLabels['pledges'], rows });
+    }
+    return s;
+  }, [selectedItems, incomes, expenses, pledges, payments, groupUnit, filters.date_filter, pivotLabels]);
+
+  const handlePivotTitleSave = (key: string, value: string) => {
+    setPivotLabel(key as PivotLabelKey, value);
   };
+
+  // Export helpers
+  const printRef = React.useRef<HTMLDivElement | null>(null);
+  const { currentOrganization } = useOrganization();
+
+  const sheetFromPivot = (title: string, rows: PivotRow[]) => {
+    const header = ['Item', ...columnOrder.map((k) => columnLabels[k] || k), 'Total'];
+    const aoa: (string | number)[][] = [header];
+    for (const r of rows) {
+      const total = columnOrder.reduce((sum, k) => sum + (r.columns[k] || 0), 0);
+      aoa.push([
+        r.rowLabel,
+        ...columnOrder.map((k) => (r.columns[k] || 0)),
+        total,
+      ]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    // Add sheet title in A1 with a simple merge if needed (optional)
+    return { title, ws };
+  };
+
+  const exportWorkbook = (format: 'excel' | 'csv' | 'pdf' | 'print') => {
+    const safeTitle = reportTitle;
+    if (format === 'print') {
+      handlePrint();
+      return;
+    }
+    if (format === 'excel') {
+      const wb = XLSX.utils.book_new();
+      if (layout === 'pivot') {
+        sections.forEach((sec) => {
+          const { title: t, ws } = sheetFromPivot(sec.title, sec.rows);
+          XLSX.utils.book_append_sheet(wb, ws, t.slice(0, 30));
+        });
+      } else if (layout === 'list') {
+        const pushIncomeSheet = (title: string, src: IncomeResponseRow[]) => {
+          const header = ['Date', 'Item/Occasion', 'Category', 'Amount', 'Method', 'Source', 'Notes'];
+          const rows: (string | number)[][] = [header];
+          src.forEach((r) => {
+            rows.push([
+              r.date || r.created_at || '',
+              r.occasion_name || r.description || r.category || '',
+              r.category || '',
+              r.amount || 0,
+              r.payment_method || '',
+              r.contributor_name || '',
+              r.notes || '',
+            ]);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30));
+        };
+
+        const pushExpenseSheet = (title: string, src: ExpenseRecord[]) => {
+          const header = ['Date', 'Item', 'Amount', 'Method', 'Vendor', 'Receipt', 'Notes'];
+          const rows: (string | number)[][] = [header];
+          src.forEach((r) => {
+            rows.push([
+              r.date || r.created_at || '',
+              r.description || r.purpose || '',
+              r.amount || 0,
+              r.payment_method || '',
+              r.vendor || '',
+              r.receipt_number || '',
+              r.notes || '',
+            ]);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30));
+        };
+
+        // Pledge payments are part of incomes in this generator; use Income rows above
+
+        if (selectedItems.includes('all_income')) pushIncomeSheet('All Income', incomes);
+        if (selectedItems.includes('general_income')) pushIncomeSheet('General Income', incomes.filter((r) => r.income_type === 'general_income'));
+        if (selectedItems.includes('contributions')) pushIncomeSheet('Contributions', incomes.filter((r) => r.income_type === 'contribution'));
+        if (selectedItems.includes('donations')) pushIncomeSheet('Donations', incomes.filter((r) => r.income_type === 'donation'));
+        if (selectedItems.includes('pledge_payments')) pushIncomeSheet('Pledge Payments', incomes.filter((r) => r.income_type === 'pledge_payment'));
+        if (selectedItems.includes('expenses')) pushExpenseSheet('Expenses', expenses);
+        if (selectedItems.includes('pledges')) {
+          const header = ['Pledge Type', 'Campaign', 'Source', 'Amount', 'Start Date', 'End Date', 'Amount Paid', 'Outstanding'];
+          const rows: (string | number)[][] = [header];
+          pledges.forEach((p) => {
+            const source = p.member_name || p.group_name || p.tag_item_name || p.source || (p.source_type === 'church' ? 'Church' : '') || '';
+            rows.push([
+              p.pledge_type || 'Pledge',
+              p.campaign_name || '',
+              source,
+              p.pledge_amount || 0,
+              p.start_date || '',
+              p.end_date || '',
+              p.amount_paid || 0,
+              p.amount_remaining ?? Math.max(0, (p.pledge_amount || 0) - (p.amount_paid || 0)),
+            ]);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, 'Pledges');
+        }
+      } else if (layout === 'template') {
+        // Minimal sheets per template style
+        if (templateStyle === 'income_statement') {
+          const header = ['Section', 'Item', 'Amount'];
+          const rows: (string | number)[][] = [header];
+          // Build from current incomes/expenses
+          const gen = incomes.filter((r) => r.income_type === 'general_income');
+          const other = incomes.filter((r) => r.income_type !== 'general_income');
+          const sumBy = (arr: typeof incomes) => {
+            const m = new Map<string, number>();
+            arr.forEach((r) => m.set(r.category || 'Unknown', (m.get(r.category || 'Unknown') || 0) + (r.amount || 0)));
+            return Array.from(m.entries());
+          };
+          sumBy(gen).forEach(([label, amt]) => rows.push(['Revenue', label, amt]));
+          rows.push(['Revenue', 'Total Revenue', gen.reduce((s, r) => s + (r.amount || 0), 0)]);
+          sumBy(other).forEach(([label, amt]) => rows.push(['Other Income', label, amt]));
+          rows.push(['Other Income', 'Total Other Income', other.reduce((s, r) => s + (r.amount || 0), 0)]);
+          const expMap = new Map<string, number>();
+          expenses.forEach((r) => expMap.set(r.purpose || 'Unspecified', (expMap.get(r.purpose || 'Unspecified') || 0) + (r.amount || 0)));
+          Array.from(expMap.entries()).forEach(([label, amt]) => rows.push(['Expenditure', label, amt]));
+          rows.push(['Expenditure', 'Total Expenditure', expenses.reduce((s, r) => s + (r.amount || 0), 0)]);
+          const totalIncome = incomes.reduce((s, r) => s + (r.amount || 0), 0);
+          const totalExpense = expenses.reduce((s, r) => s + (r.amount || 0), 0);
+          rows.push(['Totals', 'Total Income', totalIncome]);
+          rows.push(['Totals', 'Surplus/(Deficit)', totalIncome - totalExpense]);
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, 'Income Statement');
+        } else if (templateStyle === 'pledges_summary') {
+          const header = ['Metric', 'Amount'];
+          const rows: (string | number)[][] = [header];
+          const totalPledged = pledges.reduce((s, r) => s + (r.pledge_amount || 0), 0);
+          const totalPaid = pledges.reduce((s, r) => s + (r.amount_paid || 0), 0);
+          const totalRemaining = pledges.reduce((s, r) => s + (r.amount_remaining ?? Math.max(0, (r.pledge_amount || 0) - (r.amount_paid || 0))), 0);
+          rows.push(['Total Pledged', totalPledged]);
+          rows.push(['Total Paid', totalPaid]);
+          rows.push(['Outstanding', totalRemaining]);
+          const m = new Map<string, number>();
+          pledges.forEach((p) => m.set(p.pledge_type || 'Pledge', (m.get(p.pledge_type || 'Pledge') || 0) + (p.pledge_amount || 0)));
+          rows.push(['', '']);
+          rows.push(['By Type', 'Amount']);
+          Array.from(m.entries()).forEach(([label, amt]) => rows.push([label, amt]));
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, 'Pledges Summary');
+        } else if (templateStyle === 'donations_breakdown') {
+          const header = ['Category', 'Amount'];
+          const rows: (string | number)[][] = [header];
+          incomes
+            .filter((r) => r.income_type === 'contribution' || r.income_type === 'donation')
+            .reduce((m, r) => {
+              const key = r.category || 'Unknown';
+              m.set(key, (m.get(key) || 0) + (r.amount || 0));
+              return m;
+            }, new Map<string, number>())
+            .forEach((amt, label) => rows.push([label, amt]));
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, 'Contrib-Donate');
+        }
+      }
+      XLSX.writeFile(wb, `${safeTitle}.xlsx`);
+      return;
+    }
+    if (format === 'csv') {
+      // Combine sections or template into CSV
+      const lines: string[] = [];
+      if (layout === 'pivot') {
+        for (const sec of sections) {
+          lines.push(`# ${sec.title}`);
+          const header = ['Item', ...columnOrder.map((k) => columnLabels[k] || k), 'Total'];
+          lines.push(header.join(','));
+          for (const r of sec.rows) {
+            const total = columnOrder.reduce((sum, k) => sum + (r.columns[k] || 0), 0);
+            const row = [r.rowLabel, ...columnOrder.map((k) => String(r.columns[k] || 0)), String(total)].join(',');
+            lines.push(row);
+          }
+          lines.push('');
+        }
+      } else if (layout === 'list') {
+        const pushIncome = (title: string, src: IncomeResponseRow[]) => {
+          lines.push(`# ${title}`);
+          lines.push('Date,Item/Occasion,Category,Amount,Method,Source,Notes');
+          src.forEach((r) => {
+            const row = [
+              r.date || r.created_at || '',
+              r.occasion_name || r.description || r.category || '',
+              r.category || '',
+              String(r.amount || 0),
+              r.payment_method || '',
+              r.contributor_name || '',
+              (r.notes || '').replace(/\n/g, ' '),
+            ].join(',');
+            lines.push(row);
+          });
+          lines.push('');
+        };
+        const pushExpenses = (src: ExpenseRecord[]) => {
+          lines.push('# Expenses');
+          lines.push('Date,Item,Amount,Method,Vendor,Receipt,Notes');
+          src.forEach((r) => {
+            const row = [
+              r.date || r.created_at || '',
+              r.description || r.purpose || '',
+              String(r.amount || 0),
+              r.payment_method || '',
+              r.vendor || '',
+              r.receipt_number || '',
+              (r.notes || '').replace(/\n/g, ' '),
+            ].join(',');
+            lines.push(row);
+          });
+          lines.push('');
+        };
+
+        if (selectedItems.includes('all_income')) pushIncome('All Income', incomes);
+        if (selectedItems.includes('general_income')) pushIncome('General Income', incomes.filter((r) => r.income_type === 'general_income'));
+        if (selectedItems.includes('contributions')) pushIncome('Contributions', incomes.filter((r) => r.income_type === 'contribution'));
+        if (selectedItems.includes('donations')) pushIncome('Donations', incomes.filter((r) => r.income_type === 'donation'));
+        if (selectedItems.includes('pledge_payments')) pushIncome('Pledge Payments', incomes.filter((r) => r.income_type === 'pledge_payment'));
+        if (selectedItems.includes('expenses')) pushExpenses(expenses);
+        if (selectedItems.includes('pledges')) {
+          lines.push('# Pledges');
+          lines.push('Type,Campaign,Source,Amount,Start Date,End Date,Amount Paid,Outstanding');
+          pledges.forEach((p) => {
+            const source = p.member_name || p.group_name || p.tag_item_name || p.source || (p.source_type === 'church' ? 'Church' : '') || '';
+            const row = [
+              p.pledge_type || 'Pledge',
+              p.campaign_name || '',
+              source,
+              String(p.pledge_amount || 0),
+              p.start_date || '',
+              p.end_date || '',
+              String(p.amount_paid || 0),
+              String(p.amount_remaining ?? Math.max(0, (p.pledge_amount || 0) - (p.amount_paid || 0))),
+            ].join(',');
+            lines.push(row);
+          });
+          lines.push('');
+        }
+      } else if (layout === 'template') {
+        if (templateStyle === 'income_statement') {
+          lines.push('Section,Item,Amount');
+          const gen = incomes.filter((r) => r.income_type === 'general_income');
+          const other = incomes.filter((r) => r.income_type !== 'general_income');
+          const sumBy = (arr: typeof incomes) => {
+            const m = new Map<string, number>();
+            arr.forEach((r) => m.set(r.category || 'Unknown', (m.get(r.category || 'Unknown') || 0) + (r.amount || 0)));
+            return Array.from(m.entries());
+          };
+          sumBy(gen).forEach(([label, amt]) => lines.push(`Revenue,${label},${amt}`));
+          lines.push(`Revenue,Total Revenue,${gen.reduce((s, r) => s + (r.amount || 0), 0)}`);
+          sumBy(other).forEach(([label, amt]) => lines.push(`Other Income,${label},${amt}`));
+          lines.push(`Other Income,Total Other Income,${other.reduce((s, r) => s + (r.amount || 0), 0)}`);
+          const expMap = new Map<string, number>();
+          expenses.forEach((r) => expMap.set(r.purpose || 'Unspecified', (expMap.get(r.purpose || 'Unspecified') || 0) + (r.amount || 0)));
+          Array.from(expMap.entries()).forEach(([label, amt]) => lines.push(`Expenditure,${label},${amt}`));
+          lines.push(`Expenditure,Total Expenditure,${expenses.reduce((s, r) => s + (r.amount || 0), 0)}`);
+          const totalIncome = incomes.reduce((s, r) => s + (r.amount || 0), 0);
+          const totalExpense = expenses.reduce((s, r) => s + (r.amount || 0), 0);
+          lines.push(`Totals,Total Income,${totalIncome}`);
+          lines.push(`Totals,Surplus/(Deficit),${totalIncome - totalExpense}`);
+        } else if (templateStyle === 'pledges_summary') {
+          lines.push('Metric,Amount');
+          const totalPledged = pledges.reduce((s, r) => s + (r.pledge_amount || 0), 0);
+          const totalPaid = pledges.reduce((s, r) => s + (r.amount_paid || 0), 0);
+          const totalRemaining = pledges.reduce((s, r) => s + (r.amount_remaining ?? Math.max(0, (r.pledge_amount || 0) - (r.amount_paid || 0))), 0);
+          lines.push(`Total Pledged,${totalPledged}`);
+          lines.push(`Total Paid,${totalPaid}`);
+          lines.push(`Outstanding,${totalRemaining}`);
+          const m = new Map<string, number>();
+          pledges.forEach((p) => m.set(p.pledge_type || 'Pledge', (m.get(p.pledge_type || 'Pledge') || 0) + (p.pledge_amount || 0)));
+          lines.push('');
+          lines.push('By Type,Amount');
+          Array.from(m.entries()).forEach(([label, amt]) => lines.push(`${label},${amt}`));
+        } else if (templateStyle === 'donations_breakdown') {
+          lines.push('Category,Amount');
+          incomes
+            .filter((r) => r.income_type === 'contribution' || r.income_type === 'donation')
+            .reduce((m, r) => {
+              const key = r.category || 'Unknown';
+              m.set(key, (m.get(key) || 0) + (r.amount || 0));
+              return m;
+            }, new Map<string, number>())
+            .forEach((amt, label) => lines.push(`${label},${amt}`));
+        }
+      }
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${safeTitle}.csv`;
+      a.click();
+      return;
+    }
+    if (format === 'pdf') {
+      // For templates, rely on print to preserve layout
+      if (layout === 'template') {
+        handlePrint();
+        return;
+      }
+      (async () => {
+        const { default: jsPDF } = await import('jspdf');
+        const doc = new jsPDF();
+        doc.setFontSize(14);
+        doc.text(safeTitle, 10, 12);
+        let y = 20;
+        const addLine = (txt: string) => {
+          doc.text(txt, 10, y);
+          y += 6;
+          if (y > 280) { doc.addPage(); y = 20; }
+        };
+        sections.forEach((sec, idx) => {
+          if (idx > 0) { addLine(''); }
+          addLine(`${sec.title} (${rangeLabel})`);
+          addLine(['Item', ...columnOrder.map((k) => columnLabels[k] || k), 'Total'].join(' | '));
+          sec.rows.slice(0, 80).forEach((r) => {
+            const total = columnOrder.reduce((sum, k) => sum + (r.columns[k] || 0), 0);
+            const values = columnOrder.map((k) => String(r.columns[k] || 0));
+            addLine([r.rowLabel, ...values, String(total)].join(' | '));
+          });
+        });
+        doc.save(`${safeTitle}.pdf`);
+      })();
+    }
+  };
+
+  const formatCurrency = (n: number) => `GHS${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+  // Print layout tuning: switch to landscape when pivot has many columns
+  const isLandscapePivot = layout === 'pivot' && columnOrder.length > 5;
+  // Compute column width percentages and expose to CSS via variables
+  const itemWidthPct = 18; // give item column room for labels
+  const totalWidthPct = 10; // compact total column
+  const remainingPct = Math.max(100 - itemWidthPct - totalWidthPct, 50);
+  const dateColWidthPct = Math.max(6, remainingPct / Math.max(columnOrder.length, 1));
+
+  const printStyle = `
+    @page { size: ${isLandscapePivot ? 'A4 landscape' : 'A4 portrait'}; margin: 0.5in; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+      /* Ensure pivot tables fit the page and avoid horizontal scrollbars */
+      .pivot-table { font-size: ${isLandscapePivot ? '11px' : '12px'}; line-height: 1.25; }
+      .pivot-table table { table-layout: fixed; width: 100%; }
+      .pivot-table thead th { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+      .pivot-table tbody td, .pivot-table tfoot td { white-space: nowrap; }
+      .pivot-table thead th, .pivot-table tbody td, .pivot-table tfoot td { padding: ${isLandscapePivot ? '6px 6px' : '8px 8px'}; }
+      .pivot-table .overflow-x-auto { overflow: visible !important; }
+      /* Widths controlled by CSS variables set on the component root */
+      .pivot-table th[data-col="item"], .pivot-table td[data-col="item"] { width: var(--pivot-item-width, ${itemWidthPct}%); }
+      .pivot-table th[data-col="total"], .pivot-table td[data-col="total"] { width: var(--pivot-total-width, ${totalWidthPct}%); }
+      .pivot-table th[data-col="date"], .pivot-table td[data-col="date"] { width: var(--pivot-col-width, ${dateColWidthPct}%); }
+    }
+  `;
+
+  // Compact labels for dense day-columns when printing landscape
+  const compactColumnLabels = React.useMemo(() => {
+    if (!isLandscapePivot) return columnLabels;
+    if (groupUnit !== 'day') return columnLabels;
+    const next: Record<string, string> = { ...columnLabels };
+    spec.buckets.forEach((b) => {
+      // bucket keys for day are yyyy-MM-dd
+      try {
+        next[b.key] = formatDate(parseISO(b.key), 'MMM dd');
+      } catch {
+        next[b.key] = b.label.replace(/,?\s*\d{4}$/,''); // fallback remove year
+      }
+    });
+    return next;
+  }, [isLandscapePivot, groupUnit, columnLabels, spec.buckets]);
+
+  const handlePrint = useReactToPrint({ contentRef: printRef as any, pageStyle: printStyle });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Generate Report
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Generate {title} Report</DialogTitle>
-          <DialogDescription>
-            Configure your report settings and choose the export format.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Report Summary */}
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <h4 className="font-medium mb-2">Report Summary</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Date Range:</span>
-                <div className="font-medium">
-                  {formatDateRange(reportConfig.date_range)}
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Records:</span>
-                <div className="font-medium">{getRecordCount()} items</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Total Amount:</span>
-                <div className="font-medium">
-                  GHS{getTotalAmount().toLocaleString()}
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Filters Applied:</span>
-                <div className="font-medium">
-                  {
-                    Object.keys(filters).filter(
-                      (key) =>
-                        key !== 'date_filter' && filters[key] !== undefined
-                    ).length
-                  }{' '}
-                  active
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Report Configuration */}
+    <Card className="w-full bg-card/45">
+      <CardHeader className="flex items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          Report Generator
+          <span className="text-sm font-normal text-muted-foreground">{rangeLabel}</span>
+        </CardTitle>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportWorkbook('excel')} disabled={loading}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" /> Export Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportWorkbook('csv')} disabled={loading}>
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" className='hidden' onClick={() => exportWorkbook('pdf')} disabled={loading}>
+            <FileText className="w-4 h-4 mr-2" /> PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportWorkbook('print')} disabled={loading}>
+            <Printer className="w-4 h-4 mr-2" /> Print
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Controls */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="report-title">Report Title</Label>
-              <Input
-                id="report-title"
-                value={reportConfig.title}
-                onChange={(e) => updateConfig({ title: e.target.value })}
-                className="mt-1"
-              />
+              <DatePresetPicker value={datePresetValue} onChange={handleDatePresetChange} />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Group By</Label>
-                <Select
-                  value={reportConfig.group_by || 'none'}
-                  onValueChange={(value) =>
-                    updateConfig({
-                      group_by: value === 'none' ? undefined : value,
-                    })
-                  }
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="No grouping" />
+                <Label className="mb-1 block">Group by</Label>
+                <Select value={groupUnit} onValueChange={(v) => setGroupUnit(v as GroupUnit)}>
+                  <SelectTrigger className='w-full'>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No grouping</SelectItem>
-                    {availableGroupBy.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="day">Day</SelectItem>
+                    <SelectItem value="week">Week</SelectItem>
+                    <SelectItem value="month">Month</SelectItem>
+                    <SelectItem value="quarter">Quarter</SelectItem>
+                    <SelectItem value="year">Year</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
-                <Label>Sort By</Label>
-                <div className="flex gap-2 mt-1">
-                  <Select
-                    value={reportConfig.sort_by || 'date'}
-                    onValueChange={(value) => updateConfig({ sort_by: value })}
-                  >
+                <Label className="mb-1 block">Layout</Label>
+                <Select value={layout} onValueChange={(v) => setLayout(v as 'pivot' | 'list' | 'template')}>
+                  <SelectTrigger className='w-full'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pivot">Pivot Table</SelectItem>
+                    <SelectItem value="list">Detail List</SelectItem>
+                    <SelectItem value="template">Report Template</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {layout === 'template' ? (
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label className="mb-1 block">Report Style</Label>
+                  <Select value={templateStyle} onValueChange={(v) => setTemplateStyle(v as any)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableSortBy.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={reportConfig.sort_order || 'desc'}
-                    onValueChange={(value) =>
-                      updateConfig({ sort_order: value as 'asc' | 'desc' })
-                    }
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asc">↑ Asc</SelectItem>
-                      <SelectItem value="desc">↓ Desc</SelectItem>
+                      <SelectItem value="income_statement">Income Statement</SelectItem>
+                      <SelectItem value="pledges_summary">Pledges Summary</SelectItem>
+                      <SelectItem value="donations_breakdown">Contributions & Donations</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-            </div>
-
-            {/* Include Options */}
-            <div>
-              <Label>Include in Report</Label>
-              <div className="space-y-2 mt-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="include-summary"
-                    checked={reportConfig.include_summary}
-                    onCheckedChange={(checked) =>
-                      updateConfig({ include_summary: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="include-summary" className="text-sm">
-                    Summary statistics and charts
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="include-details"
-                    checked={reportConfig.include_details}
-                    onCheckedChange={(checked) =>
-                      updateConfig({ include_details: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="include-details" className="text-sm">
-                    Detailed transaction list
-                  </Label>
+            ) : (
+              <div>
+                <Label className="mb-2 block">Items</Label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'all_income', label: 'All Income' },
+                    { value: 'general_income', label: 'General Income' },
+                    { value: 'contributions', label: 'Contributions' },
+                    { value: 'donations', label: 'Donations' },
+                    { value: 'pledge_payments', label: 'Pledge payments' },
+                    { value: 'expenses', label: 'Expenses' },
+                    { value: 'pledges', label: 'Pledges' },
+                  ].map((opt) => (
+                    <div className="flex items-center gap-2" key={opt.value}>
+                      <Checkbox id={`item-${opt.value}`} checked={selectedItems.includes(opt.value as FinanceItemType)} onCheckedChange={(c) => toggleItem(opt.value as FinanceItemType, c)} />
+                      <Label htmlFor={`item-${opt.value}`} className="text-sm">{opt.label}</Label>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Export Format Selection */}
-          <div>
-            <Label>Export Format</Label>
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              {availableFormats.map((format) => (
-                <Button
-                  key={format.value}
-                  variant="outline"
-                  className="h-auto p-4 justify-start"
-                  onClick={() => {
-                    // Handle format-specific generation
-                    const configWithFormat = {
-                      ...reportConfig,
-                      format: format.value,
-                    };
-                    onGenerateReport(configWithFormat);
-                    setOpen(false);
-                  }}
-                  disabled={loading}
-                >
-                  <div className="flex items-start space-x-3">
-                    {format.icon}
-                    <div className="text-left">
-                      <div className="font-medium">{format.label}</div>
-                      {format.description && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {format.description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Button>
-              ))}
+          {/* Preview */}
+          <div className="lg:col-span-3" ref={printRef}>
+            {/* Inject print styles to control orientation and layout */}
+            <style>{printStyle}</style>
+            {/* Global print-only header to unify report title */}
+            <div className="hidden print:block mb-4">
+              {currentOrganization?.name && (
+                <h2 className="text-gray-700 dark:text-gray-300 text-base">
+                  {currentOrganization.name}
+                </h2>
+              )}
+              <h1 className="text-lg font-bold">{reportTitle}</h1>
+              <p className="text-sm text-muted-foreground">{rangeLabel}</p>
             </div>
+            {layout === 'pivot' ? (
+              <div className="space-y-6">
+                {sections.map((sec) => (
+                  <PivotTable
+                    key={sec.key}
+                    title={sec.title}
+                    titleKey={sec.key}
+                    onTitleSave={handlePivotTitleSave}
+                    rows={sec.rows}
+                    columnOrder={columnOrder}
+                    columnLabels={compactColumnLabels}
+                    valueFormatter={formatCurrency}
+                    className="pivot-table"
+                    style={{
+                      // inject CSS variables to control print widths
+                      ['--pivot-col-width' as any]: `${dateColWidthPct}%`,
+                      ['--pivot-item-width' as any]: `${itemWidthPct}%`,
+                      ['--pivot-total-width' as any]: `${totalWidthPct}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            ) : layout === 'list' ? (
+              <div className="space-y-6">
+                {selectedItems.includes('all_income') && (
+                  <IncomeDetailListSection title={`All Income (${rangeLabel})`} data={incomes}/>
+                )}
+
+                {selectedItems.includes('general_income') && (
+                  <IncomeDetailListSection title={`General Income (${rangeLabel})`} data={incomes.filter((r) => r.income_type === 'general_income')} />
+                )}
+                {selectedItems.includes('contributions') && (
+                  <IncomeDetailListSection title={`Contributions (${rangeLabel})`} data={incomes.filter((r) => r.income_type === 'contribution')} />
+                )}
+                {selectedItems.includes('donations') && (
+                  <IncomeDetailListSection title={`Donations (${rangeLabel})`} data={incomes.filter((r) => r.income_type === 'donation')} />
+                )}
+                {selectedItems.includes('pledge_payments') && (
+                  <PledgePaymentsDetailListSection title={`Pledge Payments (${rangeLabel})`} data={payments as any} />
+                )}
+                
+                {selectedItems.includes('expenses') && (
+                  <ExpensesDetailListSection title={`Expenses (${rangeLabel})`} data={expenses} />
+                )}
+                {selectedItems.includes('pledges') && (
+                  <section className="space-y-2">
+                    <h3 className="text-base font-semibold tracking-tight">{`Pledges (${rangeLabel})`}</h3>
+                    <PledgesTable data={pledges} exportable={false} showPrintHeader={false} />
+                  </section>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {templateStyle === 'income_statement' && (
+                  <IncomeStatement incomes={incomes} expenses={expenses} periodLabel={rangeLabel} />
+                )}
+                {templateStyle === 'pledges_summary' && (
+                  <PledgesSummary pledges={pledges} periodLabel={rangeLabel} />
+                )}
+                {templateStyle === 'donations_breakdown' && (
+                  <DonationsBreakdown contributionsAndDonations={incomes.filter((r) => r.income_type === 'contribution' || r.income_type === 'donation')} periodLabel={rangeLabel} />
+                )}
+              </div>
+            )}
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 };
 
-// Quick export buttons for common formats
-export const QuickExportButtons: React.FC<{
-  onExport: (format: string) => void;
-  loading?: boolean;
-}> = ({ onExport, loading = false }) => {
+// Quick export buttons retained for potential reuse elsewhere
+export const QuickExportButtons: React.FC<{ onExport: (format: string) => void; loading?: boolean; }> = ({ onExport, loading = false }) => {
   return (
     <div className="flex gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onExport('pdf')}
-        disabled={loading}
-      >
+      <Button variant="outline" size="sm" onClick={() => onExport('pdf')} disabled={loading}>
         <FileText className="h-4 w-4 mr-1" />
         PDF
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onExport('excel')}
-        disabled={loading}
-      >
+      <Button variant="outline" size="sm" onClick={() => onExport('excel')} disabled={loading}>
         <FileSpreadsheet className="h-4 w-4 mr-1" />
         Excel
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onExport('print')}
-        disabled={loading}
-      >
+      <Button variant="outline" size="sm" onClick={() => onExport('print')} disabled={loading}>
         <Printer className="h-4 w-4 mr-1" />
         Print
       </Button>
@@ -396,7 +764,12 @@ export const QuickExportButtons: React.FC<{
   );
 };
 
-// Email report dialog
+// Email report dialog (shared by attendance ReportExportMenu and others)
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Mail } from 'lucide-react';
+
 export const EmailReportDialog: React.FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -409,9 +782,7 @@ export const EmailReportDialog: React.FC<{
 }> = ({ open, onOpenChange, onSendEmail, loading = false }) => {
   const [recipients, setRecipients] = React.useState('');
   const [subject, setSubject] = React.useState('Finance Report');
-  const [message, setMessage] = React.useState(
-    'Please find the attached finance report.'
-  );
+  const [message, setMessage] = React.useState('Please find the attached finance report.');
 
   const handleSend = () => {
     const recipientList = recipients
@@ -427,9 +798,7 @@ export const EmailReportDialog: React.FC<{
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Email Report</DialogTitle>
-          <DialogDescription>
-            Send the generated report via email.
-          </DialogDescription>
+          <DialogDescription>Send the generated report via email.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -442,37 +811,22 @@ export const EmailReportDialog: React.FC<{
               onChange={(e) => setRecipients(e.target.value)}
               className="mt-1"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Separate multiple email addresses with commas
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Separate multiple email addresses with commas</p>
           </div>
 
           <div>
             <Label htmlFor="subject">Subject</Label>
-            <Input
-              id="subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="mt-1"
-            />
+            <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1" />
           </div>
 
           <div>
             <Label htmlFor="message">Message</Label>
-            <Textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="mt-1"
-              rows={4}
-            />
+            <Textarea id="message" value={message} onChange={(e) => setMessage(e.target.value)} className="mt-1" rows={4} />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSend} disabled={loading || !recipients.trim()}>
             <Mail className="h-4 w-4 mr-2" />
             Send Report

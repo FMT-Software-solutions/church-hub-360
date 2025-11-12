@@ -44,6 +44,7 @@ import { Income } from '../pages/finance/Income';
 import Expenses from '../pages/finance/Expenses';
 import Contributions from '../pages/finance/Contributions';
 import { Pledges } from '../pages/finance/Pledges';
+import { InsightsReports } from '../pages/finance/InsightsReports';
 import { MembershipFormBuilder } from '@/pages/people/MembershipFormBuilder';
 
 function AppRoutes() {
@@ -121,6 +122,7 @@ function AppRoutes() {
 
         {/* Finance section with nested routes */}
         <Route path="finance" element={<Finance />}>
+          <Route path="insights" element={<InsightsReports />} />
           <Route path="income" element={<Income />} />
           <Route path="expenses" element={<Expenses />} />
           <Route path="contributions" element={<Contributions />} />

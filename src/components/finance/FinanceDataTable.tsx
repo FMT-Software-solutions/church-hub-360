@@ -41,6 +41,12 @@ const formatDate = (date: Date | string) => {
   });
 };
 
+// Humanize underscore-separated text (e.g., "mobile_payment" -> "Mobile Payment")
+const humanizeUnderscore = (value: string) => {
+  const spaced = value.replace(/_/g, ' ').trim();
+  return spaced.replace(/(^|\s)([a-z])/g, (m) => m.toUpperCase());
+};
+
 export interface TableColumn {
   key: string;
   label: string;
@@ -72,6 +78,8 @@ interface FinanceDataTableProps {
   printTitle?: string; // e.g., "Income", "Contributions and Donations", "Pledges", "Expenses"
   printDateFilter?: DateFilter;
   printDateRangeLabel?: string;
+  // Control whether the per-table print header renders (useful for aggregated report prints)
+  showPrintHeader?: boolean;
 }
 
 export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
@@ -89,6 +97,7 @@ export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
   printTitle,
   printDateFilter,
   printDateRangeLabel,
+  showPrintHeader = true,
 }) => {
   const { currentOrganization } = useOrganization();
   const tableRef = useRef<HTMLDivElement | null>(null);
@@ -129,12 +138,17 @@ export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
               : 'outline'
           }
         >
-          {value}
+          {typeof value === 'string' && value.includes('_')
+            ? humanizeUnderscore(value)
+            : value}
         </Badge>
       );
     }
 
-    return value || '-';
+    if (typeof value === 'string') {
+      return value.includes('_') ? humanizeUnderscore(value) : value || '-';
+    }
+    return value ?? '-';
   };
 
   // Export helpers
@@ -156,6 +170,9 @@ export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
       } catch {
         return String(value);
       }
+    }
+    if (typeof value === 'string' && value.includes('_')) {
+      return humanizeUnderscore(value);
     }
     if (typeof value === 'object' && value) {
       const first = (value as any).first_name;
@@ -352,21 +369,23 @@ export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
       <div ref={tableRef} className="print-wrapper">
         {/* Inline print CSS to enforce landscape and remove scrollbars when printing */}
         <style>{printPageStyle}</style>
-        {/* Print-only header */}
-        <div className="print-header hidden print:block mb-4">
-          {orgName && (
-            <h2 className="text-gray-700 dark:text-gray-300 text-base">
-              {orgName}
-            </h2>
-          )}
-          <h1 className="text-lg font-bold">{titleLabel}</h1>
-          <p className="text-sm text-muted-foreground">
-            {dateRangeLabel
-              ? `${dateRangeLabel}`
-              : `Generated on ${format(new Date(), 'PPP')}`}{' '}
-            • {data.length} records
-          </p>
-        </div>
+        {/* Print-only header (optional) */}
+        {showPrintHeader && (
+          <div className="print-header hidden print:block mb-4">
+            {orgName && (
+              <h2 className="text-gray-700 dark:text-gray-300 text-base">
+                {orgName}
+              </h2>
+            )}
+            <h1 className="text-lg font-bold">{titleLabel}</h1>
+            <p className="text-sm text-muted-foreground">
+              {dateRangeLabel
+                ? `${dateRangeLabel}`
+                : `Generated on ${format(new Date(), 'PPP')}`}{' '}
+              • {data.length} records
+            </p>
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow>

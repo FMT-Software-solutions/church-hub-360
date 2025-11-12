@@ -65,6 +65,8 @@ export interface IncomeResponseRow extends IncomeRecord {
   member?: IncomeMemberRelation | null;
   group?: IncomeGroupRelation | null;
   tag_item?: IncomeTagItemRelation | null;
+  // Link to pledge record when this income represents a pledge payment
+  pledge_id?: string;
   // Derived display fields computed in hooks
   contributor_name?: string;
   contributor_avatar_url?: string;

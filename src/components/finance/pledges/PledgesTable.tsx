@@ -13,9 +13,12 @@ interface PledgesTableProps {
   printDateFilter?: DateFilter;
   printDateRangeLabel?: string;
   printOrganizationName?: string;
+  // Table UI controls
+  exportable?: boolean;
+  showPrintHeader?: boolean;
 }
 
-export function PledgesTable({ data, actions = [], loading, printTitle, printDateFilter, printDateRangeLabel, printOrganizationName }: PledgesTableProps) {
+export function PledgesTable({ data, actions = [], loading, printTitle, printDateFilter, printDateRangeLabel, printOrganizationName, exportable = true, showPrintHeader = true }: PledgesTableProps) {
   const pledgeColumns: TableColumn[] = [
     {
       key: 'created_at',
@@ -91,6 +94,8 @@ export function PledgesTable({ data, actions = [], loading, printTitle, printDat
       printDateFilter={printDateFilter}
       printDateRangeLabel={printDateRangeLabel}
       printOrganizationName={printOrganizationName}
+      exportable={exportable}
+      showPrintHeader={showPrintHeader}
     />
   );
 }

@@ -97,6 +97,11 @@ const navItems: NavItem[] = [
     label: 'Finance',
     children: [
       {
+        to: '/finance/insights',
+        icon: BarChart3,
+        label: 'Insights & Reports',
+      },
+      {
         to: '/finance/income',
         icon: TrendingUp,
         label: 'General Income',

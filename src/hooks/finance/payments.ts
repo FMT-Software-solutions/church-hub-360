@@ -3,7 +3,7 @@ import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import type { DateFilter, PaymentMethod, PledgePayment } from '@/types/finance';
+import type { DateFilter, PaymentMethod, PledgePayment, IncomeResponseRow } from '@/types/finance';
 import type { AmountComparison } from '@/utils/finance/search';
 
 export interface PaymentsQueryParams {
@@ -27,6 +27,8 @@ export const paymentKeys = {
   all: ['pledge_payments_all'] as const,
   list: (organizationId: string, params?: PaymentsQueryParams) =>
     [...paymentKeys.all, organizationId, params] as const,
+  incomes: (organizationId: string, params?: PaymentsQueryParams) =>
+    [...paymentKeys.all, 'as_income', organizationId, params] as const,
 };
 
 function applyDateFilter(query: any, df?: DateFilter) {
@@ -98,6 +100,7 @@ export function useAllPledgePayments(params?: PaymentsQueryParams) {
              member_id,
              group_id,
              tag_item_id,
+             branch_id,
              member:members(id, first_name, middle_name, last_name),
              group:groups(id, name),
              tag_item:tag_items(id, name)
@@ -259,5 +262,158 @@ export function useDeletePayment() {
       console.error('Error deleting payment:', error);
       toast.error('Failed to delete payment');
     },
+  });
+}
+
+// Transform pledge payments into IncomeResponseRow to include in income reports
+export interface PaginatedIncomeFromPaymentsResponse {
+  data: IncomeResponseRow[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
+export function usePledgePaymentsAsIncome(params?: PaymentsQueryParams) {
+  const { currentOrganization } = useOrganization();
+
+  const queryParams: Required<Pick<PaymentsQueryParams, 'page' | 'pageSize'>> & PaymentsQueryParams = {
+    page: 1,
+    pageSize: 10,
+    ...params,
+  };
+
+  return useQuery({
+    queryKey: paymentKeys.incomes(currentOrganization?.id || '', queryParams),
+    queryFn: async (): Promise<PaginatedIncomeFromPaymentsResponse> => {
+      if (!currentOrganization?.id) throw new Error('Organization ID is required');
+
+      let query = supabase
+        .from('pledge_payments')
+        .select(
+          `*,
+           created_by_user:profiles(first_name, last_name),
+           pledge:pledge_records(
+             id,
+             pledge_type,
+             campaign_name,
+             source_type,
+             source,
+             member_id,
+             group_id,
+             tag_item_id,
+             branch_id,
+             member:members(id, first_name, middle_name, last_name),
+             group:groups(id, name),
+             tag_item:tag_items(id, name)
+           )`,
+          { count: 'exact' }
+        )
+        .eq('organization_id', currentOrganization.id)
+        .eq('is_deleted', false)
+        .order('payment_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (queryParams.search && queryParams.search.trim()) {
+        const q = queryParams.search.trim();
+        const orClauses: string[] = [
+          `notes.ilike.%${q}%`,
+        ];
+        query = query.or(orClauses.join(','));
+      }
+
+      if (queryParams.paymentMethodFilter && queryParams.paymentMethodFilter.length) {
+        query = query.in('payment_method', queryParams.paymentMethodFilter as string[]);
+      }
+
+      query = applyDateFilter(query, queryParams.dateFilter);
+      query = applyAmountSearch(query, queryParams.amountSearch);
+
+      const from = (queryParams.page! - 1) * queryParams.pageSize!;
+      const to = from + queryParams.pageSize! - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      const payments = (data || []) as any[];
+
+      const mapped: IncomeResponseRow[] = payments.map((r) => {
+        // Construct contributor display similar to useAllPledgePayments
+        const first = r.pledge?.member?.first_name || '';
+        const middle = r.pledge?.member?.middle_name ? ` ${r.pledge.member.middle_name}` : '';
+        const last = r.pledge?.member?.last_name ? ` ${r.pledge.member.last_name}` : '';
+        const member_name = `${first}${middle}${last}`.trim();
+        const group_name = r.pledge?.group?.name || '';
+        const tag_item_name = r.pledge?.tag_item?.name || '';
+        let contributor_name = '';
+        switch (r.pledge?.source_type) {
+          case 'member':
+            contributor_name = member_name || 'Member';
+            break;
+          case 'group':
+            contributor_name = group_name || 'Group';
+            break;
+          case 'tag_item':
+            contributor_name = tag_item_name || 'Tag Item';
+            break;
+          case 'other':
+            contributor_name = r.pledge?.source || 'Other';
+            break;
+          case 'church':
+            contributor_name = 'Church';
+            break;
+          default:
+            contributor_name = member_name || r.pledge?.source || group_name || tag_item_name || '';
+        }
+
+        const type_label = r.pledge?.pledge_type ? String(r.pledge.pledge_type).replace('_', ' ') : '';
+        const context_label = r.pledge?.campaign_name || type_label || 'Pledge';
+        const occasion_label = contributor_name ? `${contributor_name} – ${context_label}` : context_label;
+
+        // Map to IncomeResponseRow
+        const income: IncomeResponseRow = {
+          id: r.id,
+          organization_id: r.organization_id || currentOrganization.id,
+          branch_id: r.branch_id || r.pledge?.branch_id || '',
+          amount: Number(r.amount || 0),
+          description: r.notes ? `Pledge payment – ${context_label}. ${r.notes}` : `Pledge payment – ${context_label}`,
+          notes: r.notes || undefined,
+          date: r.payment_date,
+          created_by: r.created_by,
+          created_at: r.created_at,
+          updated_at: r.updated_at || r.created_at,
+          income_type: 'pledge_payment',
+          category: 'Contribution',
+          occasion_name: occasion_label,
+          pledge_id: r.pledge?.id,
+          source: r.pledge?.source || undefined,
+          source_type: r.pledge?.source_type || undefined,
+          member_id: r.pledge?.member_id || undefined,
+          member_name: member_name || undefined,
+          contributor_name,
+          group_id: r.pledge?.group_id || undefined,
+          tag_item_id: r.pledge?.tag_item_id || undefined,
+          payment_method: r.payment_method,
+          receipt_number: undefined,
+        } as IncomeResponseRow;
+
+        return income;
+      });
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / queryParams.pageSize!);
+
+      return {
+        data: mapped,
+        totalCount,
+        totalPages,
+        currentPage: queryParams.page!,
+        pageSize: queryParams.pageSize!,
+      };
+    },
+    enabled: !!currentOrganization?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }

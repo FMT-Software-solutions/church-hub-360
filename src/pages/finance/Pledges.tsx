@@ -17,6 +17,7 @@ import { PaymentsTable } from '@/components/finance/payments/PaymentsTable';
 import { PaymentEditDialog } from '@/components/finance/payments/PaymentEditDialog';
 import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { useAllPledgePayments, useDeletePayment } from '@/hooks/finance/payments';
+// Removed editable report labels; keep Pledges page static
 
 // Removed mock data; using real hook data
 
@@ -161,6 +162,8 @@ export function Pledges() {
 
   const deletePayment = useDeletePayment();
 
+  // No report template labels on this page; editing belongs to PledgesSummary template
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -205,7 +208,7 @@ export function Pledges() {
             data={filteredPledges}
             actions={pledgeActions}
             loading={loading}
-            printTitle="Pledges"
+            printTitle={'Pledges'}
             printDateFilter={filters.date_filter}
           />
 
@@ -249,7 +252,7 @@ export function Pledges() {
               setShowDeletePaymentDialog(true);
             }}
             loading={paymentsLoading}
-            printTitle="Pledge Payments"
+            printTitle={'Pledge Payments'}
             printDateFilter={paymentFilters.date_filter}
           />
 

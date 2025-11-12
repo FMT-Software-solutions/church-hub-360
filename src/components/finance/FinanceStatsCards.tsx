@@ -328,7 +328,7 @@ export const expenseStatsConfig = (data: {
     },
     {
       id: 'top_category',
-      title: 'Top Category',
+      title: 'Top Item',
       value: data.topCategory,
       subtitle: data.topCategoryAmount
         ? formatCurrency(data.topCategoryAmount)
