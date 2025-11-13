@@ -27,6 +27,8 @@ import { Communication } from '../pages/Communication';
 import { Events } from '../pages/Events';
 import { Reports } from '../pages/Reports';
 import { ActivityLogs } from '../pages/ActivityLogs';
+import Announcements from '../pages/Announcements';
+import AnnouncementDetails from '../pages/announcements/AnnouncementDetails';
 
 // People section pages
 import { People } from '../pages/people';
@@ -133,6 +135,8 @@ function AppRoutes() {
         {/* Other main pages */}
         <Route path="communication" element={<Communication />} />
         <Route path="events" element={<Events />} />
+        <Route path="announcements" element={<Announcements />} />
+        <Route path="announcements/:announcementId" element={<AnnouncementDetails />} />
         <Route path="reports" element={<Reports />} />
         <Route path="activity-logs" element={<ActivityLogs />} />
       </Route>

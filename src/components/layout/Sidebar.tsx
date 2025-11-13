@@ -23,6 +23,7 @@ import {
   PanelLeftOpen,
   Menu,
   FormInput,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -137,6 +138,11 @@ const navItems: NavItem[] = [
     to: '/events',
     icon: CalendarDays,
     label: 'Events and Activities',
+  },
+  {
+    to: '/announcements',
+    icon: Megaphone,
+    label: 'Announcements',
   },
   {
     to: '/reports',

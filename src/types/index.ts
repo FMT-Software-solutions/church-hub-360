@@ -11,6 +11,7 @@ export * from './people-configurations';
 export * from './members';
 export * from './attendance';
 export * from './events';
+export * from './announcements';
 
 // Add other type exports here as the application grows
 // export * from './user-types';
