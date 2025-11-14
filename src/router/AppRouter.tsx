@@ -50,6 +50,7 @@ import Contributions from '../pages/finance/Contributions';
 import { Pledges } from '../pages/finance/Pledges';
 import { InsightsReports } from '../pages/finance/InsightsReports';
 import { MembershipFormBuilder } from '@/pages/people/MembershipFormBuilder';
+import { TestAnnouncementEditorLayout } from '@/modules/AnnouncementSlideBuilder/TestEditorLayout';
 
 function AppRoutes() {
   return (
@@ -138,17 +139,26 @@ function AppRoutes() {
         <Route path="communication" element={<Communication />} />
         <Route path="events" element={<Events />} />
         <Route path="announcements" element={<Announcements />} />
-        <Route path="announcements/:announcementId" element={<AnnouncementDetails />} />
+        <Route
+          path="announcements/:announcementId"
+          element={<AnnouncementDetails />}
+        />
         <Route path="reports" element={<Reports />} />
         <Route path="activity-logs" element={<ActivityLogs />} />
       </Route>
 
-      
       {/* Public presentation route */}
-      <Route path="/present/announcements/:announcementId" element={<AnnouncementPresent />} />
+      <Route
+        path="/present/announcements/:announcementId"
+        element={<AnnouncementPresent />}
+      />
 
       {/* Dev route for slide designer testing */}
       <Route path="/dev/slide-designer" element={<SlideDesignerDev />} />
+      <Route
+        path="/dev/announcement-slide-editor"
+        element={<TestAnnouncementEditorLayout />}
+      />
 
       {/* Catch-all route - redirect to dashboard if authenticated, login if not */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
