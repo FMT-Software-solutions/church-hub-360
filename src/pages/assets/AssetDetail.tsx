@@ -7,11 +7,16 @@ import { useGroup } from '@/hooks/useGroups';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useReactToPrint } from 'react-to-print';
+import { useRef } from 'react';
+import AssetDetailPrintView from '@/components/assets/AssetDetailPrintView';
 
 export default function AssetDetail() {
   const { assetId = '' } = useParams();
   const { data } = useAsset(assetId);
   const navigate = useNavigate();
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({ contentRef: printRef });
 
   const memberIds = data?.assigned_to_member_id
     ? [data.assigned_to_member_id]
@@ -35,6 +40,7 @@ export default function AssetDetail() {
           <Button variant="outline" onClick={() => navigate('/assets')}>
             Back to Assets
           </Button>
+          <Button variant="outline" onClick={() => handlePrint()}>Print</Button>
           <Button onClick={() => navigate(`/assets/${assetId}/edit`)}>
             Edit
           </Button>
@@ -117,6 +123,15 @@ export default function AssetDetail() {
           </div>
         )}
       </Card>
+      <div style={{ display: 'none' }}>
+        <div ref={printRef}>
+          <AssetDetailPrintView
+            asset={data}
+            memberName={data.assigned_to_type === 'member' && data.assigned_to_member_id && (memberDetails && memberDetails[0]) ? (memberDetails[0].full_name || `${memberDetails[0].first_name} ${memberDetails[0].last_name}`.trim()) : null}
+            groupName={data.assigned_to_type === 'group' && groupDetails ? groupDetails.name : null}
+          />
+        </div>
+      </div>
     </div>
   );
 }

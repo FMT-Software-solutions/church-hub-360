@@ -23,6 +23,16 @@ import { useAssets } from '@/hooks/assets/useAssets';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Eye, Pencil, Plus } from 'lucide-react';
 import { useDeleteAsset } from '@/hooks/assets/useAssets';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import AssetListPrintService from '@/components/assets/AssetListPrintService';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 const CATEGORY_OPTIONS = [
   'All',
@@ -43,6 +53,38 @@ export default function Assets() {
   const [category, setCategory] = useState('All');
   const [status, setStatus] = useState('All');
   const [location, setLocation] = useState('');
+  const [printOpen, setPrintOpen] = useState(false);
+  const [startPrint, setStartPrint] = useState(false);
+  const [selectedFields, setSelectedFields] = useState<string[]>([
+    'name',
+    'category',
+    'status',
+    'location',
+    'images_count',
+  ]);
+  const availableFields = [
+    'name',
+    'category',
+    'status',
+    'location',
+    'purchase_date',
+    'assigned_to_member_id',
+    'assigned_to_group_id',
+    'images_count',
+    'created_at',
+  ];
+  const fieldLabels: Record<string, string> = {
+    name: 'Name',
+    category: 'Category',
+    status: 'Status',
+    location: 'Location',
+    purchase_date: 'Purchase Date',
+    assigned_to_type: 'Assignment Type',
+    assigned_to_member_id: 'Assigned Member',
+    assigned_to_group_id: 'Assigned Group',
+    images_count: 'Image Count',
+    created_at: 'Created Date',
+  };
 
   const params = useMemo(
     () => ({
@@ -59,6 +101,7 @@ export default function Assets() {
   const { data, isLoading } = useAssets(params);
   const navigate = useNavigate();
   const del = useDeleteAsset();
+  const { currentOrganization } = useOrganization();
 
   const items = data?.data || [];
   const totalItems = data?.total || 0;
@@ -68,10 +111,55 @@ export default function Assets() {
     <div className="p-2 sm:p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Assets</h2>
-        <Button onClick={() => navigate('/assets/add')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Asset
-        </Button>
+        <div className="flex items-center gap-2">
+          <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">Print</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Select fields to print</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-3">
+                {availableFields.map((f) => {
+                  const checked = selectedFields.includes(f);
+                  return (
+                    <label key={f} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(val) => {
+                          setSelectedFields((prev) => {
+                            if (val) return [...prev, f];
+                            return prev.filter((x) => x !== f);
+                          });
+                        }}
+                      />
+                      <span className="truncate">{fieldLabels[f] || f}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="ghost" onClick={() => setPrintOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setPrintOpen(false);
+                    setStartPrint(true);
+                    setTimeout(() => setStartPrint(false), 1000);
+                  }}
+                >
+                  Print
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Button onClick={() => navigate('/assets/add')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Asset
+          </Button>
+        </div>
       </div>
 
       <Card className="p-3 sm:p-4 space-y-3">
@@ -212,6 +300,16 @@ export default function Assets() {
           />
         </div>
       </Card>
+      {startPrint && (
+        <AssetListPrintService
+          assets={items}
+          selectedFields={selectedFields}
+          organizationName={currentOrganization?.name}
+          organizationId={currentOrganization?.id}
+          onComplete={() => setStartPrint(false)}
+          onError={() => setStartPrint(false)}
+        />
+      )}
     </div>
   );
 }
