@@ -1,11 +1,11 @@
 import React from 'react';
-import { DndContext, closestCenter, type DragEndEvent, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, type DragEndEvent, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, useDndMonitor } from '@dnd-kit/core';
 import { Row } from './Row';
 import { useEditorStore } from '../../state/editorStore';
 import type { LayoutType, Block, Row as RowType } from '../../utils/schema';
 
 export const SlideEditor: React.FC = () => {
-  const { project, currentSlideIndex, reorderBlocks, addRow, removeRow } = useEditorStore() as any;
+  const { project, currentSlideIndex, reorderBlocks, addRow, removeRow, draggingPalette, setDraggingPalette } = useEditorStore() as any;
   const currentSlide = project.slides[currentSlideIndex];
 
   const sensors = useSensors(
@@ -101,8 +101,9 @@ export const SlideEditor: React.FC = () => {
 
   return (
     <div className="flex-1 p-6 overflow-y-auto bg-gray-100">
-      <div className="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-8 space-y-6">
+      <div className="mx-auto bg-white shadow-lg rounded-lg p-8 space-y-6">
         <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
+          <DndMonitor setDraggingPalette={setDraggingPalette} />
           <div className="space-y-6">
             {currentSlide.rows.map((row: RowType, rIdx: number) => (
               <Row
@@ -114,7 +115,17 @@ export const SlideEditor: React.FC = () => {
               />
             ))}
           </div>
-          <DragOverlay />
+          <DragOverlay>
+            {draggingPalette && (
+              draggingPalette.type === 'title' || draggingPalette.type === 'paragraph' ? (
+                <div className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground">{draggingPalette.type === 'title' ? 'H1' : 'T'}</div>
+              ) : draggingPalette.type === 'image' ? (
+                <div className="px-2 py-1 text-xs rounded bg-green-500 text-white">🖼️</div>
+              ) : (
+                <div className="px-2 py-1 text-xs rounded bg-gray-600 text-white">–</div>
+              )
+            )}
+          </DragOverlay>
         </DndContext>
         <div className="pt-4">
           <div className="text-center space-y-4">
@@ -126,14 +137,14 @@ export const SlideEditor: React.FC = () => {
                 <button
                   key={n}
                   onClick={() => addRowWithLayout(n === 1 ? 'one-column' : n === 2 ? 'two-columns' : 'three-columns')}
-                  className="flex flex-col items-center gap-2 h-auto py-2 px-6 border rounded hover:bg-blue-50"
+                  className="flex flex-col items-center gap-2 h-auto py-2 px-6 border border-gray-300 rounded hover:bg-primary/10"
                 >
                   <div className="flex gap-1">
                     {Array.from({ length: n }).map((_, i) => (
-                      <div key={i} className="w-2 h-3 bg-current rounded-sm opacity-60" />
+                      <div key={i} className="w-2 h-3 bg-gray-500 rounded-sm opacity-60" />
                     ))}
                   </div>
-                  <span className="text-xs font-medium">{n} {n === 1 ? 'Column' : 'Columns'}</span>
+                  <span className="text-xs font-medium text-gray-500">{n} {n === 1 ? 'Column' : 'Columns'}</span>
                 </button>
               ))}
             </div>
@@ -142,4 +153,25 @@ export const SlideEditor: React.FC = () => {
       </div>
     </div>
   );
+};
+
+const DndMonitor: React.FC<{ setDraggingPalette: (p: { rowIndex: number; type: 'title' | 'paragraph' | 'image' | 'spacer' } | null) => void }> = ({ setDraggingPalette }) => {
+  useDndMonitor({
+    onDragStart(event) {
+      const id = String(event.active.id);
+      if (id.startsWith('palette-')) {
+        const parts = id.split('-');
+        const rowIndex = parseInt(parts[1]);
+        const type = parts[2] as 'title' | 'paragraph' | 'image' | 'spacer';
+        setDraggingPalette({ rowIndex, type });
+      }
+    },
+    onDragEnd() {
+      setDraggingPalette(null);
+    },
+    onDragCancel() {
+      setDraggingPalette(null);
+    },
+  });
+  return null;
 };

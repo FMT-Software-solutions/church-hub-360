@@ -109,7 +109,7 @@ export const Column: React.FC<ColumnProps> = ({
                   {indicator &&
                     indicator.blockId === block.id &&
                     indicator.position === 'before' && (
-                      <div className="absolute -top-1 left-0 right-0 h-[2px] bg-blue-400 my-1" />
+                      <div className="absolute -top-1 left-0 right-0 h-[2px] bg-primary my-1" />
                     )}
                   <Block
                     block={block}
@@ -122,7 +122,7 @@ export const Column: React.FC<ColumnProps> = ({
                   {indicator &&
                     indicator.blockId === block.id &&
                     indicator.position === 'after' && (
-                      <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-blue-400" />
+                      <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-primary my-1" />
                     )}
                 </div>
               )}
@@ -132,7 +132,7 @@ export const Column: React.FC<ColumnProps> = ({
             indicator.blockId === null &&
             indicator.position === 'append' && (
               <div className="relative">
-                <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-blue-400" />
+                <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-primary my-1" />
               </div>
             )}
         </div>

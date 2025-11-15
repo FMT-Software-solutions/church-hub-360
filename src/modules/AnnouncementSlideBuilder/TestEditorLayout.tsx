@@ -19,7 +19,7 @@ export function TestAnnouncementEditorLayout() {
           />
           <button
             onClick={() => setIsPreviewMode(true)}
-            className="fixed bottom-8 right-8 flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 z-50"
+            className="fixed bottom-8 right-8 flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 z-50"
           >
             <Eye size={20} />
             Preview

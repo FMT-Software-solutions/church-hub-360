@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react';
 import { SlideThumbnail } from './SlideThumbnail';
 import { useEditorStore } from '../../state/editorStore';
+import { Button } from '@/components/ui/button';
 
 export const SlideSidebar: React.FC = () => {
   const {
@@ -32,14 +33,15 @@ export const SlideSidebar: React.FC = () => {
   };
 
   return (
-    <div className="w-48 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-      <button
+    <div className="w-48 border-gray-200 p-4 overflow-y-auto">
+      <Button
+        size="sm"
         onClick={addSlide}
-        className="w-full flex items-center justify-center gap-2 py-2 mb-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+        className="w-full flex items-center justify-center gap-2 py-2 mb-4"
       >
         <Plus size={18} />
         Add Slide
-      </button>
+      </Button>
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
         <SortableContext items={project.slides.map(s => s.id)} strategy={verticalListSortingStrategy}>

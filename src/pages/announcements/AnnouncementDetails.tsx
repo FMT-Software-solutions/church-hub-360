@@ -1,6 +1,15 @@
-import SlideEditor from '@/components/announcements/slides/SlideEditor';
-import ThumbnailList from '@/components/announcements/slides/ThumbnailList';
-import PresentationView from '@/components/announcements/slides/PresentationView';
+import { SlideEditor as BuilderSlideEditor } from '@/modules/AnnouncementSlideBuilder/components/AnnouncementEditor/SlideEditor';
+import { SlideSidebar } from '@/modules/AnnouncementSlideBuilder/components/AnnouncementEditor/SlideSidebar';
+import { BlockToolbar } from '@/modules/AnnouncementSlideBuilder/components/AnnouncementEditor/BlockToolbar';
+import { AnnouncementRenderer } from '@/modules/AnnouncementSlideBuilder/components/AnnouncementRenderer';
+import { SlideView } from '@/modules/AnnouncementSlideBuilder/components/AnnouncementRenderer/SlideView';
+import { useEditorStore } from '@/modules/AnnouncementSlideBuilder/state/editorStore';
+import {
+  createDefaultRow,
+  createDefaultTextBlock,
+  createDefaultSlide,
+} from '@/modules/AnnouncementSlideBuilder/utils/defaults';
+import type { Slide as BuilderSlide } from '@/modules/AnnouncementSlideBuilder/utils/schema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -8,10 +17,10 @@ import {
   useUpdateAnnouncement,
 } from '@/hooks/announcements/useAnnouncements';
 import type { SlideDraft } from '@/types';
-import { ArrowLeft } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import { toPng } from 'html-to-image';
+import { ArrowLeft, Download } from 'lucide-react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { normalizeSlides, createDefaultSlide } from '@/components/announcements/slides/utils';
 
 export default function AnnouncementDetails() {
   const { announcementId } = useParams();
@@ -19,13 +28,35 @@ export default function AnnouncementDetails() {
   const updateAnnouncement = useUpdateAnnouncement();
 
   const [mode, setMode] = useState<'list' | 'presentation'>('list');
-  const [localSlides, setLocalSlides] = useState<SlideDraft[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const lastSavedJSONRef = useRef<string>('');
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const [storeReady, setStoreReady] = useState(false);
 
-  // Parse slides from JSON string when announcement data loads
-  React.useEffect(() => {
+  const projectSlides = useEditorStore((s) => s.project.slides);
+
+  const toModuleSlides = (legacy: SlideDraft[]): BuilderSlide[] => {
+    return legacy.map((s) => {
+      const row = createDefaultRow('one-column');
+      const items: any[] = [];
+      if (s.title && s.title.trim().length) {
+        const h = createDefaultTextBlock('title');
+        h.content = `<h1>${s.title}</h1>`;
+        items.push(h);
+      }
+      if (s.content_html && s.content_html.trim().length) {
+        const p = createDefaultTextBlock('paragraph');
+        p.content = s.content_html || '<p></p>';
+        items.push(p);
+      }
+      row.columns[0].items = items as any;
+      return { id: s.id, rows: [row] } as BuilderSlide;
+    });
+  };
+
+  useEffect(() => {
     const raw = aQuery.data?.slides as unknown;
+    if (typeof raw === 'undefined') return;
     let arr: any[] = [];
     if (Array.isArray(raw)) {
       arr = raw as any[];
@@ -38,76 +69,84 @@ export default function AnnouncementDetails() {
         } catch {}
       }
     }
-    const normalized = normalizeSlides(arr);
-    if (normalized.length === 0) {
-      const s = createDefaultSlide(1);
-      setLocalSlides([s]);
-      setEditingId(s.id);
+    let nextSlides: BuilderSlide[] = [];
+    if (
+      arr.length > 0 &&
+      arr[0] &&
+      typeof arr[0] === 'object' &&
+      'rows' in (arr[0] as any)
+    ) {
+      nextSlides = arr as BuilderSlide[];
     } else {
-      setLocalSlides(normalized);
-      setEditingId(normalized[0].id);
+      const legacyArr = (arr || []) as SlideDraft[];
+      if (legacyArr.length === 0) {
+        nextSlides = [createDefaultSlide()];
+      } else {
+        nextSlides = toModuleSlides(legacyArr);
+      }
     }
+    useEditorStore.setState({
+      project: { slides: nextSlides },
+      currentSlideIndex: 0,
+      selectedBlockId: null,
+    });
+    lastSavedJSONRef.current = JSON.stringify(nextSlides);
     setHasUnsavedChanges(false);
+    setStoreReady(true);
   }, [aQuery.data?.slides]);
 
-  const slides = useMemo(() => localSlides, [localSlides]);
+  useEffect(() => {
+    const json = JSON.stringify(projectSlides);
+    setHasUnsavedChanges(json !== lastSavedJSONRef.current);
+  }, [projectSlides]);
 
-  
-
-  const addSlide = () => {
-    const next = createDefaultSlide(slides.length + 1);
-    setLocalSlides((prev) => normalizeSlides([...prev, next]));
-    setEditingId(next.id);
-    setHasUnsavedChanges(true);
-  };
+  const slides = useMemo(() => projectSlides, [projectSlides]);
 
   const saveAllSlides = async () => {
     if (!announcementId) return;
-
     try {
-      const normalized = normalizeSlides([...localSlides]);
-      const sortedSlides = normalized.sort((a, b) => a.position - b.position);
-      const slidesJson = JSON.stringify(sortedSlides);
-
+      const slidesJson = JSON.stringify(
+        useEditorStore.getState().project.slides
+      );
       await updateAnnouncement.mutateAsync({
         id: announcementId,
         updates: { slides: slidesJson },
       });
-
+      lastSavedJSONRef.current = slidesJson;
       setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error('Failed to save slides:', error);
+    } catch {}
+  };
+  const downloadSlidesAsImages = async () => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+    for (let i = 0; i < slides.length; i++) {
+      const holder = document.createElement('div');
+      holder.style.width = '1280px';
+      holder.style.height = '720px';
+      holder.style.position = 'absolute';
+      holder.style.left = '-9999px';
+      container.appendChild(holder);
+      const root = (await import('react-dom/client')).createRoot(holder);
+      root.render(
+        React.createElement(
+          'div',
+          { className: 'w-full h-full bg-white' },
+          React.createElement(SlideView, { slide: slides[i] })
+        )
+      );
+      await new Promise((r) => setTimeout(r, 300));
+      const url = await toPng(holder as HTMLElement, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slide-${i + 1}.png`;
+      a.click();
+      root.unmount();
+      container.removeChild(holder);
     }
-  };
-  const startEdit = (slideId: string) => {
-    if (!slides.find((x) => x.id === slideId)) return;
-    setEditingId(slideId);
-  };
-
-  const deleteSlide = (slideId: string) => {
-    const next = normalizeSlides(localSlides.filter((slide) => slide.id !== slideId));
-    if (next.length === 0) {
-      const s = createDefaultSlide(1);
-      setLocalSlides([s]);
-      setEditingId(s.id);
-    } else {
-      setLocalSlides(next);
-      if (editingId === slideId) setEditingId(next[0].id);
-    }
-    setHasUnsavedChanges(true);
-  };
-
-  const onReorder = (next: SlideDraft[]) => {
-    setLocalSlides(next);
-    setHasUnsavedChanges(true);
-  };
-
-  const applyPatch = (patch: Partial<SlideDraft>) => {
-    if (!editingId) return;
-    setLocalSlides((prev) =>
-      prev.map((s) => (s.id === editingId ? { ...s, ...patch } : s))
-    );
-    setHasUnsavedChanges(true);
   };
 
   return (
@@ -135,56 +174,77 @@ export default function AnnouncementDetails() {
         </div>
       </div>
 
-      {mode === 'list' && (
-        <div className="space-y-4">
-          <p className="text-lg font-semibold pl-12 pr-2">Manage Announcement Slides</p>
-          <Card className="p-0">
-            <CardContent className="p-0">
-              <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] h-[calc(100vh-220px)] min-h-[560px]">
-                <div className="border-r p-4 flex flex-col min-h-0">
-                  <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h3 className="font-semibold">Slides</h3>
-                    <Button onClick={addSlide} size="sm">Add Slide</Button>
+      {mode === 'list' &&
+        (storeReady ? (
+          <div className="space-y-4">
+            <p className="text-lg font-semibold pl-12 pr-2">
+              Manage Announcement Slides
+            </p>
+            <Card className="p-0">
+              <CardContent className="p-0">
+                <div className="flex min-h-[560px]">
+                  <div className="min-h-0 w-[200px]">
+                    <SlideSidebar />
                   </div>
-                  <div className="flex-1 min-h-0">
-                    <ThumbnailList
-                      slides={slides}
-                      selectedId={editingId}
-                      onSelect={startEdit}
-                      onDelete={deleteSlide}
-                      onReorder={onReorder}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col overflow-hidden">
-                  <SlideEditor
-                    slide={slides.find((s) => s.id === editingId) || null}
-                    onChange={applyPatch}
-                  />
-                </div>
-              </div>
-              <div className="border-t p-4 flex justify-between items-center">
-                {hasUnsavedChanges && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <span className="inline-block h-2 w-2 rounded-full bg-destructive mr-2" />
-                    Unsaved changes
-                  </div>
-                )}
-                <Button
-                  onClick={saveAllSlides}
-                  disabled={updateAnnouncement.isPending || !hasUnsavedChanges}
-                  className="ml-auto"
-                >
-                  {updateAnnouncement.isPending ? 'Saving…' : 'Save Changes'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-      {mode === 'presentation' && (
-        <PresentationView slides={slides} onExit={() => setMode('list')} />
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="">
+                      <BlockToolbar />
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto">
+                      <BuilderSlideEditor />
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t p-4 flex justify-between items-center">
+                  {hasUnsavedChanges && (
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <span className="inline-block h-2 w-2 rounded-full bg-destructive mr-2" />
+                      Unsaved changes
+                    </div>
+                  )}
+                  <Button
+                    onClick={downloadSlidesAsImages}
+                    variant="outline"
+                    disabled={slides.length === 0}
+                    className="ml-auto mr-2 hidden"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Images
+                  </Button>
+                  <Button
+                    onClick={saveAllSlides}
+                    disabled={
+                      updateAnnouncement.isPending || !hasUnsavedChanges
+                    }
+                    className="ml-auto"
+                  >
+                    {updateAnnouncement.isPending ? 'Saving…' : 'Save Changes'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            {/* <div ref={previewContainerRef} /> */}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Card className="p-0">
+              <CardContent className="p-6">
+                <div className="text-sm text-muted-foreground">
+                  Loading slides…
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ))}
+
+      {mode === 'presentation' && storeReady && (
+        <div ref={previewContainerRef}>
+          <AnnouncementRenderer
+            slides={slides as BuilderSlide[]}
+            onClose={() => setMode('list')}
+          />
+        </div>
       )}
     </div>
   );

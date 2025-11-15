@@ -1,16 +1,18 @@
 import { create } from 'zustand';
 import { createDefaultImageBlock, createDefaultSlide, createDefaultSpacerBlock, createDefaultTextBlock, createDefaultRow } from '../utils/defaults';
-import type { Block, LayoutType, Project, TextBlock, ImageBlock, SpacerBlock } from '../utils/schema';
+import type { Block, LayoutType, Project, TextBlock, ImageBlock, SpacerBlock, BlockType } from '../utils/schema';
 
 interface EditorState {
   project: Project;
   currentSlideIndex: number;
   selectedBlockId: string | null;
   dragInsertAfter: boolean;
+  draggingPalette: { rowIndex: number; type: BlockType } | null;
 
   setCurrentSlide: (index: number) => void;
   setSelectedBlock: (blockId: string | null) => void;
   setDragInsertAfter: (after: boolean) => void;
+  setDraggingPalette: (payload: { rowIndex: number; type: BlockType } | null) => void;
 
   addSlide: () => void;
   duplicateSlide: (index: number) => void;
@@ -38,11 +40,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   currentSlideIndex: 0,
   selectedBlockId: null,
   dragInsertAfter: false,
+  draggingPalette: null,
 
   setCurrentSlide: (index) => set({ currentSlideIndex: index, selectedBlockId: null }),
 
   setSelectedBlock: (blockId) => set({ selectedBlockId: blockId }),
   setDragInsertAfter: (after) => set({ dragInsertAfter: after }),
+  setDraggingPalette: (payload) => set({ draggingPalette: payload }),
 
   addSlide: () => set((state) => ({
     project: {

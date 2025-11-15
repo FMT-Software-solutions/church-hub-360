@@ -15,11 +15,19 @@ import {
   useDeleteAnnouncement,
 } from '@/hooks/announcements/useAnnouncements';
 import type { AnnouncementWithMeta } from '@/types/announcements';
-import { Edit, Megaphone, Plus, Trash2, Share2, Link as LinkIcon } from 'lucide-react';
+import {
+  Edit,
+  Megaphone,
+  Plus,
+  Trash2,
+  Share2,
+  Link as LinkIcon,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // removed SlideManager from creation flow; slides are edited in details page
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@radix-ui/react-scroll-area';
 
 export default function Announcements() {
   const navigate = useNavigate();
@@ -83,49 +91,52 @@ export default function Announcements() {
       </div>
 
       <div className="space-y-4">
-        {data.map((a) => (
-          <Card key={a.id} className="w-full">
-            <CardHeader className="flex flex-row items-center justify-between py-0">
-              <CardTitle className="truncate">{a.title}</CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate(`/announcements/${a.id}`)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelected(a);
-                    setShareOpen(true);
-                  }}
-                >
-                  <Share2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => {
-                    setSelected(a);
-                    setIsDeleteOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm line-clamp-4">{a.description}</div>
-              <div className="text-sm text-muted-foreground">
-                Slides: {a.slides_count ?? '-'}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        <ScrollArea className={data.length > 5 ? 'h-[600px] p-4' : 'h-full'}>
+          {data.map((a) => (
+            <Card key={a.id} className="w-full">
+              <CardHeader className="flex flex-row items-center justify-between py-0">
+                <CardTitle className="truncate">{a.title}</CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(`/announcements/${a.id}`)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelected(a);
+                      setShareOpen(true);
+                    }}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => {
+                      setSelected(a);
+                      setIsDeleteOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm line-clamp-4">{a.description}</div>
+                <div className="text-sm text-muted-foreground">
+                  Slides: {a.slides_count ?? '-'}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </ScrollArea>
+
         {data.length === 0 && (
           <div className="rounded-lg border bg-card text-muted-foreground p-10 text-center">
             No announcements yet
@@ -182,7 +193,9 @@ export default function Announcements() {
                   <Button
                     onClick={() => {
                       const url = `${window.location.origin}${window.location.pathname}#/present/announcements/${selected.id}`;
-                      const wa = `https://wa.me/?text=${encodeURIComponent(url)}`;
+                      const wa = `https://wa.me/?text=${encodeURIComponent(
+                        url
+                      )}`;
                       window.open(wa, '_blank');
                     }}
                   >
@@ -192,7 +205,9 @@ export default function Announcements() {
                     variant="outline"
                     onClick={() => {
                       const url = `${window.location.origin}${window.location.pathname}#/present/announcements/${selected.id}`;
-                      const waWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(url)}`;
+                      const waWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(
+                        url
+                      )}`;
                       window.open(waWeb, '_blank');
                     }}
                   >
@@ -202,7 +217,9 @@ export default function Announcements() {
               </div>
             </div>
           ) : (
-            <div className="text-muted-foreground">No announcement selected</div>
+            <div className="text-muted-foreground">
+              No announcement selected
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -38,61 +38,57 @@ export const Row: React.FC<RowProps> = ({
         <div className="flex items-center gap-3">
           {/* <GripVertical className="h-5 w-5 text-gray-400" /> */}
           <div className="flex items-center gap-2 ml-2">
-            <div
-              ref={dragTitle.setNodeRef}
-              style={{
-                transform: dragTitle.transform
-                  ? `translate3d(${dragTitle.transform.x}px, ${dragTitle.transform.y}px, 0)`
-                  : undefined,
-              }}
-              {...dragTitle.listeners}
-              {...dragTitle.attributes}
-              className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 cursor-grab active:cursor-grabbing"
-              title="Drag Heading"
-            >
-              H1
+            <div className="relative inline-block">
+              <button className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground">
+                H1
+              </button>
+              <div
+                ref={dragTitle.setNodeRef}
+                {...dragTitle.listeners}
+                {...dragTitle.attributes}
+                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                style={{ background: 'transparent' }}
+                aria-label="Drag Heading"
+              />
             </div>
-            <div
-              ref={dragParagraph.setNodeRef}
-              style={{
-                transform: dragParagraph.transform
-                  ? `translate3d(${dragParagraph.transform.x}px, ${dragParagraph.transform.y}px, 0)`
-                  : undefined,
-              }}
-              {...dragParagraph.listeners}
-              {...dragParagraph.attributes}
-              className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600 cursor-grab active:cursor-grabbing"
-              title="Drag Text"
-            >
-              T
+            <div className="relative inline-block">
+              <button className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground">
+                T
+              </button>
+              <div
+                ref={dragParagraph.setNodeRef}
+                {...dragParagraph.listeners}
+                {...dragParagraph.attributes}
+                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                style={{ background: 'transparent' }}
+                aria-label="Drag Text"
+              />
             </div>
-            <div
-              ref={dragImage.setNodeRef}
-              style={{
-                transform: dragImage.transform
-                  ? `translate3d(${dragImage.transform.x}px, ${dragImage.transform.y}px, 0)`
-                  : undefined,
-              }}
-              {...dragImage.listeners}
-              {...dragImage.attributes}
-              className="px-2 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 cursor-grab active:cursor-grabbing"
-              title="Drag Image"
-            >
-              <ImageIcon className="h-4 w-4" />
+            <div className="relative inline-block">
+              <button className="px-2 py-1 text-xs rounded bg-green-500 text-white">
+                <ImageIcon className="h-4 w-4" />
+              </button>
+              <div
+                ref={dragImage.setNodeRef}
+                {...dragImage.listeners}
+                {...dragImage.attributes}
+                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                style={{ background: 'transparent' }}
+                aria-label="Drag Image"
+              />
             </div>
-            <div
-              ref={dragSpacer.setNodeRef}
-              style={{
-                transform: dragSpacer.transform
-                  ? `translate3d(${dragSpacer.transform.x}px, ${dragSpacer.transform.y}px, 0)`
-                  : undefined,
-              }}
-              {...dragSpacer.listeners}
-              {...dragSpacer.attributes}
-              className="px-2 py-1 text-xs rounded bg-gray-600 text-white hover:bg-gray-700 cursor-grab active:cursor-grabbing"
-              title="Drag Spacer"
-            >
-              –
+            <div className="relative inline-block">
+              <button className="px-2 py-1 text-xs rounded bg-gray-600 text-white">
+                –
+              </button>
+              <div
+                ref={dragSpacer.setNodeRef}
+                {...dragSpacer.listeners}
+                {...dragSpacer.attributes}
+                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                style={{ background: 'transparent' }}
+                aria-label="Drag Spacer"
+              />
             </div>
           </div>
         </div>

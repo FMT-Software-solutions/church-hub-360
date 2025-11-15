@@ -71,7 +71,7 @@ export const AnnouncementRenderer: React.FC<AnnouncementRendererProps> = ({
       <div className="absolute top-4 right-4 z-50 flex gap-2">
         <button
           onClick={toggleFullscreen}
-          className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+          className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 text-gray-500"
           title="Toggle Fullscreen"
         >
           <Maximize2 size={20} />
@@ -79,7 +79,7 @@ export const AnnouncementRenderer: React.FC<AnnouncementRendererProps> = ({
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+            className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 text-gray-500"
             title="Close"
           >
             <X size={20} />
@@ -96,13 +96,13 @@ export const AnnouncementRenderer: React.FC<AnnouncementRendererProps> = ({
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-4">
         <button
           onClick={handlePrev}
-          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50"
+          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50 text-gray-500"
           disabled={slides.length <= 1}
         >
           <ChevronLeft size={24} />
         </button>
 
-        <div className="px-4 py-2 bg-white rounded-full shadow-lg">
+        <div className="px-4 py-2 bg-white rounded-full shadow-lg text-gray-500">
           <span className="font-medium">
             {currentIndex + 1} / {slides.length}
           </span>
@@ -110,7 +110,7 @@ export const AnnouncementRenderer: React.FC<AnnouncementRendererProps> = ({
 
         <button
           onClick={handleNext}
-          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50"
+          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50 text-gray-500"
           disabled={slides.length <= 1}
         >
           <ChevronRight size={24} />

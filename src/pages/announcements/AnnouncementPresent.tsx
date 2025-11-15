@@ -1,21 +1,45 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import PresentationView from '@/components/announcements/slides/PresentationView';
 import { useAnnouncementPublic } from '@/hooks/announcements/useAnnouncements';
-import type { SlideDraft } from '@/types/announcements';
+import { AnnouncementRenderer } from '@/modules/AnnouncementSlideBuilder/components/AnnouncementRenderer';
+import { createDefaultRow, createDefaultSlide, createDefaultTextBlock } from '@/modules/AnnouncementSlideBuilder/utils/defaults';
+import type { Slide as BuilderSlide } from '@/modules/AnnouncementSlideBuilder/utils/schema';
+import React from 'react';
+import { useParams } from 'react-router-dom';
 
 export default function AnnouncementPresent() {
   const { announcementId = '' } = useParams();
-  const navigate = useNavigate();
+;
   const { data, isLoading, error } = useAnnouncementPublic(announcementId);
 
-  const slides: SlideDraft[] = React.useMemo(() => {
-    if (!data?.slides) return [];
+  const toModuleSlides = (legacy: any[]): BuilderSlide[] => {
+    return legacy.map((s: any) => {
+      const row = createDefaultRow('one-column');
+      const items: any[] = [];
+      if (s.title && String(s.title).trim().length) {
+        const h = createDefaultTextBlock('title');
+        h.content = `<h1>${s.title}</h1>`;
+        items.push(h);
+      }
+      if (s.content_html && String(s.content_html).trim().length) {
+        const p = createDefaultTextBlock('paragraph');
+        p.content = s.content_html || '<p></p>';
+        items.push(p);
+      }
+      row.columns[0].items = items as any;
+      return { id: s.id, rows: [row] } as BuilderSlide;
+    });
+  };
+
+  const slides: BuilderSlide[] = React.useMemo(() => {
     try {
-      const arr = JSON.parse(data.slides || '[]');
-      return Array.isArray(arr) ? (arr as SlideDraft[]) : [];
+      const arr = JSON.parse(data?.slides || '[]');
+      if (Array.isArray(arr) && arr.length > 0 && arr[0] && typeof arr[0] === 'object' && 'rows' in (arr[0] as any)) {
+        return arr as BuilderSlide[];
+      }
+      const legacyArr = Array.isArray(arr) ? arr : [];
+      if (legacyArr.length === 0) return [createDefaultSlide()];
+      return toModuleSlides(legacyArr);
     } catch {
-      return [];
+      return [createDefaultSlide()];
     }
   }, [data?.slides]);
 
@@ -30,12 +54,5 @@ export default function AnnouncementPresent() {
     );
   }
 
-  return (
-    <PresentationView
-      slides={slides}
-      onExit={() => navigate('/announcements')}
-      hideExit
-      hideAutoPlay
-    />
-  );
+  return <AnnouncementRenderer slides={slides}  />;
 }

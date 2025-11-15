@@ -109,7 +109,7 @@ const TextBlockComponent: React.FC<{
   return (
     <div
       className={`relative px-4 py-2 rounded transition-all ${
-        isSelected ? 'ring-2 ring-blue-500' : 'hover:ring-1 hover:ring-gray-300'
+        isSelected ? 'ring-2 ring-primary' : 'hover:ring-1 hover:ring-gray-300'
       }`}
       onClick={onSelect}
     >
@@ -164,7 +164,7 @@ const ImageBlockComponent: React.FC<{
         minHeight={100}
         bounds="parent"
         style={{ position: 'relative', maxWidth: '100%' }}
-        className={isSelected ? 'ring-2 ring-blue-500' : ''}
+        className={isSelected ? 'ring-2 ring-primary' : ''}
       >
         <img
           src={block.src}
@@ -176,7 +176,7 @@ const ImageBlockComponent: React.FC<{
       {isSelected && (
         <button
           onClick={onDelete}
-          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded hover:bg-red-600 z-10"
+          className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 z-10"
         >
           <Trash2 size={14} />
         </button>
@@ -197,7 +197,7 @@ const SpacerBlockComponent: React.FC<{
   return (
     <div
       className={`relative cursor-pointer transition-all ${
-        isSelected ? 'ring-2 ring-blue-500 bg-gray-100' : 'hover:ring-1 hover:ring-gray-300 bg-gray-50'
+        isSelected ? 'ring-2 ring-primary bg-gray-100' : 'hover:ring-1 hover:ring-gray-300 bg-gray-50'
       }`}
       style={{ height: `${block.styles.height}px` }}
       onClick={onSelect}
@@ -208,7 +208,7 @@ const SpacerBlockComponent: React.FC<{
       {isSelected && (
         <button
           onClick={onDelete}
-          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded hover:bg-red-600"
+          className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
         >
           <Trash2 size={14} />
         </button>

@@ -207,30 +207,3 @@ body {
     }
   }
 }
-
-h1 {
-    font-size: 2em; /* 32px */
-    font-weight: bold;
-  }
-  h2 {
-    font-size: 1.5em; /* 24px */
-  }
-  h3 {
-    font-size: 1.17em; /* 18.72px */
-  }
-  h4 {
-    font-size: 1em; /* 16px */
-  }
-  h5 {
-    font-size: 0.83em; /* 13.28px */
-  }
-  h6 {
-    font-size: 0.67em; /* 10.72px */
-  }
-
-  ol {
-    list-style: decimal;
-  }
-  ul {
-    list-style: inherit;
-  }

@@ -18,7 +18,7 @@ import {
   MessageSquare,
   CalendarDays,
   BarChart3,
-  Activity,
+  // Activity,
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
@@ -144,16 +144,16 @@ const navItems: NavItem[] = [
     icon: Megaphone,
     label: 'Announcements',
   },
-  {
-    to: '/reports',
-    icon: BarChart3,
-    label: 'Reports & Insights',
-  },
-  {
-    to: '/activity-logs',
-    icon: Activity,
-    label: 'Activity Logs',
-  },
+  // {
+  //   to: '/reports',
+  //   icon: BarChart3,
+  //   label: 'Reports & Insights',
+  // },
+  // {
+  //   to: '/activity-logs',
+  //   icon: Activity,
+  //   label: 'Activity Logs',
+  // },
   {
     to: '/user-management',
     icon: Users,
