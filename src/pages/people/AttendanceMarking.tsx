@@ -158,9 +158,14 @@ export default function AttendanceMarking() {
 
   const { data: sessions = [] } = useAttendanceSessions({ is_open: true });
   const todaysSessions = useMemo(() => {
-    return (sessions || []).filter((s) =>
-      isSameDay(new Date(s.start_time), new Date())
-    );
+    const now = new Date();
+    return (sessions || []).filter((s) => {
+      const start = new Date(s.start_time);
+      const end = new Date(s.end_time);
+      const overlapsToday = isSameDay(start, now) || isSameDay(end, now);
+      const currentlyActiveWindow = now >= start && now <= end;
+      return overlapsToday || currentlyActiveWindow;
+    });
   }, [sessions]);
 
   return (
