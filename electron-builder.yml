@@ -22,7 +22,7 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: release/assets/favicon.ico
+  icon: release/assets/icon.ico
 nsis:
   oneClick: false
   perMachine: false
@@ -31,9 +31,9 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: ChurchHub-360
-  installerIcon: release/assets/favicon.ico
-  uninstallerIcon: release/assets/favicon.ico
-  installerHeaderIcon: release/assets/favicon.ico
+  installerIcon: release/assets/icon.ico
+  uninstallerIcon: release/assets/icon.ico
+  installerHeaderIcon: release/assets/icon.ico
   installerSidebar: release/assets/fmt-sidebar-banner.bmp
   deleteAppDataOnUninstall: false
   runAfterFinish: true

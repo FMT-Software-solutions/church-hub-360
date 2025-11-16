@@ -95,8 +95,8 @@ export function ThemeSelector() {
                     style={{
                       backgroundColor:
                         resolvedTheme === 'light'
-                          ? selectedTheme.light.primary
-                          : selectedTheme.dark.primary,
+                          ? selectedTheme?.light?.primary
+                          : selectedTheme?.dark?.primary,
                     }}
                   />
                   <div
@@ -104,8 +104,8 @@ export function ThemeSelector() {
                     style={{
                       backgroundColor:
                         resolvedTheme === 'light'
-                          ? selectedTheme.light.secondary
-                          : selectedTheme.dark.secondary,
+                          ? selectedTheme?.light?.secondary
+                          : selectedTheme?.dark?.secondary,
                     }}
                   />
                   <div
@@ -113,8 +113,8 @@ export function ThemeSelector() {
                     style={{
                       backgroundColor:
                         resolvedTheme === 'light'
-                          ? selectedTheme.light.accent
-                          : selectedTheme.dark.accent,
+                          ? selectedTheme?.light?.accent
+                          : selectedTheme?.dark?.accent,
                     }}
                   />
                 </div>

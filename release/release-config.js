@@ -8,7 +8,7 @@
 
 module.exports = {
   // Version information
-  version: "1.1.1",
+  version: "1.0.0",
   
   // Release notes in markdown format
   releaseNotes: `### Added
@@ -26,7 +26,7 @@ module.exports = {
       architecture: "x64",
       installerPath: "release/build", // Directory containing the installer
       installerPattern: "*setup*.exe", // Pattern to match installer file
-      downloadUrlTemplate: "https://github.com/FMT-Software-solutions/sales-track-pro/releases/download/v{version}/sales-track-pro-setup-{version}.exe",
+      downloadUrlTemplate: "https://github.com/FMT-Software-solutions/church-hub-360/releases/download/v{version}/church-hub-360-setup-{version}.exe",
       fileSize: 85000000,
       status: "published", // 'draft' or 'published'
       isCritical: false, // Whether this is a critical update for this platform
@@ -36,7 +36,7 @@ module.exports = {
       architecture: "x64",
       installerPath: "release/build", // Directory containing the installer
       installerPattern: "*.dmg", // Pattern to match installer file
-      downloadUrlTemplate: "https://github.com/FMT-Software-solutions/sales-track-pro/releases/download/v{version}/sales-track-pro-{version}.dmg",
+      downloadUrlTemplate: "https://github.com/FMT-Software-solutions/church-hub-360/releases/download/v{version}/church-hub-360-setup-{version}.dmg",
       fileSize: 90000000,
       status: "draft", // 'draft' or 'published'
       isCritical: false, // Whether this is a critical update for this platform
@@ -46,7 +46,7 @@ module.exports = {
       architecture: "x64",
       installerPath: "release/build", // Directory containing the installer
       installerPattern: "*.AppImage", // Pattern to match installer file
-      downloadUrlTemplate: "https://github.com/FMT-Software-solutions/sales-track-pro/releases/download/v{version}/sales-track-pro-{version}.AppImage",
+      downloadUrlTemplate: "https://github.com/FMT-Software-solutions/church-hub-360/releases/download/v{version}/church-hub-360-setup-{version}.AppImage",
       fileSize: 80000000,
       status: "draft", // 'draft' or 'published'
       isCritical: false, // Whether this is a critical update for this platform
@@ -61,7 +61,7 @@ module.exports = {
     uploadAssets: true,
     token: process.env.GH_TOKEN,
     owner: 'FMT-Software-solutions',
-    repo: 'sales-track-pro'
+    repo: 'church-hub-360'
   },
 
   // Supabase publishing configuration
@@ -101,7 +101,7 @@ module.exports = {
   // Additional metadata
   metadata: {
     appName: "Church-Hub-360",
-    description: "Professional Sales tracking application for businesses",
+    description: "Advanced Church Management system for local churches",
     author: "Shadrack Ankomahene",
     homepage: "https://fmtsoftware.com",
     supportEmail: "support@fmtsoftware.com"

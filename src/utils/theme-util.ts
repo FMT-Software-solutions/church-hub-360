@@ -1,4 +1,5 @@
 import type { CompleteTheme, ThemeColors, ThemeShadows } from '../types/theme';
+import { PREDEFINED_PALETTES } from '@/data/predefined-palettes';
 
 /**
  * Converts camelCase property names to kebab-case CSS variable names
@@ -28,6 +29,7 @@ function applyThemeColors(colors: ThemeColors, isDark: boolean = false): void {
   const rules: string[] = [];
 
   // Apply color variables
+  if (!colors) return;
   Object.entries(colors).forEach(([key, value]) => {
     const cssVarName = toKebabCase(key);
     rules.push(`  --${cssVarName}: ${value};`);
@@ -89,12 +91,56 @@ function applyThemeShadows(shadows: ThemeShadows): void {
 }
 
 /**
+ * Ensures a theme object is complete by merging with the default palette
+ */
+export function normalizeTheme(theme: Partial<CompleteTheme> | null | undefined): CompleteTheme {
+  const fallback = PREDEFINED_PALETTES['default'];
+
+  const light: ThemeColors = {
+    ...fallback.light,
+    ...(theme && theme.light ? theme.light : {}),
+  } as ThemeColors;
+
+  const dark: ThemeColors = {
+    ...fallback.dark,
+    ...(theme && theme.dark ? theme.dark : {}),
+  } as ThemeColors;
+
+  const fonts = {
+    ...fallback.fonts,
+    ...(theme && theme.fonts ? theme.fonts : {}),
+  };
+
+  const shadows = {
+    ...fallback.shadows,
+    ...(theme && theme.shadows ? theme.shadows : {}),
+  };
+
+  const config = {
+    ...fallback.config,
+    ...(theme && theme.config ? theme.config : {}),
+  };
+
+  return {
+    id: theme?.id || fallback.id,
+    name: theme?.name || fallback.name,
+    description: theme?.description || fallback.description,
+    light,
+    dark,
+    fonts,
+    shadows,
+    config,
+  };
+}
+
+/**
  * Main function to apply a complete theme to the DOM
  * @param theme - The complete theme object to apply
  * @param mode - The color mode to apply ('light', 'dark', or 'auto')
  */
 export function applyTheme(theme: CompleteTheme, mode: 'light' | 'dark' | 'auto' = 'auto'): void {
   try {
+    const safeTheme = normalizeTheme(theme);
     // Determine which color scheme to apply
     let applyLight = true;
     let applyDark = false;
@@ -113,27 +159,27 @@ export function applyTheme(theme: CompleteTheme, mode: 'light' | 'dark' | 'auto'
 
     // Apply light theme colors
     if (applyLight) {
-      applyThemeColors(theme.light, false);
+      applyThemeColors(safeTheme.light, false);
     }
 
     // Apply dark theme colors
     if (applyDark) {
-      applyThemeColors(theme.dark, true);
+      applyThemeColors(safeTheme.dark, true);
     }
 
     // Apply fonts, shadows, and config (these are mode-independent)
-    applyThemeFonts(theme.fonts);
-    applyThemeShadows(theme.shadows);
-    applyThemeConfig(theme.config);
+    applyThemeFonts(safeTheme.fonts);
+    applyThemeShadows(safeTheme.shadows);
+    applyThemeConfig(safeTheme.config);
 
     // Store current theme info for reference
-    document.documentElement.setAttribute('data-theme-id', theme.id);
-    document.documentElement.setAttribute('data-theme-name', theme.name);
+    document.documentElement.setAttribute('data-theme-id', safeTheme.id);
+    document.documentElement.setAttribute('data-theme-name', safeTheme.name);
     
     // Dispatch custom event for theme change
     const themeChangeEvent = new CustomEvent('themeChanged', {
       detail: {
-        theme,
+        theme: safeTheme,
         mode,
         timestamp: Date.now()
       }

@@ -5,7 +5,7 @@ import { useOrganization } from './OrganizationContext';
 import { PREDEFINED_PALETTES } from '@/data/predefined-palettes';
 import { themeMap } from '@/themes';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { applyTheme, batchUpdateThemeProperties } from '@/utils/theme-util';
+import { applyTheme, batchUpdateThemeProperties, normalizeTheme } from '@/utils/theme-util';
 
 export interface PaletteContextType {
   selectedTheme: CompleteTheme | null;
@@ -62,30 +62,34 @@ export function PaletteProvider({ children }: PaletteProviderProps) {
         if (savedOrgTheme) {
           const parsedTheme: CompleteTheme = JSON.parse(savedOrgTheme);
           try {
-            setSelectedTheme(parsedTheme);
-            setSelectedThemeKey(parsedTheme.id);
-            applyTheme(parsedTheme);
+            const safe = normalizeTheme(parsedTheme);
+            setSelectedTheme(safe);
+            setSelectedThemeKey(safe.id);
+            applyTheme(safe);
           } catch (error) {
             console.error('Error parsing saved organization palette:', error);
             // Fallback to organization's brand colors
             if (currentOrganization?.brand_colors) {
-              setSelectedTheme(currentOrganization.brand_colors);
-              setSelectedThemeKey(currentOrganization.brand_colors.id);
-              applyTheme(currentOrganization.brand_colors);
+              const orgSafe = normalizeTheme(currentOrganization.brand_colors);
+              setSelectedTheme(orgSafe);
+              setSelectedThemeKey(orgSafe.id);
+              applyTheme(orgSafe);
             }
           }
         } else if (currentOrganization?.brand_colors) {
           // Use organization's brand colors
-          setSelectedTheme(currentOrganization.brand_colors);
-          setSelectedThemeKey(currentOrganization.brand_colors.id);
-          applyTheme(currentOrganization.brand_colors);
+          const orgSafe = normalizeTheme(currentOrganization.brand_colors);
+          setSelectedTheme(orgSafe);
+          setSelectedThemeKey(orgSafe.id);
+          applyTheme(orgSafe);
         }
       } else {
         // use default theme
         const defaultTheme = PREDEFINED_PALETTES['default'];
-        setSelectedTheme(defaultTheme);
+        const safeDefault = normalizeTheme(defaultTheme);
+        setSelectedTheme(safeDefault);
         setSelectedThemeKey('default');
-        applyTheme(defaultTheme);
+        applyTheme(safeDefault);
       }
     };
 
@@ -96,9 +100,10 @@ export function PaletteProvider({ children }: PaletteProviderProps) {
     const selectedTheme = allThemes[themeKey];
 
     if (selectedTheme) {
-      setSelectedTheme(selectedTheme);
+      const safe = normalizeTheme(selectedTheme);
+      setSelectedTheme(safe);
       setSelectedThemeKey(themeKey);
-      applyTheme(selectedTheme);
+      applyTheme(safe);
     }
   };
 
@@ -129,9 +134,10 @@ export function PaletteProvider({ children }: PaletteProviderProps) {
 
   const resetToOrganizationTheme = () => {
     if (currentOrganization?.brand_colors) {
-      setSelectedTheme(currentOrganization.brand_colors);
-      setSelectedThemeKey(currentOrganization.brand_colors.id);
-      applyTheme(currentOrganization.brand_colors);
+      const orgSafe = normalizeTheme(currentOrganization.brand_colors);
+      setSelectedTheme(orgSafe);
+      setSelectedThemeKey(orgSafe.id);
+      applyTheme(orgSafe);
     }
   };
 
