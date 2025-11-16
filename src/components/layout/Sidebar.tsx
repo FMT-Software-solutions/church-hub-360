@@ -15,7 +15,7 @@ import {
   TrendingDown,
   Heart,
   Target,
-  MessageSquare,
+  // MessageSquare,
   CalendarDays,
   BarChart3,
   // Activity,
@@ -130,11 +130,11 @@ const navItems: NavItem[] = [
       // },
     ],
   },
-  {
-    to: '/communication',
-    icon: MessageSquare,
-    label: 'Communication',
-  },
+  // {
+  //   to: '/communication',
+  //   icon: MessageSquare,
+  //   label: 'Communication',
+  // },
   {
     to: '/events',
     icon: CalendarDays,

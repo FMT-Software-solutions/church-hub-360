@@ -379,7 +379,7 @@ export function Settings() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="GHS">GHS</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
+                      {/* <SelectItem value="USD">USD</SelectItem> */}
                     </SelectContent>
                   </Select>
                 </div>
