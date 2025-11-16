@@ -31,6 +31,9 @@ interface UserFiltersControlsProps {
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'branch_admin', label: 'Branch Admin' },
+  { value: 'finance_admin', label: 'Finance Admin' },
+  { value: 'attendance_manager', label: 'Attendance Manager' },
+  { value: 'attendance_rep', label: 'Attendance Rep' },
   { value: 'write', label: 'Editor' },
   { value: 'read', label: 'Viewer' },
 ];

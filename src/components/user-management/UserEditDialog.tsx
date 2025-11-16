@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { UserForm } from './UserForm';
 import type { UserWithRelations } from '@/types/user-management';
+import type { UserRole } from '@/lib/auth';
 
 interface Branch {
   id: string;
@@ -18,7 +19,7 @@ interface UserFormData {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: UserRole;
   selectedBranchIds: string[];
   assignAllBranches?: boolean;
 }

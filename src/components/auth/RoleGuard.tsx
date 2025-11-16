@@ -49,6 +49,9 @@ export function useRoleCheck() {
   const isOwner = () => hasRole(['owner']);
   const isAdmin = () => hasRole(['admin']);
   const isBranchAdmin = () => hasRole(['branch_admin']);
+  const isFinanceAdmin = () => hasRole(['finance_admin']);
+  const isAttendanceManager = () => hasRole(['attendance_manager']);
+  const isAttendanceRep = () => hasRole(['attendance_rep']);
 
   return {
     hasRole,
@@ -61,6 +64,9 @@ export function useRoleCheck() {
     isOwner,
     isAdmin,
     isBranchAdmin,
+    isFinanceAdmin,
+    isAttendanceManager,
+    isAttendanceRep,
     currentRole: currentOrganization?.user_role,
   };
 }

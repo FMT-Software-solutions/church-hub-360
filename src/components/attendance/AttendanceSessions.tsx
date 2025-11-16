@@ -282,38 +282,42 @@ export function AttendanceSessions() {
                     />
                   </div>
                 </div>
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) =>
-                    setStatusFilter(value as AttendanceSessionStatus | 'all')
-                  }
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="past">Past</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={isOpenFilter.toString()}
-                  onValueChange={(value) =>
-                    setIsOpenFilter(value === 'all' ? 'all' : value === 'true')
-                  }
-                >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Open" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="true">Open</SelectItem>
-                    <SelectItem value="false">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-4">
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) =>
+                      setStatusFilter(value as AttendanceSessionStatus | 'all')
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="past">Past</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={isOpenFilter.toString()}
+                    onValueChange={(value) =>
+                      setIsOpenFilter(
+                        value === 'all' ? 'all' : value === 'true'
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Open" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="true">Open</SelectItem>
+                      <SelectItem value="false">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -400,13 +404,13 @@ export function AttendanceSessions() {
                           >
                             {session.is_open ? (
                               <>
-                                <Pause className="w-3 h-3 mr-1" />
-                                Close
+                                <Pause className="w-3 h-3 sm:mr-1" />
+                                <span className="hidden sm:inline">Close</span>
                               </>
                             ) : (
                               <>
-                                <Play className="w-3 h-3 mr-1" />
-                                Open
+                                <Play className="w-3 h-3 sm:mr-1" />
+                                <span className="hidden sm:inline">Open</span>
                               </>
                             )}
                           </Button>
@@ -424,8 +428,8 @@ export function AttendanceSessions() {
                           size="sm"
                           onClick={() => handleEditSession(session)}
                         >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
+                          <Edit className="w-3 h-3 sm:mr-1" />
+                          <span className="hidden sm:inline">Edit</span>
                         </Button>
                         <Button
                           variant="outline"
@@ -434,8 +438,8 @@ export function AttendanceSessions() {
                           disabled={deleteSessionMutation.isPending}
                           className="text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Delete
+                          <Trash2 className="w-3 h-3 sm:mr-1" />
+                          <span className="hidden sm:inline">Delete</span>
                         </Button>
                       </div>
                     </div>

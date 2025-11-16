@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Settings2 } from 'lucide-react';
 import { useDashboardPreferences } from '@/hooks/dashboard/useDashboardPreferences';
 import { DEFAULT_SECTIONS } from '@/db/dashboardPrefsDb';
+import { useRoleCheck } from '@/components/auth/RoleGuard';
 
 const SECTION_LABELS: Record<string, string> = {
   birthdays: 'Upcoming Birthdays',
@@ -40,40 +41,45 @@ export function DashboardVisibilityDialog() {
     setComponentVisibility,
   } = useDashboardPreferences(orgId);
   const [open, setOpen] = useState(false);
+  const { isOwner, isFinanceAdmin } = useRoleCheck();
+  const canSeeFinance = isOwner() || isFinanceAdmin();
   const mergedSections = prefs
     ? { ...DEFAULT_SECTIONS, ...prefs.sections }
     : DEFAULT_SECTIONS;
+  type SectionKey = keyof typeof mergedSections;
   const groups: Array<{
     label: string;
-    parent: keyof typeof mergedSections;
-    children?: Array<keyof typeof mergedSections>;
+    parent: SectionKey;
+    children?: SectionKey[];
   }> = [
     {
       label: 'Membership',
-      parent: 'membership',
-      children: ['members_gender_chart'],
+      parent: 'membership' as SectionKey,
+      children: ['members_gender_chart' as SectionKey],
     },
     {
       label: 'Attendance',
-      parent: 'attendance',
-      children: ['attendance_trend_chart'],
-    },
-    {
-      label: 'Finance',
-      parent: 'finances',
-      children: ['finance_breakdown_chart'],
+      parent: 'attendance' as SectionKey,
+      children: ['attendance_trend_chart' as SectionKey],
     },
     {
       label: 'Tags & Groups',
-      parent: 'tags_groups',
-      children: ['recent_groups'],
+      parent: 'tags_groups' as SectionKey,
+      children: ['recent_groups' as SectionKey],
     },
-    { label: 'Announcements', parent: 'announcements' },
-    { label: 'Birthdays', parent: 'birthdays' },
-    { label: 'Events', parent: 'events' },
-    { label: 'Assets', parent: 'assets' },
-    { label: 'Branches', parent: 'branches' },
+    { label: 'Announcements', parent: 'announcements' as SectionKey },
+    { label: 'Birthdays', parent: 'birthdays' as SectionKey },
+    { label: 'Events', parent: 'events' as SectionKey },
+    { label: 'Assets', parent: 'assets' as SectionKey },
+    { label: 'Branches', parent: 'branches' as SectionKey },
   ];
+  if (canSeeFinance) {
+    groups.splice(2, 0, {
+      label: 'Finance',
+      parent: 'finances' as SectionKey,
+      children: ['finance_breakdown_chart' as SectionKey],
+    });
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -310,9 +310,9 @@ serve(async (req) => {
     }
 
     // Validate role
-    if (!['owner', 'admin', 'branch_admin', 'write', 'read'].includes(role)) {
+    if (!['owner', 'admin', 'branch_admin', 'write', 'read', 'finance_admin', 'attendance_manager', 'attendance_rep'].includes(role)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid role. Must be one of: owner, admin, branch_admin, write, read' }),
+        JSON.stringify({ error: 'Invalid role. Must be one of: owner, admin, branch_admin, write, read, finance_admin, attendance_manager, attendance_rep' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

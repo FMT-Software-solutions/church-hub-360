@@ -53,7 +53,7 @@ export function UserForm({
     email: '',
     firstName: '',
     lastName: '',
-    role: 'read',
+    role: 'branch_admin',
     selectedBranchIds: [],
     assignAllBranches: false,
   });
@@ -65,7 +65,7 @@ export function UserForm({
       const hasAllBranches = activeBranchIds.length > 0 && 
         activeBranchIds.every(id => userBranchIds.includes(id));
       
-      const userRole = user.user_organizations?.[0]?.role || 'read';
+      const userRole = user.user_organizations?.[0]?.role || 'branch_admin';
       
       setFormData({
         email: user.profile.email || '',
@@ -106,9 +106,9 @@ export function UserForm({
     }));
   };
 
-  const requiresBranch = ['write', 'read', 'branch_admin'].includes(formData.role) && !formData.assignAllBranches;
+  const requiresBranch = ['write', 'read', 'branch_admin', 'finance_admin', 'attendance_manager', 'attendance_rep'].includes(formData.role) && !formData.assignAllBranches;
   
-  const canBeAssignedAllBranches = ['branch_admin', 'write', 'read'].includes(formData.role);
+  const canBeAssignedAllBranches = ['branch_admin', 'write', 'read', 'attendance_manager', 'attendance_rep'].includes(formData.role);
   
   const handleAssignAllBranchesChange = (checked: boolean) => {
     const activeBranchIds = branches.filter(b => b.is_active).map(b => b.id);
@@ -177,15 +177,18 @@ export function UserForm({
               <>
                 {isOwner() && <SelectItem value="admin">Admin</SelectItem>}
                 <SelectItem value="branch_admin">Branch Admin</SelectItem>
-                <SelectItem value="write">Write</SelectItem>
-                <SelectItem value="read">Read</SelectItem>
+                <SelectItem value="finance_admin">Finance Admin</SelectItem>
+                <SelectItem value="attendance_manager">Attendance Manager</SelectItem>
+                <SelectItem value="attendance_rep">Attendance Rep</SelectItem>
+                {/* <SelectItem value="write">Write</SelectItem> */}
+                {/* <SelectItem value="read">Read</SelectItem> */}
               </>
             )}
             {!canManageAllData() && canManageUserData() && (
               <>
                 {/* Branch admins can only assign write and read roles to others */}
-                <SelectItem value="write">Editor</SelectItem>
-                <SelectItem value="read">Viewer</SelectItem>
+                {/* <SelectItem value="write">Editor</SelectItem> */}
+                {/* <SelectItem value="read">Viewer</SelectItem> */}
               </>
             )}
             {/* Fallback: Show current user's role if it's not in the available options */}

@@ -44,6 +44,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
+import { useRoleCheck } from '@/components/auth/RoleGuard';
 
 interface NavItem {
   to?: string;
@@ -200,7 +201,15 @@ export function Sidebar() {
     setMobileOpen,
   } = useSidebar();
 
-  const filteredNavItems = navItems.filter((item) => !item.devOnly || isDev);
+  const { isOwner, isFinanceAdmin } = useRoleCheck();
+  const filteredNavItems = navItems
+    .filter((item) => !item.devOnly || isDev)
+    .filter((item) => {
+      if (item.label === 'Finance' && !(isOwner() || isFinanceAdmin())) {
+        return false;
+      }
+      return true;
+    });
   const { signOut } = useAuth();
   const navigate = useNavigate();
 

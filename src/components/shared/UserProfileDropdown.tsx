@@ -32,6 +32,7 @@ import { UpdateDrawer } from '../../modules/auto-update/UpdateDrawer';
 import { openExternalUrl } from '../../utils/external-url';
 import { useUpdateStore } from '../../modules/auto-update/stores/updateStore';
 import { processAvatarUrl } from '../../utils/asset-path';
+import { useRoleCheck } from '@/components/auth/RoleGuard';
 
 export function UserProfileDropdown() {
   const { user, signOut } = useAuth();
@@ -40,6 +41,7 @@ export function UserProfileDropdown() {
   const { hasUpdate } = useUpdateStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isUpdateDrawerOpen, setIsUpdateDrawerOpen] = useState(false);
+  const { isOwner, isAdmin } = useRoleCheck();
 
   const handleSignOut = async () => {
     await signOut();
@@ -171,14 +173,15 @@ export function UserProfileDropdown() {
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
-          {/* Settings */}
-          <DropdownMenuItem
-            onClick={handleSettingsClick}
-            className="cursor-pointer"
-          >
-            <Settings className="mr-3 h-4 w-4" />
-            <span>Settings</span>
-          </DropdownMenuItem>
+          {(isOwner() || isAdmin()) && (
+            <DropdownMenuItem
+              onClick={handleSettingsClick}
+              className="cursor-pointer"
+            >
+              <Settings className="mr-3 h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+          )}
 
           {/* Check for Updates */}
           <DropdownMenuItem

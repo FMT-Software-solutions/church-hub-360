@@ -319,7 +319,7 @@ export default function AttendanceMarking() {
                     return (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
+                        className="flex flex-col md:flex-row items-center justify-between p-2 border rounded-lg gap-2"
                       >
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">

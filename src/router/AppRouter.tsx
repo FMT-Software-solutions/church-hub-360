@@ -1,7 +1,8 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthRoute } from '../components/auth/AuthRoute';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute';
-import { MainLayout } from '../components/layout/MainLayout';
+ 
+import { RoleAwareLayout } from '@/components/layout/RoleAwareLayout';
 import { AuthProvider } from '../contexts/AuthContext';
 import { OrganizationProvider } from '../contexts/OrganizationContext';
 import { PaletteProvider } from '../contexts/PaletteContext';
@@ -36,6 +37,7 @@ import Assets from '../pages/Assets';
 import AddAsset from '../pages/assets/AddAsset';
 import EditAsset from '../pages/assets/EditAsset';
 import AssetDetail from '../pages/assets/AssetDetail';
+import OrganizationCreation from '../pages/OrganizationCreation';
 
 // People section pages
 import { People } from '../pages/people';
@@ -58,6 +60,7 @@ import { Pledges } from '../pages/finance/Pledges';
 import { InsightsReports } from '../pages/finance/InsightsReports';
 import { MembershipFormBuilder } from '@/pages/people/MembershipFormBuilder';
 import { TestAnnouncementEditorLayout } from '@/modules/AnnouncementSlideBuilder/TestEditorLayout';
+import { RoleGuard } from '@/components/auth/RoleGuard';
 
 function AppRoutes() {
   return (
@@ -98,13 +101,23 @@ function AppRoutes() {
         }
       />
 
+      {/* Standalone organization creation route */}
+      <Route
+        path="/org-create"
+        element={
+          <ProtectedRoute>
+            <OrganizationCreation />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Protected routes with layout - requires organization */}
       <Route
         path="/"
         element={
           <ProtectedRoute>
             <OrganizationSelectionProtectedRoute>
-              <MainLayout />
+              <RoleAwareLayout />
             </OrganizationSelectionProtectedRoute>
           </ProtectedRoute>
         }
@@ -135,7 +148,17 @@ function AppRoutes() {
         </Route>
 
         {/* Finance section with nested routes */}
-        <Route path="finance" element={<Finance />}>
+        <Route
+          path="finance"
+          element={
+            <RoleGuard
+              allowedRoles={["owner", "finance_admin"]}
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <Finance />
+            </RoleGuard>
+          }
+        >
           <Route path="insights" element={<InsightsReports />} />
           <Route path="income" element={<Income />} />
           <Route path="expenses" element={<Expenses />} />

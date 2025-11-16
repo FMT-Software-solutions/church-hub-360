@@ -2,6 +2,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Branch } from '@/types/branches';
 import type { UserWithRelations } from '@/types/user-management';
+import type { UserRole } from '@/lib/auth';
 import { supabase } from '@/utils/supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -17,7 +18,7 @@ interface CreateUserData {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: UserRole;
   branchIds?: string[];
 }
 
@@ -26,7 +27,7 @@ interface UpdateUserData {
   userData: {
     firstName?: string;
     lastName?: string;
-    role?: string;
+    role?: UserRole;
     branchId?: string;
     branchIds?: string[];
   };

@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { UserPlus } from 'lucide-react';
+import type { UserRole } from '@/lib/auth';
 import { UserForm } from './UserForm';
 
 interface Branch {
@@ -20,7 +21,7 @@ interface UserFormData {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: UserRole;
   selectedBranchIds: string[];
   assignAllBranches?: boolean;
 }

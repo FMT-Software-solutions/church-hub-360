@@ -8,9 +8,15 @@ interface TopFiltersBarProps {
 
 export function TopFiltersBar({ mode, onChange }: TopFiltersBarProps) {
   return (
-    <Tabs value={mode} onValueChange={(v) => onChange(v as ReportFilterMode)} className="w-full">
-      <TabsList className="grid grid-cols-3 w-full">
-        <TabsTrigger value="occasions_sessions">Occasions & Sessions</TabsTrigger>
+    <Tabs
+      value={mode}
+      onValueChange={(v) => onChange(v as ReportFilterMode)}
+      className="w-full "
+    >
+      <TabsList className="grid grid-cols-1  md:grid-cols-3 w-full h-[100px] md:h-10">
+        <TabsTrigger value="occasions_sessions">
+          Occasions & Sessions
+        </TabsTrigger>
         <TabsTrigger value="tags_groups">Tags & Groups</TabsTrigger>
         <TabsTrigger value="members">Members</TabsTrigger>
       </TabsList>

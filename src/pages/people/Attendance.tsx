@@ -18,7 +18,7 @@ export function Attendance() {
       {/* Header */}
       <div className="flex items-center justify-between bg-neutral-100 dark:bg-neutral-800/50 px-6 py-4 rounded-lg border">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight">
             Attendance Management
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

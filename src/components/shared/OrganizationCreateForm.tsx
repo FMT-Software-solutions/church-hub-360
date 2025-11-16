@@ -16,6 +16,8 @@ import type { CreateOrganizationData } from '../../types/organizations';
 import { useOrganization } from '../../contexts/OrganizationContext';
 import { PREDEFINED_PALETTES } from '@/data/predefined-palettes';
 
+const enableCreateOrg = false;
+
 interface OrganizationCreateFormProps {
   trigger?: React.ReactNode;
   onSuccess?: () => void;
@@ -75,6 +77,8 @@ export function OrganizationCreateForm({
   ) => {
     setCreateForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  if (!enableCreateOrg) return null;
 
   const defaultTrigger = (
     <Button variant="outline">

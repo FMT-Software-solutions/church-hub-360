@@ -26,6 +26,7 @@ import { AnnouncementsCard } from '@/components/dashboard/AnnouncementsCard';
 import { AttendanceTrendChart } from '@/components/dashboard/charts/AttendanceTrendChart';
 import { MembersGenderChart } from '@/components/dashboard/charts/MembersGenderChart';
 import { FinanceBreakdownChart } from '@/components/dashboard/charts/FinanceBreakdownChart';
+import { useRoleCheck } from '@/components/auth/RoleGuard';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -33,6 +34,8 @@ export function Dashboard() {
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id;
   const { prefs } = useDashboardPreferences(orgId);
+  const { isOwner, isFinanceAdmin } = useRoleCheck();
+  const canSeeFinance = isOwner() || isFinanceAdmin();
 
   const show = (key: keyof NonNullable<typeof prefs>['sections']) => {
     const enabled = prefs?.sections?.[key];
@@ -77,6 +80,9 @@ export function Dashboard() {
     //   icon: BarChart3,
     // },
   ];
+  const filteredQuickActions = quickActions.filter(
+    (a) => !(a.path.startsWith('/finance') && !canSeeFinance)
+  );
 
   return (
     <div className="space-y-6">
@@ -103,7 +109,7 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 ">
-                {quickActions.map((action) => {
+                {filteredQuickActions.map((action) => {
                   const ActionIcon = action.icon;
                   return (
                     <Button
@@ -139,7 +145,7 @@ export function Dashboard() {
             {show('membership') && <MembershipCard />}
             {show('tags_groups') && <TagsGroupsCard />}
             {show('attendance') && <AttendanceCard />}
-            {show('finances') && <FinancesCard />}
+            {canSeeFinance && show('finances') && <FinancesCard />}
             {show('assets') && <AssetsCard />}
             {show('branches') && <BranchesCard />}
           </div>
@@ -150,9 +156,8 @@ export function Dashboard() {
             {show('membership') && show('members_gender_chart') && (
               <MembersGenderChart />
             )}
-            {show('finances') && show('finance_breakdown_chart') && (
-              <FinanceBreakdownChart />
-            )}
+            {canSeeFinance && show('finances') &&
+              show('finance_breakdown_chart') && <FinanceBreakdownChart />}
             {show('recent_groups') && <RecentGroupsTable />}
           </div>
           {show('announcements') && <AnnouncementsCard />}
