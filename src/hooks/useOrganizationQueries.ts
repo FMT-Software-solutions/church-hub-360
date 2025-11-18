@@ -32,6 +32,8 @@ export function useUserOrganizations(userId: string | undefined) {
         .select(`
           id,
           role,
+          visibility_overrides,
+          can_create_users,
           created_at,
           updated_at,
           organization:organizations!inner(
@@ -60,6 +62,10 @@ export function useUserOrganizations(userId: string | undefined) {
         ?.map(item => ({
           ...(item.organization as any),
           user_role: item.role as OrganizationRole,
+          user_permissions: {
+            visibility_overrides: item.visibility_overrides || {},
+            capabilities: { can_create_users: item.can_create_users ?? true }
+          }
         })) || [];
 
       return organizations;

@@ -185,6 +185,8 @@ export default function UserManagement() {
       // Remove the form-specific fields
       assignAllBranches: undefined,
       selectedBranchIds: undefined,
+      visibilityOverrides: userData.visibilityOverrides,
+      canCreateUsers: userData.canCreateUsers,
     };
 
     createUser.mutate(transformedData, {

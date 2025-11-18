@@ -44,7 +44,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
-import { useRoleCheck } from '@/components/auth/RoleGuard';
+// import { useRoleCheck } from '@/components/auth/RoleGuard';
+import { useAccess } from '@/lib/access-control';
 
 interface NavItem {
   to?: string;
@@ -201,13 +202,27 @@ export function Sidebar() {
     setMobileOpen,
   } = useSidebar();
 
-  const { isOwner, isFinanceAdmin } = useRoleCheck();
+  const { canAccess, canAccessFinanceChild, canAccessPeopleChild } = useAccess();
   const filteredNavItems = navItems
     .filter((item) => !item.devOnly || isDev)
     .filter((item) => {
-      if (item.label === 'Finance' && !(isOwner() || isFinanceAdmin())) {
-        return false;
+      if (item.label === 'Finance' && !canAccess('finance')) return false;
+      if (item.label === 'Branches' && !canAccess('branches')) return false;
+      if (item.label === 'People') {
+        if (canAccess('people')) return true;
+        const anyChildAllowed = item.children?.some((child) => {
+          const seg = child.to?.split('/')[2];
+          const key = seg === 'tags' || seg === 'groups' ? 'tags_groups' : (seg === 'form-builder' ? 'form_builder' : seg);
+          if (!key) return false;
+          return canAccessPeopleChild(key as any);
+        });
+        if (!anyChildAllowed) return false;
       }
+      if (item.label === 'Events and Activities' && !canAccess('events')) return false;
+      if (item.label === 'Announcements' && !canAccess('announcements')) return false;
+      if (item.label === 'Assets' && !canAccess('assets')) return false;
+      if (item.label === 'Users' && !canAccess('user_management')) return false;
+      if (item.label === 'Settings' && !canAccess('settings')) return false;
       return true;
     });
   const { signOut } = useAuth();
@@ -286,7 +301,18 @@ export function Sidebar() {
                     align="start"
                     className="w-48"
                   >
-                    {item.children?.map((child) => {
+                    {item.children?.filter((child) => {
+                      if (item.label === 'Finance' && child.to) {
+                        const key = (child.to.split('/')[2] || '') as any;
+                        return canAccessFinanceChild(key);
+                      }
+                      if (item.label === 'People' && child.to) {
+                        const seg = child.to.split('/')[2];
+                        const key = seg === 'tags' || seg === 'groups' ? 'tags_groups' : (seg === 'form-builder' ? 'form_builder' : seg);
+                        return key ? canAccessPeopleChild(key as any) : false;
+                      }
+                      return true;
+                    }).map((child) => {
                       const ChildIcon = child.icon;
                       return (
                         <DropdownMenuItem key={child.to || child.label} asChild>
@@ -341,7 +367,20 @@ export function Sidebar() {
           </button>
           {isExpanded && !isCollapsed && (
             <ul className="mt-1 ml-6 space-y-1">
-              {item.children?.map((child) => renderNavItem(child, level + 1))}
+              {item.children
+                ?.filter((child) => {
+                  if (item.label === 'Finance' && child.to) {
+                    const key = (child.to.split('/')[2] || '') as any;
+                    return canAccessFinanceChild(key);
+                  }
+                  if (item.label === 'People' && child.to) {
+                    const seg = child.to.split('/')[2];
+                    const key = seg === 'tags' || seg === 'groups' ? 'tags_groups' : (seg === 'form-builder' ? 'form_builder' : seg);
+                    return key ? canAccessPeopleChild(key as any) : false;
+                  }
+                  return true;
+                })
+                .map((child) => renderNavItem(child, level + 1))}
             </ul>
           )}
         </li>

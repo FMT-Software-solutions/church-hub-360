@@ -15,6 +15,7 @@ import MultipleSelector, { type Option } from '@/components/ui/multiselect';
 import { useRoleCheck } from '@/components/auth/RoleGuard';
 import type { UserRole } from '@/lib/auth';
 import type { UserWithRelations } from '@/types/user-management';
+import type { VisibilityOverrides } from '@/types/access-control';
 
 interface Branch {
   id: string;
@@ -29,6 +30,8 @@ interface UserFormData {
   role: UserRole;
   selectedBranchIds: string[];
   assignAllBranches?: boolean;
+  visibilityOverrides?: VisibilityOverrides;
+  canCreateUsers?: boolean;
 }
 
 interface UserFormProps {
@@ -56,7 +59,10 @@ export function UserForm({
     role: 'branch_admin',
     selectedBranchIds: [],
     assignAllBranches: false,
+    visibilityOverrides: { sections: {} },
+    canCreateUsers: true,
   });
+  const [disabledMap, setDisabledMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (mode === 'edit' && user) {
@@ -66,6 +72,8 @@ export function UserForm({
         activeBranchIds.every(id => userBranchIds.includes(id));
       
       const userRole = user.user_organizations?.[0]?.role || 'branch_admin';
+      const vis = user.user_organizations?.[0]?.visibility_overrides || {};
+      const canCreateUsers = user.user_organizations?.[0]?.can_create_users ?? true;
       
       setFormData({
         email: user.profile.email || '',
@@ -74,7 +82,10 @@ export function UserForm({
         role: userRole,
         selectedBranchIds: userBranchIds.filter((id): id is string => id !== null),
         assignAllBranches: hasAllBranches,
+        visibilityOverrides: vis,
+        canCreateUsers,
       });
+      setDisabledMap(disabledForRole(userRole));
     }
   }, [mode, user, branches]);
 
@@ -95,16 +106,96 @@ export function UserForm({
     onSubmit(formData);
   };
 
+  const defaultsForRole = (role: UserRole): VisibilityOverrides => {
+    const allTrueExceptFinance: VisibilityOverrides = {
+      sections: {
+        branches: true,
+        people: { enabled: true, attendance: true },
+        finance: { enabled: false },
+        events: true,
+        announcements: true,
+        assets: true,
+        user_management: true,
+        settings: true,
+      },
+    };
+    switch (role) {
+      case 'admin':
+        return allTrueExceptFinance;
+      case 'branch_admin':
+        return {...allTrueExceptFinance, sections: {...allTrueExceptFinance.sections, settings: false, branches: false }};
+      case 'finance_admin':
+        return { sections: { finance: { enabled: true } } } as VisibilityOverrides;
+      case 'attendance_manager':
+        return { sections: { people: { enabled: true, attendance: true } } } as VisibilityOverrides;
+      case 'attendance_rep':
+        return { sections: { people: { attendance: true } } } as VisibilityOverrides;
+      default:
+        return { sections: {} } as VisibilityOverrides;
+    }
+  };
+
+  const disabledForRole = (role: UserRole): Record<string, boolean> => {
+    if(role === 'branch_admin') {
+      return { settings: true, branches: true };
+    }
+
+    if (role === 'attendance_manager') {
+      return {
+        branches: true,
+        finance: true,
+        events: true,
+        announcements: true,
+        assets: true,
+        user_management: true,
+        settings: true,
+        people_enabled: false,
+        people_attendance: false,
+      };
+    }
+    if (role === 'attendance_rep') {
+      return {
+        branches: true,
+        finance: true,
+        events: true,
+        announcements: true,
+        assets: true,
+        user_management: true,
+        settings: true,
+        people_enabled: true,
+        people_attendance: false,
+      };
+    }
+    if (role === 'finance_admin') {
+      return {
+        branches: true,
+        user_management: true,
+        settings: true,
+      };
+    }
+    return {};
+  };
+
   const handleRoleChange = (role: UserRole) => {
+    const defaults = defaultsForRole(role);
     setFormData((prev) => ({
       ...prev,
       role,
-      // Clear branches for admin roles (they get all branches automatically)
-      // Keep existing branches for other roles
       assignAllBranches: role === 'admin' ? false : prev.assignAllBranches,
       selectedBranchIds: role === 'admin' ? [] : prev.selectedBranchIds,
+      visibilityOverrides: defaults,
+      canCreateUsers: role === 'admin' ? true : prev.canCreateUsers,
     }));
+    setDisabledMap(disabledForRole(role));
   };
+
+  useEffect(() => {
+    if (mode === 'create') {
+      const defaults = defaultsForRole(formData.role);
+      setFormData(prev => ({ ...prev, visibilityOverrides: defaults }));
+      setDisabledMap(disabledForRole(formData.role));
+    }
+  }, [mode]);
 
   const requiresBranch = ['write', 'read', 'branch_admin', 'finance_admin', 'attendance_manager', 'attendance_rep'].includes(formData.role) && !formData.assignAllBranches;
   
@@ -244,6 +335,203 @@ export function UserForm({
             emptyIndicator={<p className="text-center text-sm">No branches found</p>}
             className="w-full"
           />
+        </div>
+      )}
+
+
+
+      {isOwner() && (
+        <div className="space-y-4 border rounded-md p-4">
+          <div>
+            <div className="font-medium">Access control</div>
+            <div className="text-xs text-muted-foreground">Allow user access to manage</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-branches"
+                checked={!!formData.visibilityOverrides?.sections?.branches}
+                disabled={!!disabledMap.branches}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        branches: !!checked,
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-branches">Branches</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-people"
+                checked={!!formData.visibilityOverrides?.sections?.people?.enabled}
+                disabled={!!disabledMap.people_enabled}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        people: { enabled: !!checked, attendance: prev.visibilityOverrides?.sections?.people?.attendance },
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-people">People</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-people-attendance"
+                checked={!!formData.visibilityOverrides?.sections?.people?.attendance}
+                disabled={!!disabledMap.people_attendance}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        people: { ...(prev.visibilityOverrides?.sections?.people || {}), attendance: !!checked },
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-people-attendance">Attendance (People)</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-finance"
+                checked={!!formData.visibilityOverrides?.sections?.finance?.enabled}
+                disabled={!!disabledMap.finance}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        finance: { enabled: !!checked },
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-finance">Finance</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-events"
+                checked={!!formData.visibilityOverrides?.sections?.events}
+                disabled={!!disabledMap.events}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        events: !!checked,
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-events">Events and Activities</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-announcements"
+                checked={!!formData.visibilityOverrides?.sections?.announcements}
+                disabled={!!disabledMap.announcements}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        announcements: !!checked,
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-announcements">Announcements</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-assets"
+                checked={!!formData.visibilityOverrides?.sections?.assets}
+                disabled={!!disabledMap.assets}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        assets: !!checked,
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-assets">Assets management</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-user-mgmt"
+                checked={!!formData.visibilityOverrides?.sections?.user_management}
+                disabled={!!disabledMap.user_management}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        user_management: !!checked,
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-user-mgmt">User management</Label>
+            </div>
+            <div className="flex items-center space-x-2 text-sm">
+              <Checkbox
+                id="override-settings"
+                checked={!!formData.visibilityOverrides?.sections?.settings}
+                disabled={!!disabledMap.settings}
+                onCheckedChange={(checked) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    visibilityOverrides: {
+                      sections: {
+                        ...(prev.visibilityOverrides?.sections || {}),
+                        settings: !!checked,
+                      },
+                    },
+                  }));
+                }}
+              />
+              <Label htmlFor="override-settings">Settings</Label>
+            </div>
+          </div>
+
+          
+        </div>
+      )}
+
+      {formData.role === 'admin' || formData.role === 'branch_admin' && (
+        <div className="flex items-center space-x-2 text-sm my-6">
+          <Checkbox
+            id="can-create-users"
+            checked={!!formData.canCreateUsers}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, canCreateUsers: !!checked }))}
+          />
+          <Label htmlFor="can-create-users">Allow this admin to create users</Label>
         </div>
       )}
 

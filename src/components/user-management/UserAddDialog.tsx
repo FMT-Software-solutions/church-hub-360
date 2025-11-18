@@ -53,7 +53,7 @@ export function UserAddDialog({
           Add User
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
           <DialogDescription>

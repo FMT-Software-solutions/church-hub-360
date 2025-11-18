@@ -8,6 +8,8 @@ interface UserUpdateData {
   branchIds?: string[];
   assignAllBranches?: boolean;
   selectedBranchIds?: string[];
+  visibilityOverrides?: any;
+  canCreateUsers?: boolean;
 }
 
 interface UserChanges {
@@ -23,6 +25,8 @@ interface UserChanges {
     hasChanges: boolean;
   };
   hasAnyChanges: boolean;
+  overridesChanged?: boolean;
+  canCreateUsersChanged?: boolean;
 }
 
 /**
@@ -81,11 +85,30 @@ export function detectUserChanges(
   changes.branchChanges.removed = currentBranchIds.filter(id => !newBranchIds.includes(id));
   changes.branchChanges.hasChanges = changes.branchChanges.added.length > 0 || changes.branchChanges.removed.length > 0;
 
+  // Check visibility overrides changes
+  const currentOverrides = currentUser.user_organizations?.[0]?.visibility_overrides || {};
+  if (updateData.visibilityOverrides !== undefined) {
+    const newOverrides = updateData.visibilityOverrides || {};
+    const currentJson = JSON.stringify(currentOverrides || {});
+    const newJson = JSON.stringify(newOverrides || {});
+    if (currentJson !== newJson) {
+      changes.overridesChanged = true;
+    }
+  }
+
+  // Check can_create_users changes
+  const currentCanCreate = currentUser.user_organizations?.[0]?.can_create_users ?? true;
+  if (updateData.canCreateUsers !== undefined && updateData.canCreateUsers !== currentCanCreate) {
+    changes.canCreateUsersChanged = true;
+  }
+
   // Determine if there are any changes
   changes.hasAnyChanges = 
     Object.keys(changes.profileChanges).length > 0 ||
     changes.roleChanged ||
-    changes.branchChanges.hasChanges;
+    changes.branchChanges.hasChanges ||
+    !!changes.overridesChanged ||
+    !!changes.canCreateUsersChanged;
 
   return changes;
 }
@@ -107,6 +130,8 @@ export function transformUserUpdateData(
     branchIds: updateData.assignAllBranches
       ? activeBranches
       : updateData.selectedBranchIds || updateData.branchIds || [],
+    visibilityOverrides: updateData.visibilityOverrides,
+    canCreateUsers: updateData.canCreateUsers,
   };
 
   // Remove undefined values

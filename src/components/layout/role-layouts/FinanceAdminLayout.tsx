@@ -1,13 +1,19 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
+import { useAccess } from '@/lib/access-control';
 
 export function FinanceAdminLayout() {
   const location = useLocation();
+  const { hasAnyOverrides, canAccess } = useAccess();
   const allowedPrefixes = ['/finance', '/profile'];
   const isAllowed = allowedPrefixes.some((p) =>
     location.pathname.startsWith(p)
   );
+
+  if (hasAnyOverrides() || !canAccess('finance')) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

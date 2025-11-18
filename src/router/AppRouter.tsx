@@ -60,7 +60,8 @@ import { Pledges } from '../pages/finance/Pledges';
 import { InsightsReports } from '../pages/finance/InsightsReports';
 import { MembershipFormBuilder } from '@/pages/people/MembershipFormBuilder';
 import { TestAnnouncementEditorLayout } from '@/modules/AnnouncementSlideBuilder/TestEditorLayout';
-import { RoleGuard } from '@/components/auth/RoleGuard';
+import { AccessGuard } from '@/components/auth/AccessGuard';
+import { PeopleAccessGuard } from '@/components/auth/PeopleAccessGuard';
 
 function AppRoutes() {
   return (
@@ -127,13 +128,50 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
 
         {/* Main application routes */}
-        <Route path="branches" element={<Branches />} />
+        <Route
+          path="branches"
+          element={
+            <AccessGuard
+              section="branches"
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <Branches />
+            </AccessGuard>
+          }
+        />
         <Route path="profile" element={<Profile />} />
-        <Route path="user-management" element={<UserManagement />} />
-        <Route path="settings" element={<Settings />} />
+        <Route
+          path="user-management"
+          element={
+            <AccessGuard
+              section="user_management"
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <UserManagement />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <AccessGuard
+              section="settings"
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <Settings />
+            </AccessGuard>
+          }
+        />
 
         {/* People section with nested routes */}
-        <Route path="people" element={<People />}>
+        <Route
+          path="people"
+          element={
+            <PeopleAccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+              <People />
+            </PeopleAccessGuard>
+          }
+        >
           <Route path="tags" element={<Tags />} />
           <Route path="groups" element={<Groups />} />
           <Route path="form-builder" element={<MembershipFormBuilder />} />
@@ -151,12 +189,12 @@ function AppRoutes() {
         <Route
           path="finance"
           element={
-            <RoleGuard
-              allowedRoles={["owner", "finance_admin"]}
+            <AccessGuard
+              section="finance"
               fallback={<Navigate to="/dashboard" replace />}
             >
               <Finance />
-            </RoleGuard>
+            </AccessGuard>
           }
         >
           <Route path="insights" element={<InsightsReports />} />
@@ -169,15 +207,45 @@ function AppRoutes() {
 
         {/* Other main pages */}
         <Route path="communication" element={<Communication />} />
-        <Route path="events" element={<Events />} />
-        <Route path="announcements" element={<Announcements />} />
+        <Route
+          path="events"
+          element={
+            <AccessGuard
+              section="events"
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <Events />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="announcements"
+          element={
+            <AccessGuard
+              section="announcements"
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <Announcements />
+            </AccessGuard>
+          }
+        />
         <Route
           path="announcements/:announcementId"
           element={<AnnouncementDetails />}
         />
         <Route path="reports" element={<Reports />} />
         <Route path="activity-logs" element={<ActivityLogs />} />
-        <Route path="assets" element={<Assets />} />
+        <Route
+          path="assets"
+          element={
+            <AccessGuard
+              section="assets"
+              fallback={<Navigate to="/dashboard" replace />}
+            >
+              <Assets />
+            </AccessGuard>
+          }
+        />
         <Route path="assets/add" element={<AddAsset />} />
         <Route path="assets/:assetId" element={<AssetDetail />} />
         <Route path="assets/:assetId/edit" element={<EditAsset />} />

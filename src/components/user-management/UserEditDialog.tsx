@@ -47,7 +47,7 @@ export function UserEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>

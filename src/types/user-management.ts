@@ -42,6 +42,8 @@ export interface UserWithRelations extends AuthUserWithProfile {
     organization_id: string;
     role: OrganizationRole;
     is_active: boolean;
+    visibility_overrides?: any;
+    can_create_users?: boolean;
     created_at: string;
     updated_at: string;
     organization: {

@@ -20,6 +20,8 @@ interface CreateUserData {
   lastName: string;
   role: UserRole;
   branchIds?: string[];
+  visibilityOverrides?: any;
+  canCreateUsers?: boolean;
 }
 
 interface UpdateUserData {
@@ -30,6 +32,8 @@ interface UpdateUserData {
     role?: UserRole;
     branchId?: string;
     branchIds?: string[];
+    visibilityOverrides?: any;
+    canCreateUsers?: boolean;
   };
 }
 
@@ -56,6 +60,8 @@ export function useUserQueries() {
           user_id,
           role,
           is_active,
+          visibility_overrides,
+          can_create_users,
           organization_id,
           created_at,
           updated_at,
@@ -147,6 +153,8 @@ export function useUserQueries() {
             organization_id: userOrg.organization_id,
             role: userOrg.role,
             is_active: userOrg.is_active,
+            visibility_overrides: userOrg.visibility_overrides,
+            can_create_users: userOrg.can_create_users,
             created_at: userOrg.created_at,
             updated_at: userOrg.updated_at,
             organization: {
@@ -217,6 +225,8 @@ export function useUserQueries() {
             role: userData.role,
             branchIds: userData.branchIds,
             organizationId: currentOrganization.id,
+            visibilityOverrides: userData.visibilityOverrides,
+            canCreateUsers: userData.canCreateUsers,
           }),
         }
       );
@@ -264,11 +274,13 @@ export function useUserQueries() {
       }
 
       // 2. Update role if changed
-      if (userData.role) {
+      if (userData.role || userData.visibilityOverrides !== undefined || userData.canCreateUsers !== undefined) {
         const roleUpdate = supabase
           .from('user_organizations')
           .update({
-            role: userData.role,
+            ...(userData.role !== undefined && { role: userData.role }),
+            ...(userData.visibilityOverrides !== undefined && { visibility_overrides: userData.visibilityOverrides }),
+            ...(userData.canCreateUsers !== undefined && { can_create_users: userData.canCreateUsers }),
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', authUserId)

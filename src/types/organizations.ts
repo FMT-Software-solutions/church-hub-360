@@ -61,8 +61,11 @@ export interface UserOrganization {
 }
 
 // Organization with user role (for context)
+import type { UserPermissions } from '@/types/access-control';
+
 export interface OrganizationWithRole extends Organization {
   user_role: UserRole;
+  user_permissions?: UserPermissions;
 }
 
 // Organization creation/update types

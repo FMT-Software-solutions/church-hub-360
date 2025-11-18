@@ -255,7 +255,7 @@ serve(async (req) => {
       )
     }
 
-    const { email, firstName, lastName, role, branchIds, organizationId } = requestBody
+    const { email, firstName, lastName, role, branchIds, organizationId, visibilityOverrides, canCreateUsers } = requestBody
     
     console.log(`Creating user: ${email}, role: ${role}, organization: ${organizationId}, branches: ${branchIds?.join(', ') || 'none'}`)
 
@@ -271,7 +271,7 @@ serve(async (req) => {
     // Check if the user has required permissions in the SPECIFIC organization they're trying to create a user for
     const { data: userOrg, error: userOrgError } = await supabaseAdmin
       .from('user_organizations')
-      .select('role, organization_id')
+      .select('role, organization_id, can_create_users')
       .eq('user_id', user.id)
       .eq('organization_id', organizationId)
       .eq('is_active', true)
@@ -280,6 +280,13 @@ serve(async (req) => {
     if (userOrgError || !userOrg || !['owner', 'admin', 'branch_admin'].includes(userOrg?.role)) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized request. You do not have required permissions in this organization.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (userOrg.role === 'admin' && userOrg.can_create_users !== true) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Admin is not allowed to create users.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -448,7 +455,9 @@ serve(async (req) => {
         organization_id: organizationId,
         role: role,
         is_active: true,
-        created_by: user.id
+        created_by: user.id,
+        visibility_overrides: visibilityOverrides || {},
+        can_create_users: typeof canCreateUsers === 'boolean' ? canCreateUsers : true
       })
 
     if (orgError) {

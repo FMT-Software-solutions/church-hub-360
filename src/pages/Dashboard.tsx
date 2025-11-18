@@ -26,7 +26,7 @@ import { AnnouncementsCard } from '@/components/dashboard/AnnouncementsCard';
 import { AttendanceTrendChart } from '@/components/dashboard/charts/AttendanceTrendChart';
 import { MembersGenderChart } from '@/components/dashboard/charts/MembersGenderChart';
 import { FinanceBreakdownChart } from '@/components/dashboard/charts/FinanceBreakdownChart';
-import { useRoleCheck } from '@/components/auth/RoleGuard';
+import { useAccess } from '@/lib/access-control';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -34,8 +34,8 @@ export function Dashboard() {
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id;
   const { prefs } = useDashboardPreferences(orgId);
-  const { isOwner, isFinanceAdmin } = useRoleCheck();
-  const canSeeFinance = isOwner() || isFinanceAdmin();
+  const { canAccess } = useAccess();
+  const canSeeFinance = canAccess('finance');
 
   const show = (key: keyof NonNullable<typeof prefs>['sections']) => {
     const enabled = prefs?.sections?.[key];
