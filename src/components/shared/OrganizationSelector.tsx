@@ -57,7 +57,7 @@ export function OrganizationSelector() {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex items-center space-x-2 text-left hover:bg-muted/50 max-w-[250px]"
+            className="flex items-center space-x-2 text-left hover:bg-muted/50 max-w-[250px] md:max-w-full"
           >
             <div className="flex items-center space-x-2">
               {currentOrganization.logo ? (
@@ -75,10 +75,10 @@ export function OrganizationSelector() {
                 </span>
               </div>
             </div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground ml-2" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuContent align="start">
           {userOrganizations.map((org) => (
             <DropdownMenuItem
               key={org.id}

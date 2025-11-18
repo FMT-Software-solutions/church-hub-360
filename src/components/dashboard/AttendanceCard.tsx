@@ -21,7 +21,8 @@ export function AttendanceCard() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from('attendance_records')
-        .select('id', { count: 'exact', head: true })
+        .select('id, attendance_sessions!inner(organization_id)', { count: 'exact', head: true })
+        .eq('attendance_sessions.organization_id', orgId!)
         .gte('marked_at', startIso)
         .lte('marked_at', endIso)
       if (error) throw error

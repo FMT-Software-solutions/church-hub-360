@@ -20,7 +20,8 @@ export function AttendanceTrendChart() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attendance_records')
-        .select('marked_at')
+        .select('marked_at, attendance_sessions!inner(organization_id)')
+        .eq('attendance_sessions.organization_id', orgId!)
         .gte('marked_at', startIso)
         .lte('marked_at', endIso)
       if (error) throw error
