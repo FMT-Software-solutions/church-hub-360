@@ -40,7 +40,6 @@ const log = {
 
 function validateEnvironment() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl) {
@@ -88,7 +87,7 @@ async function callEdgeFunction(config, releaseData) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${supabaseServiceKey}`,
-      'x-client-info': 'food-track-pro-release-script'
+      'x-client-info': 'church-hub-360-release-script'
     },
     body: JSON.stringify(releaseData)
   });

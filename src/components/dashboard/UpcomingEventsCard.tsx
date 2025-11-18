@@ -1,13 +1,11 @@
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Calendar } from 'lucide-react'
 import { useEvents } from '@/hooks/events/useEvents'
-
-function nowIso() {
-  return new Date().toISOString()
-}
+import { useMemo } from 'react'
 
 export function UpcomingEventsCard() {
-  const { data: events = [] } = useEvents({ date_from: nowIso(), status: 'upcoming' })
+  const filters = useMemo(() => ({ date_from: new Date().toISOString(), status: 'upcoming' as const }), [])
+  const { data: events = [] } = useEvents(filters)
   const total = events.length
   const top = events.slice(0, 3)
 

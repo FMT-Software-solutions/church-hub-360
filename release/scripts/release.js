@@ -418,7 +418,7 @@ async function publishToSupabase(version, releaseNotes) {
 
 async function main() {
   try {
-    log.header('Food Track Pro Release Script');
+    log.header('Church Hub 360 Release Script');
     
     // Validate environment first
     const envValidation = validateEnvironment();
