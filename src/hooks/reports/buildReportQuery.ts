@@ -3,6 +3,7 @@ import type { ReportFilters } from './useReportFilters';
 export interface AttendanceReportQuery {
   date_from?: string;
   date_to?: string;
+  branch_id?: string | 'all';
   occasion_ids?: string[];
   session_ids?: string[];
   tag_item_ids?: string[];
@@ -12,6 +13,10 @@ export interface AttendanceReportQuery {
 
 export function buildReportQuery(filters: ReportFilters): AttendanceReportQuery {
   const params: AttendanceReportQuery = {};
+
+  if (filters.branchId && filters.branchId !== 'all') {
+    params.branch_id = filters.branchId;
+  }
 
   switch (filters.mode) {
     case 'occasions_sessions': {

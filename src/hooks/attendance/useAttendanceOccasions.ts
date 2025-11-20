@@ -3,6 +3,7 @@ import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 import type {
   AttendanceOccasion,
   CreateAttendanceOccasionInput,
@@ -33,9 +34,14 @@ export function useAttendanceOccasions(
   sort?: AttendanceOccasionSort
 ) {
   const { currentOrganization } = useOrganization();
+  const scope = useBranchScope(currentOrganization?.id);
   
   return useQuery({
-    queryKey: attendanceOccasionKeys.list(currentOrganization?.id || '', filters),
+    queryKey: [
+      ...attendanceOccasionKeys.list(currentOrganization?.id || '', filters),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<AttendanceOccasionWithRelations[]> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -55,6 +61,12 @@ export function useAttendanceOccasions(
       // Apply filters
       if (filters?.branch_id) {
         query = query.eq('branch_id', filters.branch_id);
+      }
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id', true);
+        if (scoped.abortIfEmpty) return [];
+        query = scoped.query;
       }
       
       if (filters?.is_active !== undefined) {

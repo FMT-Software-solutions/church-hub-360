@@ -25,6 +25,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useBranches } from '@/hooks/queries';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserBranches } from '@/hooks/useBranchQueries';
 
 // Base interface for common props
 interface BaseBranchSelectorProps {
@@ -54,6 +57,12 @@ export function SingleBranchSelector({
   const { data: branches = [], isLoading } = useBranches(
     currentOrganization?.id
   );
+  const { canManageAllData } = useRoleCheck();
+  const { user } = useAuth();
+  const { data: userBranches = [] } = useUserBranches(
+    user?.id,
+    currentOrganization?.id
+  );
 
   // Filter branches based on showActiveOnly prop
   const filteredBranches = useMemo(() => {
@@ -62,7 +71,17 @@ export function SingleBranchSelector({
       : branches;
   }, [branches, showActiveOnly]);
 
-  const selectedBranch = filteredBranches.find((branch) => branch.id === value);
+  const assignedBranchIds = useMemo(
+    () => userBranches.map((ub) => ub.branch_id).filter(Boolean) as string[],
+    [userBranches]
+  );
+
+  const visibleBranches = useMemo(() => {
+    if (canManageAllData()) return filteredBranches;
+    return filteredBranches.filter((b) => assignedBranchIds.includes(b.id));
+  }, [filteredBranches, assignedBranchIds, canManageAllData]);
+
+  const selectedBranch = visibleBranches.find((branch) => branch.id === value);
 
   const handleValueChange = (branchId: string) => {
     if (branchId === 'clear') {
@@ -102,7 +121,7 @@ export function SingleBranchSelector({
             </div>
           </SelectItem>
         )}
-        {filteredBranches.map((branch) => (
+        {visibleBranches.map((branch) => (
           <SelectItem key={branch.id} value={branch.id}>
             <div className="flex items-center justify-between w-full">
               <div className="flex flex-col">
@@ -116,8 +135,8 @@ export function SingleBranchSelector({
             </div>
           </SelectItem>
         ))}
-        {filteredBranches.length === 0 && (
-          <SelectItem value="" disabled>
+        {visibleBranches.length === 0 && (
+          <SelectItem value="__none__" disabled>
             No branches found
           </SelectItem>
         )}
@@ -152,6 +171,12 @@ export function MultiBranchSelector({
   const { data: branches = [], isLoading } = useBranches(
     currentOrganization?.id
   );
+  const { canManageAllData } = useRoleCheck();
+  const { user } = useAuth();
+  const { data: userBranches = [] } = useUserBranches(
+    user?.id,
+    currentOrganization?.id
+  );
   const [open, setOpen] = useState(false);
 
   // Filter branches based on showActiveOnly prop
@@ -161,21 +186,31 @@ export function MultiBranchSelector({
       : branches;
   }, [branches, showActiveOnly]);
 
+  const assignedBranchIds = useMemo(
+    () => userBranches.map((ub) => ub.branch_id).filter(Boolean) as string[],
+    [userBranches]
+  );
+
+  const visibleBranches = useMemo(() => {
+    if (canManageAllData()) return filteredBranches;
+    return filteredBranches.filter((b) => assignedBranchIds.includes(b.id));
+  }, [filteredBranches, assignedBranchIds, canManageAllData]);
+
   const selectedBranches = useMemo(() => {
-    return filteredBranches.filter((branch) => value.includes(branch.id));
-  }, [filteredBranches, value]);
+    return visibleBranches.filter((branch) => value.includes(branch.id));
+  }, [visibleBranches, value]);
 
   const isAllSelected = useMemo(() => {
     return (
-      filteredBranches.length > 0 &&
-      filteredBranches.every((branch) => value.includes(branch.id))
+      visibleBranches.length > 0 &&
+      visibleBranches.every((branch) => value.includes(branch.id))
     );
-  }, [filteredBranches, value]);
+  }, [visibleBranches, value]);
 
   const handleSelect = (branchId: string) => {
     if (branchId === 'all' && allowSelectAll) {
       // Toggle select all
-      const allBranchIds = filteredBranches.map((branch) => branch.id);
+      const allBranchIds = visibleBranches.map((branch) => branch.id);
       onValueChange(isAllSelected ? [] : allBranchIds);
     } else {
       // Toggle individual branch
@@ -245,7 +280,7 @@ export function MultiBranchSelector({
                     <span className="font-medium">{selectAllLabel}</span>
                   </CommandItem>
                 )}
-                {filteredBranches.map((branch) => (
+                {visibleBranches.map((branch) => (
                   <CommandItem
                     key={branch.id}
                     value={branch.name}

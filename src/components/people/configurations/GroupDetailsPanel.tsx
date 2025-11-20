@@ -349,7 +349,7 @@ export function GroupDetailsPanel({
                       value={selectedMembers}
                       onChange={setSelectedMembers}
                       placeholder="Search for members..."
-                      branchId={group.branch_id || undefined}
+                      branchId={undefined}
                       multiSelect={true}
                       excludeMembers={
                         groupMembers?.map((m) => m.member_id) || []

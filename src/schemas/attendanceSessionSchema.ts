@@ -29,6 +29,8 @@ export const attendanceSessionSchema = z.object({
   occasion_id: z.string()
     .min(1, 'Please select an occasion')
     .uuid('Invalid occasion ID'),
+
+  branch_id: z.string().uuid('Invalid branch ID').optional(),
   
   start_time: z.string()
     .min(1, 'Start time is required')

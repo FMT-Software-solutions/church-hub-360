@@ -27,6 +27,7 @@ interface TagFormData {
   is_required: boolean;
   component_style: ComponentStyle;
   is_active: boolean;
+  branch_id?: string | null;
 }
 
 interface TagModalProps {
@@ -159,6 +160,8 @@ export function TagModal({
               </SelectContent>
             </Select>
           </div>
+
+
 
           {/* Settings */}
           <div className="space-y-4">

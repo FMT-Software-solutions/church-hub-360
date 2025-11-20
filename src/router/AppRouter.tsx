@@ -213,7 +213,11 @@ function AppRoutes() {
         />
         <Route
           path="announcements/:announcementId"
-          element={<AnnouncementDetails />}
+          element={
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+              <AnnouncementDetails />
+            </AccessGuard>
+          }
         />
         <Route path="reports" element={<Reports />} />
         <Route path="activity-logs" element={<ActivityLogs />} />
@@ -225,9 +229,30 @@ function AppRoutes() {
             </AccessGuard>
           }
         />
-        <Route path="assets/add" element={<AddAsset />} />
-        <Route path="assets/:assetId" element={<AssetDetail />} />
-        <Route path="assets/:assetId/edit" element={<EditAsset />} />
+        <Route
+          path="assets/add"
+          element={
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+              <AddAsset />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="assets/:assetId"
+          element={
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+              <AssetDetail />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="assets/:assetId/edit"
+          element={
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+              <EditAsset />
+            </AccessGuard>
+          }
+        />
       </Route>
 
       {/* Public presentation route */}

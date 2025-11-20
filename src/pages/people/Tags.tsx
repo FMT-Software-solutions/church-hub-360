@@ -35,6 +35,7 @@ interface TagFormData {
   component_style: ComponentStyle;
   is_active: boolean;
   display_order?: number;
+  branch_id?: string | null;
 }
 
 interface TagItemFormData {
@@ -72,6 +73,7 @@ export function PeopleTags() {
     is_required: false,
     component_style: 'dropdown',
     is_active: true,
+    branch_id: null,
   });
 
   const [itemForm, setItemForm] = useState<TagItemFormData>({
@@ -150,6 +152,7 @@ export function PeopleTags() {
       component_style: 'dropdown',
       is_active: true,
       display_order: 0,
+      branch_id: null,
     });
   };
 
@@ -171,6 +174,7 @@ export function PeopleTags() {
         description: tagForm.description,
         is_required: tagForm.is_required,
         component_style: tagForm.component_style,
+        branch_id: tagForm.branch_id ?? null,
       };
       await createTag(tagData);
       setShowAddTag(false);
@@ -192,6 +196,7 @@ export function PeopleTags() {
         is_required: tagForm.is_required,
         component_style: tagForm.component_style,
         is_active: tagForm.is_active,
+        branch_id: tagForm.branch_id ?? null,
       };
       await updateTag(editingTag, updateData);
       setShowAddTag(false);
@@ -282,6 +287,7 @@ export function PeopleTags() {
       component_style: tag.component_style || 'dropdown',
       is_active: tag.is_active,
       display_order: tag.display_order || 0,
+      branch_id: (tags.find(t => t.id === tagId)?.branch_id ?? null),
     });
     setEditingTag(tagId);
     setShowAddTag(true);

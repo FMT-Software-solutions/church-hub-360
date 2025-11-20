@@ -134,11 +134,15 @@ export default function AttendanceMarking() {
 
   const onPresent = async (memberId: string) => {
     if (!selectedSessionId) return;
+    const selected =
+      filteredSelectedMembers.find((m) => m.id === memberId) ||
+      selectedMembers.find((m) => m.id === memberId);
     const v = session
       ? validateSessionForMarking(session as any, {
           origin: 'internal',
           mode: 'manual',
           memberId,
+          memberBranchId: selected?.branch_id ?? undefined,
           allowedMemberIds: allowedSet || undefined,
         })
       : null;
@@ -295,6 +299,7 @@ export default function AttendanceMarking() {
                       ? allowedMembers.map((m: any) => m.id)
                       : []
                   }
+                  branchId={session.branch_id ?? undefined}
                 />
 
                 <div className="space-y-3">
@@ -311,6 +316,7 @@ export default function AttendanceMarking() {
                         origin: 'internal',
                         mode: 'manual',
                         memberId: member.id,
+                        memberBranchId: member.branch_id ?? undefined,
                         allowedMemberIds: allowedSet || undefined,
                       }
                     );

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 import { DEFAULT_AGE_GROUPS, formatAgeGroupLabel } from '@/constants/defaultAgeGroups';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import type { AttendanceSessionWithRelations } from '@/types/attendance';
@@ -8,6 +9,7 @@ import type { MemberSummary } from '@/types/members';
 export interface ReportQueryParams {
   date_from: string;
   date_to: string;
+  branch_id?: string | 'all';
   occasion_ids?: string[];
   session_ids?: string[];
   member_ids?: string[];
@@ -76,24 +78,39 @@ async function getMemberIdsForGroups(group_ids: string[]): Promise<string[]> {
   return Array.from(new Set(ids));
 }
 
-async function getMemberIdsForTags(tag_item_ids: string[], organizationId: string): Promise<string[]> {
+async function getMemberIdsForTags(tag_item_ids: string[], organizationId: string, scope: ReturnType<typeof useBranchScope>): Promise<string[]> {
   if (tag_item_ids.length === 0) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from('members')
     .select('id, member_tag_items!inner(tag_item_id)')
     .eq('organization_id', organizationId)
     .in('member_tag_items.tag_item_id', tag_item_ids);
+  {
+    const scoped = applyBranchScope(query, scope, 'branch_id');
+    if (scoped.abortIfEmpty) return [];
+    query = scoped.query as any;
+  }
+  const { data, error } = await query;
   if (error) throw error;
   const ids = (data || []).map((m: any) => m.id).filter(Boolean);
   return Array.from(new Set(ids));
 }
 
 /** Count active members in the organization (active church membership) */
-async function getActiveMemberCount(organizationId: string): Promise<number> {
-  const { count, error } = await supabase
+async function getActiveMemberCount(organizationId: string, scope: ReturnType<typeof useBranchScope>, branchIdFilter?: string): Promise<number> {
+  let query = supabase
     .from('members_summary')
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', organizationId);
+  {
+    const scoped = applyBranchScope(query, scope, 'branch_id');
+    if (scoped.abortIfEmpty) return 0;
+    query = scoped.query as any;
+  }
+  if (branchIdFilter) {
+    query = query.eq('branch_id', branchIdFilter);
+  }
+  const { count, error } = await query;
   if (error) throw error;
   return count || 0;
 }
@@ -106,6 +123,8 @@ async function getActiveMemberCount(organizationId: string): Promise<number> {
 async function getEligibleMemberCountForSession(
   session: AttendanceSessionWithRelations,
   organizationId: string,
+  scope: ReturnType<typeof useBranchScope>,
+  branchIdFilter?: string,
 ): Promise<number> {
   const hasAllowedMembers = Array.isArray((session as any).allowed_members) && (session as any).allowed_members.length > 0;
   const hasAllowedGroups = Array.isArray((session as any).allowed_groups) && (session as any).allowed_groups.length > 0;
@@ -113,7 +132,7 @@ async function getEligibleMemberCountForSession(
 
   const hasRestrictions = hasAllowedMembers || hasAllowedGroups || hasAllowedTags;
   if (!hasRestrictions) {
-    return getActiveMemberCount(organizationId);
+    return getActiveMemberCount(organizationId, scope, branchIdFilter);
   }
 
   const eligibleIds = new Set<string>();
@@ -134,11 +153,27 @@ async function getEligibleMemberCountForSession(
     });
   }
   if (hasAllowedTags) {
-    const tagMembers = await getMemberIdsForTags((session as any).allowed_tags as string[], organizationId);
+    const tagMembers = await getMemberIdsForTags((session as any).allowed_tags as string[], organizationId, scope);
     tagMembers.forEach((id) => eligibleIds.add(id));
   }
-
-  return eligibleIds.size;
+  const ids = Array.from(eligibleIds);
+  if (ids.length === 0) return 0;
+  let q = supabase
+    .from('members_summary')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .in('id', ids);
+  {
+    const scoped = applyBranchScope(q, scope, 'branch_id');
+    if (scoped.abortIfEmpty) return 0;
+    q = scoped.query as any;
+  }
+  if (branchIdFilter) {
+    q = q.eq('branch_id', branchIdFilter);
+  }
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data || []).length;
 }
 
 /**
@@ -150,6 +185,8 @@ async function getEligibleCohortCountForSession(
   session: AttendanceSessionWithRelations,
   organizationId: string,
   cohortSet: Set<string>,
+  scope: ReturnType<typeof useBranchScope>,
+  branchIdFilter?: string,
 ): Promise<number> {
   const hasAllowedMembers = Array.isArray((session as any).allowed_members) && (session as any).allowed_members.length > 0;
   const hasAllowedGroups = Array.isArray((session as any).allowed_groups) && (session as any).allowed_groups.length > 0;
@@ -157,7 +194,24 @@ async function getEligibleCohortCountForSession(
 
   const hasRestrictions = hasAllowedMembers || hasAllowedGroups || hasAllowedTags;
   if (!hasRestrictions) {
-    return cohortSet.size;
+    const ids = Array.from(cohortSet);
+    if (ids.length === 0) return 0;
+    let q = supabase
+      .from('members_summary')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .in('id', ids);
+    {
+      const scoped = applyBranchScope(q, scope, 'branch_id');
+      if (scoped.abortIfEmpty) return 0;
+      q = scoped.query as any;
+    }
+    if (branchIdFilter) {
+      q = q.eq('branch_id', branchIdFilter);
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data || []).length;
   }
 
   const eligibleIds = new Set<string>();
@@ -179,20 +233,38 @@ async function getEligibleCohortCountForSession(
     });
   }
   if (hasAllowedTags) {
-    const tagMembers = await getMemberIdsForTags((session as any).allowed_tags as string[], organizationId);
+    const tagMembers = await getMemberIdsForTags((session as any).allowed_tags as string[], organizationId, scope);
     tagMembers.forEach((id) => {
       if (cohortSet.has(id)) eligibleIds.add(id);
     });
   }
-
-  return eligibleIds.size;
+  const ids = Array.from(eligibleIds);
+  if (ids.length === 0) return 0;
+  let q2 = supabase
+    .from('members_summary')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .in('id', ids);
+  {
+    const scoped2 = applyBranchScope(q2, scope, 'branch_id');
+    if (scoped2.abortIfEmpty) return 0;
+    q2 = scoped2.query as any;
+  }
+  if (branchIdFilter) {
+    q2 = q2.eq('branch_id', branchIdFilter);
+  }
+  const { data: d2, error: e2 } = await q2;
+  if (e2) throw e2;
+  return (d2 || []).length;
 }
 
 export function useAttendanceReport(params: ReportQueryParams | null) {
   const { currentOrganization } = useOrganization();
+  const scope = useBranchScope(currentOrganization?.id);
+  const branchFilterId = params && params.branch_id && params.branch_id !== 'all' ? params.branch_id : undefined;
 
   return useQuery({
-    queryKey: ['attendance-report', currentOrganization?.id, params],
+    queryKey: ['attendance-report', currentOrganization?.id, params, 'branchScope', scope.isScoped ? scope.branchIds : 'all'],
     enabled: !!currentOrganization?.id && !!params,
     queryFn: async (): Promise<AttendanceReportData> => {
       if (!currentOrganization?.id || !params) throw new Error('Organization ID and params required');
@@ -205,6 +277,30 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
         .select('*')
         .eq('organization_id', orgId)
         .eq('is_deleted', false);
+      {
+        const scoped = applyBranchScope(sessionQuery, scope, 'branch_id');
+        if (scoped.abortIfEmpty) {
+          return {
+            summary: {
+              total_attendance: 0,
+              unique_members: 0,
+              expected_total_members: 0,
+              occasions_count: 0,
+              attendance_rate: 0,
+              sessions_count: 0,
+              days_span: 0,
+              average_per_day: 0,
+            },
+            trend: [],
+            sessionBreakdown: [],
+            demographic: { byAgeGroup: {}, byGender: {} },
+            records: [],
+            members: [],
+            sessions: [],
+          };
+        }
+        sessionQuery = scoped.query as any;
+      }
 
       // Always exclude future/upcoming sessions. Include past or closed sessions.
       const nowIso = new Date().toISOString();
@@ -233,6 +329,10 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
         if (params.date_to) {
           sessionQuery = sessionQuery.lte('end_time', params.date_to);
         }
+      }
+
+      if (branchFilterId) {
+        sessionQuery = sessionQuery.eq('branch_id', branchFilterId);
       }
 
       const { data: sessionsData, error: sessionsErr } = await sessionQuery;
@@ -270,7 +370,7 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
         ? await getMemberIdsForGroups(params.group_ids)
         : [];
       const cohortTagMembers: string[] = (params.tag_item_ids && params.tag_item_ids.length > 0)
-        ? await getMemberIdsForTags(params.tag_item_ids, orgId)
+        ? await getMemberIdsForTags(params.tag_item_ids, orgId, scope)
         : [];
       if (params.member_ids && params.member_ids.length > 0) {
         params.member_ids.forEach((id) => memberFilterSet.add(id));
@@ -305,13 +405,25 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
       const memberIds = Array.from(new Set(records.map((r) => r.member_id)));
       let members: MemberSummary[] = [];
       if (memberIds.length > 0) {
-        const { data: membersData, error: membersErr } = await supabase
+        let membersQuery = supabase
           .from('members_summary')
           .select('*')
           .eq('organization_id', orgId)
           .in('id', memberIds);
-        if (membersErr) throw membersErr;
-        members = (membersData || []) as MemberSummary[];
+        {
+          const scoped = applyBranchScope(membersQuery, scope, 'branch_id');
+          if (scoped.abortIfEmpty) {
+            members = [];
+          } else {
+            membersQuery = scoped.query as any;
+            if (branchFilterId) {
+              membersQuery = membersQuery.eq('branch_id', branchFilterId);
+            }
+            const { data: membersData, error: membersErr } = await membersQuery;
+            if (membersErr) throw membersErr;
+            members = (membersData || []) as MemberSummary[];
+          }
+        }
       }
 
       // 5) Compute trend by day
@@ -391,7 +503,7 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
           ...(isMembersMode ? (params.member_ids as string[]) : []),
         ]);
         const perSessionCounts = await Promise.all(
-          sessions.map((s) => getEligibleCohortCountForSession(s, orgId, cohortSet)),
+          sessions.map((s) => getEligibleCohortCountForSession(s, orgId, cohortSet, scope, branchFilterId)),
         );
         expected_total_members = perSessionCounts.reduce((sum, c) => sum + c, 0);
       } else {
@@ -404,12 +516,12 @@ export function useAttendanceReport(params: ReportQueryParams | null) {
         const unrestrictedSessionsCount = sessions.length - restrictedSessions.length;
 
         if (unrestrictedSessionsCount > 0) {
-          const activeCount = await getActiveMemberCount(orgId);
+          const activeCount = await getActiveMemberCount(orgId, scope, branchFilterId);
           expected_total_members += activeCount * unrestrictedSessionsCount;
         }
         if (restrictedSessions.length > 0) {
           const perSessionCounts = await Promise.all(
-            restrictedSessions.map((s) => getEligibleMemberCountForSession(s, orgId)),
+            restrictedSessions.map((s) => getEligibleMemberCountForSession(s, orgId, scope, branchFilterId)),
           );
           expected_total_members += perSessionCounts.reduce((sum, c) => sum + c, 0);
         }

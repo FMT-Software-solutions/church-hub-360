@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 export interface RelationalTag {
   id: string;
   organization_id: string;
+  branch_id: string | null;
   name: string;
   description?: string;
   display_order: number;
@@ -43,6 +44,7 @@ export interface CreateTagData {
   is_required?: boolean;
   component_style?: RelationalTag['component_style'];
   display_order?: number;
+  branch_id?: string | null;
 }
 
 export interface UpdateTagData {
@@ -52,6 +54,7 @@ export interface UpdateTagData {
   component_style?: RelationalTag['component_style'];
   display_order?: number;
   is_active?: boolean;
+  branch_id?: string | null;
 }
 
 export interface CreateTagItemData {
@@ -76,6 +79,7 @@ export interface BulkCreateTagData {
   component_style?: RelationalTag['component_style'];
   display_order?: number;
   items: CreateTagItemData[];
+  branch_id?: string | null;
 }
 
 export interface BulkCreateTagsRequest {
@@ -118,13 +122,14 @@ export interface UseRelationalTagsReturn {
 
 // Hook to fetch tags with items
 export function useTagsQuery(organizationId: string | undefined) {
+  // Branch assignments disabled: fetch all org tags
+
   return useQuery({
     queryKey: relationalTagKeys.organizationTags(organizationId || ''),
     queryFn: async (): Promise<RelationalTagWithItems[]> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
-      // Fetch tags with their items
-      const { data: tagsData, error: tagsError } = await supabase
+      let query = supabase
         .from('tags')
         .select(`
           *,
@@ -134,19 +139,30 @@ export function useTagsQuery(organizationId: string | undefined) {
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
-      if (tagsError) {
-        throw tagsError;
-      }
+      // No branch filter
 
-      // Filter and sort tag items
+      const { data: tagsData, error: tagsError } = await query;
+      if (tagsError) throw tagsError;
+
       const processedTags = (tagsData || []).map(tag => ({
         ...tag,
         tag_items: (tag.tag_items || [])
           .filter((item: RelationalTagItem) => item.is_active)
-          .sort((a: RelationalTagItem, b: RelationalTagItem) => a.display_order - b.display_order)
+          .sort((a: RelationalTagItem, b: RelationalTagItem) => a.display_order - b.display_order),
       }));
 
-      return processedTags;
+      const byName = new Map<string, RelationalTagWithItems>();
+      for (const tag of processedTags) {
+        const key = (tag.name || '').trim().toLowerCase();
+        const existing = byName.get(key);
+        if (!existing) {
+          byName.set(key, tag);
+        } else {
+          const preferNew = existing.branch_id !== null && tag.branch_id === null;
+          byName.set(key, preferNew ? tag : existing);
+        }
+      }
+      return Array.from(byName.values());
     },
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -182,6 +198,7 @@ export function useCreateTag() {
           component_style: data.component_style ?? 'dropdown',
           display_order: data.display_order ?? maxOrder + 1,
           is_active: true,
+          branch_id: null,
           created_by: userId
         })
         .select()
@@ -220,6 +237,7 @@ export function useUpdateTag() {
     }): Promise<RelationalTag> => {
       const updateData = {
         ...data,
+        branch_id: null,
         last_updated_by: userId
       };
 
@@ -492,6 +510,7 @@ export function useBulkCreateTags() {
             component_style: tagData.component_style ?? 'dropdown',
             display_order: tagData.display_order ?? ++maxOrder,
             is_active: true,
+            branch_id: tagData.branch_id ?? null,
             created_by: userId
           })
           .select()

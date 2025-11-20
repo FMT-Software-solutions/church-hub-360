@@ -25,6 +25,7 @@ export function useSessionValidation(
           modeEnabled: false,
           memberAllowed: 'unknown',
           proximityOk: 'skipped',
+          memberInSessionBranch: 'unknown',
         },
         reasons: ['missing_session'],
         message: 'No session provided.',

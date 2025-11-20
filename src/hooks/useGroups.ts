@@ -101,6 +101,7 @@ export const groupKeys = {
 export function useGroups(params?: GroupsQueryParams) {
   const { currentOrganization } = useOrganization();
   
+  
   const queryParams = {
     page: 1,
     pageSize: 10,
@@ -121,7 +122,6 @@ export function useGroups(params?: GroupsQueryParams) {
         .eq('is_active', true)
         .order('created_at', { ascending: false }); // Default sort by created_at
 
-      // Apply branch filter if provided
       if (queryParams.branchId) {
         query = query.eq('branch_id', queryParams.branchId);
       }
@@ -146,10 +146,20 @@ export function useGroups(params?: GroupsQueryParams) {
       if (error) throw error;
 
       const totalCount = count || 0;
+      const byName = new Map<string, Group>();
+      for (const g of data || []) {
+        const key = (g.name || '').trim().toLowerCase();
+        const existing = byName.get(key);
+        if (!existing) byName.set(key, g);
+        else {
+          const preferNew = existing.branch_id !== null && g.branch_id === null;
+          byName.set(key, preferNew ? g : existing);
+        }
+      }
       const totalPages = Math.ceil(totalCount / queryParams.pageSize);
 
       return {
-        data: data || [],
+        data: Array.from(byName.values()),
         totalCount,
         totalPages,
         currentPage: queryParams.page,
@@ -187,7 +197,17 @@ export function useAllGroups(branchId?: string) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data || [];
+      const byName = new Map<string, Group>();
+      for (const g of data || []) {
+        const key = (g.name || '').trim().toLowerCase();
+        const existing = byName.get(key);
+        if (!existing) byName.set(key, g);
+        else {
+          const preferNew = existing.branch_id !== null && g.branch_id === null;
+          byName.set(key, preferNew ? g : existing);
+        }
+      }
+      return Array.from(byName.values());
     },
     enabled: !!currentOrganization?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes

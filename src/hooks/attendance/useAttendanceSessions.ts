@@ -3,6 +3,7 @@ import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 import type {
   AttendanceSession,
   CreateAttendanceSessionInput,
@@ -95,9 +96,14 @@ export function useAttendanceSessions(
   sort?: AttendanceSessionSort
 ) {
   const { currentOrganization } = useOrganization();
+  const scope = useBranchScope(currentOrganization?.id);
   
   return useQuery({
-    queryKey: attendanceSessionKeys.list(currentOrganization?.id || '', filters),
+    queryKey: [
+      ...attendanceSessionKeys.list(currentOrganization?.id || '', filters),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<AttendanceSessionWithRelations[]> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -146,6 +152,12 @@ export function useAttendanceSessions(
 
       if (filters?.date_to) {
         query = query.lte('end_time', filters.date_to);
+      }
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id', true);
+        if (scoped.abortIfEmpty) return [];
+        query = scoped.query;
       }
 
       // Apply sorting
@@ -348,6 +360,13 @@ export function useCreateAttendanceSession() {
         },
       };
 
+      const { data: occRow } = await supabase
+        .from('attendance_occasions')
+        .select('branch_id')
+        .eq('id', input.occasion_id)
+        .maybeSingle();
+      sessionData.branch_id = occRow?.branch_id ?? (input.branch_id ?? null);
+
       // Conflict validation: prevent overlapping sessions on the same date
       const conflicts = await findConflictingSessions(
         currentOrganization.id,
@@ -444,18 +463,30 @@ export function useBulkCreateAttendanceSessions() {
         throw new Error(`Conflicting sessions detected on the same date/time: ${details}`);
       }
 
-      const payload = inputs.map((input) => ({
-        ...input,
-        organization_id: currentOrganization.id,
-        created_by: user.id,
-        marking_modes: {
-          email: true,
-          phone: true,
-          membership_id: true,
-          manual: true,
-          ...input.marking_modes,
-        },
-      }));
+      const occIds = Array.from(new Set(inputs.map(i => i.occasion_id)));
+      const { data: occRows } = await supabase
+        .from('attendance_occasions')
+        .select('id, branch_id')
+        .in('id', occIds);
+      const occMap = new Map<string, string | null>();
+      (occRows || []).forEach(r => occMap.set(r.id, r.branch_id ?? null));
+
+      const payload = inputs.map((input) => {
+        const branchFromOcc = occMap.get(input.occasion_id) ?? null;
+        return {
+          ...input,
+          branch_id: branchFromOcc ?? (input.branch_id ?? null),
+          organization_id: currentOrganization.id,
+          created_by: user.id,
+          marking_modes: {
+            email: true,
+            phone: true,
+            membership_id: true,
+            manual: true,
+            ...input.marking_modes,
+          },
+        };
+      });
 
       const { data, error } = await supabase
         .from('attendance_sessions')

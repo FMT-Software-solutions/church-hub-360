@@ -18,6 +18,7 @@ import { useMember } from '@/hooks/useMemberQueries';
 import { useGroup } from '@/hooks/useGroups';
 import { useTagsQuery } from '@/hooks/useRelationalTags';
 import { format } from 'date-fns';
+import { SingleBranchSelector } from '@/components/shared/BranchSelector';
 
 interface PledgeFormDialogProps {
   open: boolean;
@@ -48,6 +49,7 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
   const [endDate, setEndDate] = useState<string>('');
   const [paymentFrequencyLabel, setPaymentFrequencyLabel] = useState<string>('monthly');
   const [description, setDescription] = useState<string>('');
+  const [branchId, setBranchId] = useState<string | undefined>(initialData?.branch_id || undefined);
 
   // Queries for display labels when not editing
   const memberQuery = useMember(memberId);
@@ -69,6 +71,7 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
       setEndDate(initialData.end_date || '');
       setPaymentFrequencyLabel((initialData as any).payment_frequency_label || initialData.payment_frequency || '');
       setDescription(initialData.description || '');
+      setBranchId(initialData.branch_id || undefined);
       if (initialData.member_id) {
         setMemberSelection([{ id: initialData.member_id, display_name: '', display_subtitle: '' }]);
       } else {
@@ -91,6 +94,7 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
       setEndDate(end);
       setPaymentFrequencyLabel('Monthly');
       setDescription('');
+      setBranchId(undefined);
     }
   }, [open, initialData]);
 
@@ -142,7 +146,7 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
         end_date: endDate,
         payment_frequency: finalPaymentFrequency,
         description: finalDescription || undefined,
-        branch_id: null,
+        branch_id: branchId || null,
       } as CreatePledgeInput;
       await createPledge.mutateAsync(payload);
     } else if (mode === 'edit' && initialData?.id) {
@@ -155,6 +159,7 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
         end_date: endDate,
         payment_frequency: finalPaymentFrequency,
         description: finalDescription || undefined,
+        branch_id: branchId || undefined,
       }});
     }
     onSuccess?.();
@@ -223,6 +228,7 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
                   currentOrganization ? (
                     <MemberSearchTypeahead
                       organizationId={currentOrganization.id}
+                      branchId={branchId}
                       value={memberSelection as any}
                       onChange={(arr) => {
                         setMemberSelection(arr as any);
@@ -338,12 +344,20 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
           </div>
 
           <div className="space-y-2 md:col-span-2">
+            <Label>Branch</Label>
+            <SingleBranchSelector
+              value={branchId}
+              onValueChange={(id) => setBranchId(id || undefined)}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Additional details about the pledge..." />
           </div>
         </div>
 
-        <DialogFooter>
+      <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>

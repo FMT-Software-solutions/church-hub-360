@@ -3,6 +3,7 @@ import { MembersFilter } from '@/components/attendance/reports/MembersFilter';
 import { OccasionsSessionsFilter } from '@/components/attendance/reports/OccasionsSessionsFilter';
 import { TagsGroupsFilter } from '@/components/attendance/reports/TagsGroupsFilter';
 import { TopFiltersBar } from '@/components/attendance/reports/TopFiltersBar';
+import { BranchSelector } from '@/components/shared/BranchSelector';
 import { AgeGroupReport } from '@/components/attendance/reports/widgets/AgeGroupReport';
 import { GenderReport } from '@/components/attendance/reports/widgets/GenderReport';
 import { StatsReport } from '@/components/attendance/reports/widgets/StatsReport';
@@ -21,6 +22,7 @@ export function ReportsInsights() {
   const {
     filters,
     setMode,
+    setBranchId,
     updateOccasionsSessions,
     updateTagsGroups,
     updateMembers,
@@ -45,6 +47,7 @@ export function ReportsInsights() {
       mode: filters.mode,
       date_from: (queryParams as any)?.date_from,
       date_to: (queryParams as any)?.date_to,
+      branch_id: (queryParams as any)?.branch_id ?? 'all',
       occasion_ids: (queryParams as any)?.occasion_ids,
       session_ids: (queryParams as any)?.session_ids,
       tag_item_ids: (queryParams as any)?.tag_item_ids,
@@ -68,6 +71,14 @@ export function ReportsInsights() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <TopFiltersBar mode={filters.mode} onChange={setMode} />
+          <BranchSelector
+            variant="single"
+            value={filters.branchId === 'all' ? undefined : filters.branchId}
+            onValueChange={(v) => setBranchId(typeof v === 'string' ? v : 'all')}
+            placeholder="All branches"
+            allowClear
+            className="min-w-[200px]"
+          />
         </div>
       </div>
 

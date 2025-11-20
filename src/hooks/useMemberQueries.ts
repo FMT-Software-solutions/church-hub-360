@@ -12,6 +12,7 @@ import type {
 import type { MembershipStatus } from '../types/members';
   // Import SortConfig type
 import type { SortConfig } from '../components/people/members/SortBar';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 
 // Query Keys
 export const memberKeys = {
@@ -39,8 +40,13 @@ export function useMembers(
   pageSize: number = 20,
   sortConfig?: SortConfig | null,
 ) {
+  const scope = useBranchScope(organizationId);
   return useQuery({
-    queryKey: memberKeys.filteredMembers(organizationId || '', filters || {}, sortConfig),
+    queryKey: [
+      ...memberKeys.filteredMembers(organizationId || '', filters || {}, sortConfig),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<{ members: Member[]; total: number }> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
@@ -141,6 +147,12 @@ export function useMembers(
         query = query.eq('branch_id', filters.branch_id);
       }
 
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id');
+        if (scoped.abortIfEmpty) return { members: [], total: 0 };
+        query = scoped.query;
+      }
+
       if (filters?.gender) {
         query = query.eq('gender', filters.gender);
       }
@@ -191,7 +203,7 @@ export function useMembers(
 
       // Clean up the data if we used joins (remove nested objects)
       const cleanedData = hasTagFilter && filters.tag_filter_mode === 'any' 
-        ? data?.map(member => {
+        ? data?.map((member: any) => {
             const { member_tag_items, ...cleanMember } = member as any;
             return cleanMember;
           })
@@ -206,16 +218,29 @@ export function useMembers(
 
 // Hook to fetch members summary (for card/table views)
 export function useMembersSummary(organizationId: string | undefined) {
+  const scope = useBranchScope(organizationId);
   return useQuery({
-    queryKey: memberKeys.membersSummary(organizationId || ''),
+    queryKey: [
+      ...memberKeys.membersSummary(organizationId || ''),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<MemberSummary[]> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
-      const { data, error } = await supabase
+      let query: any = supabase
         .from('members_summary')
         .select('*')
         .eq('organization_id', organizationId)
         .order('last_name');
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id');
+        if (scoped.abortIfEmpty) return [];
+        query = scoped.query;
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data || [];
@@ -230,8 +255,13 @@ export function useMembersSummaryFiltered(
   filters?: MemberFilters,
   sortConfig?: SortConfig | null
 ) {
+  const scope = useBranchScope(organizationId);
   return useQuery({
-    queryKey: memberKeys.filteredMembers(organizationId || '', filters || {}, sortConfig),
+    queryKey: [
+      ...memberKeys.filteredMembers(organizationId || '', filters || {}, sortConfig),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<MemberSummary[]> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
@@ -252,6 +282,12 @@ export function useMembersSummaryFiltered(
 
       if (filters?.branch_id && filters.branch_id !== 'all') {
         query = query.eq('branch_id', filters.branch_id);
+      }
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id');
+        if (scoped.abortIfEmpty) return [];
+        query = scoped.query;
       }
 
       if (filters?.membership_type && filters.membership_type !== 'all') {
@@ -342,8 +378,13 @@ export function useMembersSummaryFiltered(
     pageSize: number = 20,
     sortConfig?: SortConfig | null
   ) {
+  const scope = useBranchScope(organizationId);
   return useQuery({
-    queryKey: memberKeys.paginatedMembers(organizationId || '', filters || {}, page, pageSize, sortConfig),
+    queryKey: [
+      ...memberKeys.paginatedMembers(organizationId || '', filters || {}, page, pageSize, sortConfig),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<{ members: MemberSummary[]; total: number }> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
@@ -364,6 +405,12 @@ export function useMembersSummaryFiltered(
 
       if (filters?.branch_id && filters.branch_id !== 'all') {
         query = query.eq('branch_id', filters.branch_id);
+      }
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id');
+        if (scoped.abortIfEmpty) return { members: [], total: 0 };
+        query = scoped.query;
       }
 
       if (filters?.membership_type && filters.membership_type !== 'all') {
@@ -476,6 +523,7 @@ export function useMember(memberId: string | undefined) {
 
 // Hook to fetch member statistics
 export function useMemberStatistics(organizationId: string | undefined) {
+  const scope = useBranchScope(organizationId);
   return useQuery({
     queryKey: memberKeys.membersStatistics(organizationId || ''),
     queryFn: async (): Promise<MemberStatistics> => {
@@ -487,7 +535,14 @@ export function useMemberStatistics(organizationId: string | undefined) {
           .select('membership_status, gender, date_of_birth, date_joined, branch_id')
           .eq('organization_id', organizationId);
 
-        if (membersError) throw membersError;
+      if (membersError) throw membersError;
+
+      const scopedMembers = scope.isScoped
+        ? (scope.branchIds.length > 0
+            ? (members || []).filter((m: any) => scope.branchIds.includes(m.branch_id))
+            : []
+          )
+        : (members || []);
 
         // Fetch age group configuration (fallback to defaults if not present)
         let configAgeGroups: { name: string; min_age: number; max_age: number }[] = DEFAULT_AGE_GROUPS;
@@ -502,25 +557,25 @@ export function useMemberStatistics(organizationId: string | undefined) {
 
         // Calculate members by status
         const membersByStatus: Record<MembershipStatus, number> = {
-          active: members?.filter(m => m.membership_status === 'active').length || 0,
-          inactive: members?.filter(m => m.membership_status === 'inactive').length || 0,
-          pending: members?.filter(m => m.membership_status === 'pending').length || 0,
-          suspended: members?.filter(m => m.membership_status === 'suspended').length || 0,
-          transferred: members?.filter(m => m.membership_status === 'transferred').length || 0,
-          deceased: members?.filter(m => m.membership_status === 'deceased').length || 0,
+          active: scopedMembers.filter(m => m.membership_status === 'active').length || 0,
+          inactive: scopedMembers.filter(m => m.membership_status === 'inactive').length || 0,
+          pending: scopedMembers.filter(m => m.membership_status === 'pending').length || 0,
+          suspended: scopedMembers.filter(m => m.membership_status === 'suspended').length || 0,
+          transferred: scopedMembers.filter(m => m.membership_status === 'transferred').length || 0,
+          deceased: scopedMembers.filter(m => m.membership_status === 'deceased').length || 0,
         };
 
         // Calculate members by gender
         const membersByGender: Record<string, number> = {
-          male: members?.filter(m => m.gender === 'male').length || 0,
-          female: members?.filter(m => m.gender === 'female').length || 0,
-          other: members?.filter(m => m.gender === 'other').length || 0,
-          prefer_not_to_say: members?.filter(m => m.gender === 'prefer_not_to_say').length || 0,
+          male: scopedMembers.filter(m => m.gender === 'male').length || 0,
+          female: scopedMembers.filter(m => m.gender === 'female').length || 0,
+          other: scopedMembers.filter(m => m.gender === 'other').length || 0,
+          prefer_not_to_say: scopedMembers.filter(m => m.gender === 'prefer_not_to_say').length || 0,
         };
 
         // Calculate members by branch
         const membersByBranch: Record<string, number> = {};
-        members?.forEach(member => {
+        scopedMembers.forEach(member => {
           if (member.branch_id) {
             membersByBranch[member.branch_id] = (membersByBranch[member.branch_id] || 0) + 1;
           }
@@ -532,7 +587,7 @@ export function useMemberStatistics(organizationId: string | undefined) {
         for (const label of labels) {
           membersByAgeGroup[label] = 0;
         }
-        members?.forEach(member => {
+        scopedMembers.forEach(member => {
           if (!member.date_of_birth) return;
           const age = new Date().getFullYear() - new Date(member.date_of_birth).getFullYear();
           for (let i = 0; i < configAgeGroups.length; i++) {
@@ -550,15 +605,15 @@ export function useMemberStatistics(organizationId: string | undefined) {
         const thisMonth = now.getMonth();
 
         const stats: MemberStatistics = {
-          total_members: members?.length || 0,
+          total_members: scopedMembers.length || 0,
           active_members: membersByStatus.active,
           inactive_members: membersByStatus.inactive,
-          new_members_this_month: members?.filter(m => {
+          new_members_this_month: scopedMembers.filter(m => {
             if (!m.date_joined) return false;
             const joinDate = new Date(m.date_joined);
             return joinDate.getMonth() === thisMonth && joinDate.getFullYear() === thisYear;
           }).length || 0,
-          new_members_this_year: members?.filter(m => {
+          new_members_this_year: scopedMembers.filter(m => {
             if (!m.date_joined) return false;
             const joinDate = new Date(m.date_joined);
             return joinDate.getFullYear() === thisYear;

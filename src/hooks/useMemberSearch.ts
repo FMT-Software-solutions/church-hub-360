@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
 import type { MemberSummary } from '../types/members';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 
 // Query Keys for member search
 export const memberSearchKeys = {
@@ -38,15 +39,20 @@ export function useMemberSearch({
   searchFields = ['name', 'email', 'phone', 'membershipId'],
   branchId
 }: MemberSearchOptions) {
+  const scope = useBranchScope(organizationId);
   return useQuery({
-    queryKey: memberSearchKeys.search(organizationId, searchTerm, branchId),
+    queryKey: [
+      ...memberSearchKeys.search(organizationId, searchTerm, branchId),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all'
+    ],
     queryFn: async (): Promise<MemberSearchResult[]> => {
       if (!organizationId) throw new Error('Organization ID is required');
       if (!searchTerm.trim()) return [];
 
       const searchLower = searchTerm.toLowerCase().trim();
       
-      let query = supabase
+      let query: any = supabase
         .from('members_summary')
         .select('*')
         .eq('organization_id', organizationId)
@@ -60,6 +66,10 @@ export function useMemberSearch({
       // Filter by branch if specified
       if (branchId) {
         query = query.eq('branch_id', branchId);
+      } else {
+        const scoped = applyBranchScope(query, scope, 'branch_id');
+        if (scoped.abortIfEmpty) return [];
+        query = scoped.query;
       }
 
       // Build search conditions based on enabled search fields
@@ -96,7 +106,7 @@ export function useMemberSearch({
       if (error) throw error;
 
       // Transform data to include display fields
-      const results: MemberSearchResult[] = (data || []).map(member => ({
+      const results: MemberSearchResult[] = (data || []).map((member: any) => ({
         ...member,
         display_name: member.full_name || `${member.first_name} ${member.last_name}`.trim(),
         display_subtitle: [

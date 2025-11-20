@@ -147,6 +147,7 @@ export interface AttendanceSession {
   id: string;
   organization_id: string;
   occasion_id: string;
+  branch_id?: string | null;
   name?: string | null;
   start_time: string; // ISO timestamp
   end_time: string; // ISO timestamp
@@ -170,6 +171,7 @@ export interface AttendanceSession {
 export interface CreateAttendanceSessionInput {
   organization_id: string;
   occasion_id: string;
+  branch_id?: string | null;
   name?: string;
   start_time: string;
   end_time: string;
@@ -188,6 +190,7 @@ export interface CreateAttendanceSessionInput {
  * Data that can be updated for an attendance session
  */
 export interface UpdateAttendanceSessionInput {
+  branch_id?: string | null;
   name?: string;
   start_time?: string;
   end_time?: string;

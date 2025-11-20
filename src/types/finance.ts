@@ -288,6 +288,7 @@ export interface FinanceFilter {
   attendance_occasion_filter?: string[];
   attendance_session_filter?: string[];
   income_type_filter?: IncomeType[];
+  branch_id_filter?: string[];
 }
 
 // Pledge-specific filters used by pledge listing and stats

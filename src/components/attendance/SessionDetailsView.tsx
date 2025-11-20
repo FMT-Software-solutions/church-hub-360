@@ -69,7 +69,7 @@ export function SessionDetailsView({
   // Fallback to all members when no allowed list
   const { data: paginated, isLoading: loadingAll } = useMembersSummaryPaginated(
     currentOrganization?.id,
-    { search },
+    { search, branch_id: session.branch_id ?? undefined },
     page,
     pageSize,
     null
@@ -130,10 +130,12 @@ export function SessionDetailsView({
   }, [records]);
 
   const handlePresent = async (memberId: string) => {
+    const m = filteredMembers.find((mm) => mm.id === memberId);
     const validation = validateSessionForMarking(session, {
       origin: 'internal_session_details',
       mode: 'manual',
       memberId,
+      memberBranchId: m?.branch_id ?? undefined,
       allowedMemberIds: allowedMemberIdSet ?? undefined,
     });
     if (!validation.ok) {
@@ -145,10 +147,12 @@ export function SessionDetailsView({
   };
 
   const handleAbsent = async (memberId: string) => {
+    const m = filteredMembers.find((mm) => mm.id === memberId);
     const validation = validateSessionForMarking(session, {
       origin: 'internal_session_details',
       mode: 'manual',
       memberId,
+      memberBranchId: m?.branch_id ?? undefined,
       allowedMemberIds: allowedMemberIdSet ?? undefined,
     });
     if (!validation.ok) {

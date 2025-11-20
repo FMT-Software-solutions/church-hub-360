@@ -43,6 +43,12 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
   );
   const isRecurring = Boolean(selectedOccasion?.recurrence_rule);
 
+  useEffect(() => {
+    if (selectedOccasion?.branch_id) {
+      setBranchId('');
+    }
+  }, [selectedOccasion?.branch_id]);
+
   // Single vs Bulk mode
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
 
@@ -91,6 +97,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
   const [markingModes, setMarkingModes] = useState<AttendanceMarkingModes>({
     email: true, phone: true, membership_id: true, manual: true,
   });
+  const [branchId, setBranchId] = useState<string>('');
   // Store allowed tags per tag category (always multi-select for attendance)
   const [allowedTagsByTag, setAllowedTagsByTag] = useState<Record<string, string[]>>({});
   const [allowedGroups, setAllowedGroups] = useState<GroupAssignment[]>([]);
@@ -149,6 +156,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
     return {
       id: Math.random().toString(36).slice(2),
       ...base,
+      branch_id: branchId || undefined,
       name: computeNameForDate(date),
       start_time: startAligned.toISOString(),
       end_time: endAligned.toISOString(),
@@ -315,6 +323,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
     const payload: CreateAttendanceSessionInput[] = drafts.map((d) => ({
       organization_id: currentOrganization?.id || '',
       occasion_id: d.occasion_id,
+      branch_id: d.branch_id,
       name: d.name,
       start_time: d.start_time,
       end_time: d.end_time,
@@ -402,6 +411,9 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
         groups={groups}
         allowedGroups={allowedGroups}
         onChangeAllowedGroups={setAllowedGroups}
+        showBranchSelector={!selectedOccasion?.branch_id}
+        branchId={branchId}
+        onChangeBranchId={(v) => setBranchId(v || '')}
         organizationId={currentOrganization?.id}
         allowedMembers={allowedMembers as any}
         onChangeAllowedMembers={setAllowedMembers as any}

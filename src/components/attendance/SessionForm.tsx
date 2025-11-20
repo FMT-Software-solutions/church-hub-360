@@ -33,6 +33,7 @@ import {
 import type { AttendanceSession } from '@/types/attendance';
 import type { RelationalTagWithItems } from '@/hooks/useRelationalTags';
 import { cn } from '@/lib/utils';
+import { BranchSelector } from '@/components/shared/BranchSelector';
 
 interface SessionFormProps {
   mode: 'create' | 'edit';
@@ -71,11 +72,12 @@ export function SessionForm({
      watch,
      setValue,
      formState: { errors },
-   } = useForm<AttendanceSessionFormData>({
+  } = useForm<AttendanceSessionFormData>({
     resolver: zodResolver(attendanceSessionSchema),
     defaultValues: mode === 'edit' && initialData ? {
        name: initialData.name || '',
        occasion_id: initialData.occasion_id,
+       branch_id: initialData.branch_id ?? undefined,
        start_time: new Date(initialData.start_time).toISOString(),
        end_time: new Date(initialData.end_time).toISOString(),
        is_open: initialData.is_open,
@@ -103,6 +105,14 @@ export function SessionForm({
   const handleFormSubmit = (data: AttendanceSessionFormData) => {
      onSubmit(data);
    };
+
+  useEffect(() => {
+    const selectedOccasion = occasions.find((o: any) => o.id === watchedValues.occasion_id);
+    const occBranch = selectedOccasion?.branch_id ?? undefined;
+    if (occBranch && watchedValues.branch_id !== occBranch) {
+      setValue('branch_id', occBranch);
+    }
+  }, [watchedValues.occasion_id, occasions]);
 
   const handleMarkingModeChange = (
     mode: 'manual' | 'email' | 'phone' | 'membership_id',
@@ -241,6 +251,28 @@ export function SessionForm({
               <p className="text-sm text-red-500">{errors.occasion_id.message}</p>
             )}
           </div>
+
+          {(() => {
+            const selectedOccasion = occasions.find((o: any) => o.id === watchedValues.occasion_id);
+            const hasOccasionBranch = Boolean(selectedOccasion?.branch_id);
+            if (!hasOccasionBranch) {
+              return (
+                <div className="space-y-2">
+                  <Label>Branch (Optional)</Label>
+                  <BranchSelector
+                    variant="single"
+                    value={watchedValues.branch_id}
+                    onValueChange={(value) => setValue('branch_id', value as string | undefined)}
+                    allowClear
+                  />
+                  {errors.branch_id && (
+                    <p className="text-sm text-red-500">{errors.branch_id.message as string}</p>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()}
         </CardContent>
       </Card>
 

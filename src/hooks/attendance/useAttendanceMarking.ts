@@ -141,11 +141,15 @@ export function useSessionAllowedMembers(session: AttendanceSession | null | und
       // If we collected any IDs, fetch MemberSummary from members_summary
       if (allowedMemberIds.size > 0) {
         const ids = Array.from(allowedMemberIds);
-        const { data, error } = await supabase
+        let query = supabase
           .from('members_summary')
           .select('*')
           .in('id', ids)
           .eq('organization_id', orgId);
+        if (session.branch_id) {
+          query = query.eq('branch_id', session.branch_id);
+        }
+        const { data, error } = await query;
         if (error) throw error;
         return data || [];
       }

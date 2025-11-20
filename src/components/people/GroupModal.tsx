@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from '../ui/select';
 import { DatePicker } from '../shared/DatePicker';
-import { SingleBranchSelector } from '../shared/BranchSelector';
 
 interface GroupModalProps {
   isOpen: boolean;
@@ -114,17 +113,7 @@ export function GroupModal({
             </Select>
           </div>
 
-          {/* Branch Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="branch">Branch</Label>
-            <SingleBranchSelector
-              value={group.branch_id}
-              onValueChange={(value) => updateFormData('branch_id', value)}
-              placeholder="Select branch..."
-              allowClear={true}
-              showActiveOnly={true}
-            />
-          </div>
+
 
           {/* Start Date and End Date - Only show for temporal groups */}
           {group.type === 'temporal' && (

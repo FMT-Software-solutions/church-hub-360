@@ -9,6 +9,7 @@ export interface ValidationContext {
   mode?: MarkingModeKey;
   now?: Date;
   memberId?: string;
+  memberBranchId?: string | null;
   // Efficient membership checks: pass a Set for O(1) lookups
   allowedMemberIds?: Set<string> | string[];
   // Optional location for proximity validation (public marking)
@@ -22,6 +23,7 @@ export interface ValidationChecks {
   modeEnabled: boolean;
   memberAllowed: boolean | 'unknown';
   proximityOk: boolean | 'skipped';
+  memberInSessionBranch: boolean | 'unknown';
 }
 
 export interface ValidationResult {
@@ -99,6 +101,13 @@ function proximitySatisfied(session: AttendanceSession, userLocation?: Attendanc
   return distance <= radius;
 }
 
+function memberBranchSatisfies(session: AttendanceSession, memberBranchId?: string | null): boolean | 'unknown' {
+  if (typeof memberBranchId === 'undefined') return 'unknown';
+  if (memberBranchId === null) return false;
+  if (session.branch_id === null) return true;
+  return memberBranchId === session.branch_id;
+}
+
 /**
  * validateSessionForMarking
  * Centralized validator to determine if marking should be allowed in a given context.
@@ -118,6 +127,7 @@ export function validateSessionForMarking(
     modeEnabled: isModeEnabled(session.marking_modes, context.mode),
     memberAllowed: memberIsExplicitlyAllowed(session, context.memberId, context.allowedMemberIds),
     proximityOk: proximitySatisfied(session, context.location ?? null),
+    memberInSessionBranch: memberBranchSatisfies(session, context.memberBranchId),
   };
 
   const reasons: string[] = [];
@@ -131,6 +141,8 @@ export function validateSessionForMarking(
     if (checks.memberAllowed === false) reasons.push('member_not_allowed');
     if (checks.memberAllowed === 'unknown') reasons.push('member_allowlist_unknown');
     if (checks.proximityOk === false) reasons.push('outside_allowed_radius');
+    if (checks.memberInSessionBranch === false) reasons.push('member_not_in_session_branch');
+    if (checks.memberInSessionBranch === 'unknown') reasons.push('member_branch_unknown');
 
   } else {
     // internal and internal_session_details
@@ -141,6 +153,13 @@ export function validateSessionForMarking(
     if (!checks.modeEnabled) reasons.push('mode_disabled');
     // Member restrictions typically not enforced for admins; still report for awareness
     if (checks.memberAllowed === false) reasons.push('member_not_allowed');
+    if (context.memberId) {
+      if (checks.memberInSessionBranch === false) {
+        if (context.memberBranchId === null) reasons.push('member_branch_unassigned');
+        else reasons.push('member_not_in_session_branch');
+      }
+      // Do not push unknown for internal contexts when memberId not provided
+    }
   }
 
   let ok: boolean;
@@ -152,12 +171,20 @@ export function validateSessionForMarking(
     ok =
       !reasons.includes('session_closed') &&
       !reasons.includes('mode_disabled') &&
-      !reasons.includes('outside_time_window');
+      !reasons.includes('outside_time_window') &&
+      (!context.memberId || (
+        !reasons.includes('member_not_in_session_branch') &&
+        !reasons.includes('member_branch_unassigned')
+      ));
   } else {
     // Other internal contexts: relaxed (time window warning only)
     ok =
       !reasons.includes('session_closed') &&
-      !reasons.includes('mode_disabled');
+      !reasons.includes('mode_disabled') &&
+      (!context.memberId || (
+        !reasons.includes('member_not_in_session_branch') &&
+        !reasons.includes('member_branch_unassigned')
+      ));
   }
 
   return { ok, checks, reasons };
@@ -188,6 +215,9 @@ export function formatValidationMessage(result: ValidationResult): string | null
     member_not_allowed: 'You are not allowed to mark attendance for this session.',
     member_allowlist_unknown: 'Member allowlist not loaded; cannot verify eligibility.',
     outside_allowed_radius: 'You are outside the allowed proximity radius.',
+    member_not_in_session_branch: 'Member is not assigned to this session branch.',
+    member_branch_unknown: 'Member branch could not be verified.',
+    member_branch_unassigned: 'Member is not assigned to any branch.',
   };
   return result.reasons.map(r => messages[r] ?? r).join(' ');
 }

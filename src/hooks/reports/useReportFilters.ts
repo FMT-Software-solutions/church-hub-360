@@ -24,6 +24,7 @@ export interface MembersState {
 
 export interface ReportFilters {
   mode: ReportFilterMode;
+  branchId: string | 'all';
   occasionsSessions: OccasionsSessionsState;
   tagsGroups: TagsGroupsState;
   members: MembersState;
@@ -41,6 +42,7 @@ export function useReportFilters() {
 
   const [filters, setFilters] = useState<ReportFilters>({
     mode: 'occasions_sessions',
+    branchId: 'all',
     occasionsSessions: {
       occasionId: 'all',
       sessionIds: ['all'],
@@ -62,6 +64,9 @@ export function useReportFilters() {
 
   const setMode = (mode: ReportFilterMode) =>
     setFilters((f) => ({ ...f, mode, hasGenerated: false }));
+
+  const setBranchId = (branchId: string | 'all') =>
+    setFilters((f) => ({ ...f, branchId, hasGenerated: false }));
 
   const updateOccasionsSessions = (partial: Partial<OccasionsSessionsState>) =>
     setFilters((f) => ({ ...f, occasionsSessions: { ...f.occasionsSessions, ...partial }, hasGenerated: false }));
@@ -129,6 +134,7 @@ export function useReportFilters() {
   return {
     filters,
     setMode,
+    setBranchId,
     updateOccasionsSessions,
     updateTagsGroups,
     updateMembers,

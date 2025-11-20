@@ -21,6 +21,7 @@ import { GroupSelect } from '@/components/finance/GroupSelect';
 import type { CreateAssetInput, UpdateAssetInput, Asset } from '@/types/assets';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
+import { SingleBranchSelector } from '@/components/shared/BranchSelector';
 
 export interface AssetFormValues {
   name: string;
@@ -233,6 +234,13 @@ export default function AssetForm({
           />
         </div>
         <div className="space-y-3">
+          <Label>Branch</Label>
+          <SingleBranchSelector
+            value={values.branch_id || undefined}
+            onValueChange={(id) => handleChange('branch_id', id || null)}
+          />
+        </div>
+        <div className="space-y-3">
           <DatePicker
             label="Purchase Date"
             value={values.purchase_date || ''}
@@ -290,6 +298,7 @@ export default function AssetForm({
         {assignmentMode === 'member' && currentOrganization?.id && (
           <MemberSearchTypeahead
             organizationId={currentOrganization.id}
+            branchId={values.branch_id || undefined}
             value={selectedMember}
             onChange={(members) => {
               const m = members[0];

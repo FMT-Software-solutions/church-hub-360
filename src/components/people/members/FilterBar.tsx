@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, X, Building, Users, UserCheck } from 'lucide-react';
+import { Search, Filter, X, Users, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { BranchSelector } from '@/components/shared/BranchSelector';
 import { Badge } from '@/components/ui/badge';
 import {
   Popover,
@@ -240,30 +241,16 @@ export default function FilterBar({
           {/* Filter Controls Flex */}
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4">
             {/* Branch Filter */}
-            {branches.length > 0 && (
-              <div className="space-y-2 flex-1 min-w-0 sm:min-w-[200px]">
-                <Label className="text-sm font-medium">Branch</Label>
-                <Select
-                  value={filters.branch_id || 'all'}
-                  onValueChange={(value) => updateFilter('branch_id', value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <div className="flex items-center">
-                      <Building className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <SelectValue placeholder="All Branches" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2 flex-1 min-w-0 sm:min-w-[200px]">
+              <Label className="text-sm font-medium">Branch</Label>
+              <BranchSelector
+                variant="single"
+                value={filters.branch_id === 'all' ? undefined : filters.branch_id}
+                onValueChange={(v) => updateFilter('branch_id', v ?? 'all')}
+                allowClear={true}
+                placeholder="All Branches"
+              />
+            </div>
 
             {/* Membership Type Filter */}
             {membershipTypes.length > 0 && (

@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Settings } from 'lucide-react';
+import { BranchSelector } from '@/components/shared/BranchSelector';
 import { TagMultiCheckboxRenderer } from '@/components/people/tags/TagMultiCheckboxRenderer';
 import { GroupsRenderer, type GroupAssignment } from '@/components/people/groups/GroupsRenderer';
 import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead';
@@ -20,6 +21,9 @@ interface GlobalSettingsStepProps {
   onChangeGlobalStartISO: (v: string) => void;
   globalEndISO: string;
   onChangeGlobalEndISO: (v: string) => void;
+  showBranchSelector?: boolean;
+  branchId?: string;
+  onChangeBranchId?: (id: string | undefined) => void;
   tags: RelationalTagWithItems[];
   // Per-tag values: always multi-select for attendance settings
   allowedTagsByTag: Record<string, string[]>;
@@ -55,6 +59,9 @@ export function GlobalSettingsStep({
   groups,
   allowedGroups,
   onChangeAllowedGroups,
+  showBranchSelector,
+  branchId,
+  onChangeBranchId,
   organizationId,
   allowedMembers,
   onChangeAllowedMembers,
@@ -93,6 +100,18 @@ export function GlobalSettingsStep({
             </div>
           </div>
         </div>
+
+        {showBranchSelector && (
+          <div className="space-y-2">
+            <Label>Branch (Optional)</Label>
+            <BranchSelector
+              variant="single"
+              value={branchId}
+              onValueChange={(v) => (onChangeBranchId ? onChangeBranchId(v as string | undefined) : undefined)}
+              allowClear
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">

@@ -90,6 +90,10 @@ function applyFinanceFilters(
     query = query.in('attendance_session_id', filters.attendance_session_filter as string[]);
   }
 
+  if (filters.branch_id_filter && filters.branch_id_filter.length) {
+    query = query.in('branch_id', filters.branch_id_filter as string[]);
+  }
+
   // Date filter: always rely on provided start/end from UI mapping
   if (filters.date_filter) {
     const df = filters.date_filter;
