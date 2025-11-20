@@ -25,6 +25,8 @@ import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSearch';
 import { useExpensePreferences } from '@/hooks/finance/useExpensePreferences';
+import { BranchSelector } from '@/components/shared/BranchSelector';
+import { useBranches } from '@/hooks/useBranchQueries';
 
 interface FilterOption {
   value: string;
@@ -88,6 +90,7 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
       approved_by_filter: undefined,
       payment_method_filter: undefined,
       amount_range: undefined,
+      branch_id_filter: undefined,
     });
   };
 
@@ -96,6 +99,7 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
     if (filters.purpose_filter?.length) count++;
     if (filters.approved_by_filter?.length) count++;
     if (filters.payment_method_filter?.length) count++;
+    if (filters.branch_id_filter?.length) count++;
     if (filters.amount_range?.min || filters.amount_range?.max) count++;
     return count;
   };
@@ -116,6 +120,14 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
 
   // Active filter details for badges (based on applied filters)
   const { data: activeApprovedDetails = [] } = useMemberDetails(filters.approved_by_filter || []);
+  const { data: branches = [] } = useBranches(currentOrganization?.id);
+  const activeBranchLabels: string[] = React.useMemo(() => {
+    const ids = filters.branch_id_filter || [];
+    if (!ids.length) return [];
+    return ids
+      .map((id) => branches.find((b: any) => b.id === id)?.name)
+      .filter((n): n is string => !!n);
+  }, [filters.branch_id_filter, branches]);
 
   return (
     <div className="space-y-4">
@@ -310,6 +322,28 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
             </Badge>
           )}
 
+          {/* Branch */}
+          {filters.branch_id_filter && filters.branch_id_filter.length > 0 && (
+            <Badge variant="secondary" className="gap-1">
+              {(() => {
+                const labels = activeBranchLabels.length
+                  ? activeBranchLabels
+                  : filters.branch_id_filter!;
+                return labels.length <= 2
+                  ? `Branch: ${labels.join(', ')}`
+                  : `Branch: ${labels.slice(0, 2).join(', ')}, +${labels.length - 2} more`;
+              })()}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                onClick={() => onFiltersChange({ ...filters, branch_id_filter: undefined })}
+              >
+                <X className="h-2 w-2" />
+              </Button>
+            </Badge>
+          )}
+
           {/* Amount range */}
           {filters.amount_range && (filters.amount_range.min !== undefined || filters.amount_range.max !== undefined) && (
             <Badge variant="secondary" className="gap-1">
@@ -417,6 +451,23 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
                 </Select>
               </div>
             )}
+
+            {/* Branch Filter */}
+            <div>
+              <Label>Branch</Label>
+              <BranchSelector
+                variant="single"
+                value={pendingFilters.branch_id_filter?.[0]}
+                onValueChange={(value) => {
+                  setPendingFilters({
+                    ...pendingFilters,
+                    branch_id_filter: value ? [value as string] : undefined,
+                  });
+                }}
+                allowClear
+                placeholder="All branches"
+              />
+            </div>
 
             {/* Amount Range */}
             <div>

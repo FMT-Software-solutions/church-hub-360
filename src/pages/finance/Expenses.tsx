@@ -46,6 +46,7 @@ import { format } from 'date-fns';
 import { Edit, Eye, Trash2 } from 'lucide-react';
 import { paymentMethodOptions } from '@/components/finance/constants';
 import { PledgeOptionsSelect } from '@/components/finance/pledges/PledgeOptionsSelect';
+import { BranchSelector } from '@/components/shared/BranchSelector';
 
 const Expenses: React.FC = () => {
   const { currentOrganization } = useOrganization();
@@ -93,6 +94,7 @@ const Expenses: React.FC = () => {
     vendor: '',
     receipt_number: '',
     notes: '',
+    branch_id: null,
   });
 
   const [approvedBy, setApprovedBy] = useState<string | null>(null);
@@ -130,6 +132,7 @@ const Expenses: React.FC = () => {
       vendor: '',
       receipt_number: '',
       notes: '',
+      branch_id: null,
     });
     setApprovedBy(null);
     setApprovalDate('');
@@ -146,9 +149,26 @@ const Expenses: React.FC = () => {
 
     if (selectedExpense) {
       // Update existing expense via hook
-      await updateExpense.mutateAsync({
-        id: selectedExpense.id,
-        updates: {
+        await updateExpense.mutateAsync({
+          id: selectedExpense.id,
+          updates: {
+            amount: formData.amount,
+            purpose: formData.purpose,
+            payment_method: formData.payment_method,
+            date: formData.date,
+            description: finalDescription,
+            vendor: formData.vendor,
+            receipt_number: formData.receipt_number,
+            notes: formData.notes,
+            approved_by: approvedBy ?? null,
+            approval_date: approvalDate ? approvalDate : null,
+            branch_id: formData.branch_id ?? null,
+          },
+        });
+      setIsEditDialogOpen(false);
+    } else {
+      // Create new expense via hook
+        await createExpense.mutateAsync({
           amount: formData.amount,
           purpose: formData.purpose,
           payment_method: formData.payment_method,
@@ -159,23 +179,8 @@ const Expenses: React.FC = () => {
           notes: formData.notes,
           approved_by: approvedBy ?? null,
           approval_date: approvalDate ? approvalDate : null,
-        },
-      });
-      setIsEditDialogOpen(false);
-    } else {
-      // Create new expense via hook
-      await createExpense.mutateAsync({
-        amount: formData.amount,
-        purpose: formData.purpose,
-        payment_method: formData.payment_method,
-        date: formData.date,
-        description: finalDescription,
-        vendor: formData.vendor,
-        receipt_number: formData.receipt_number,
-        notes: formData.notes,
-        approved_by: approvedBy ?? null,
-        approval_date: approvalDate ? approvalDate : null,
-      });
+          branch_id: formData.branch_id ?? null,
+        });
       setIsAddDialogOpen(false);
     }
 
@@ -195,6 +200,7 @@ const Expenses: React.FC = () => {
       vendor: expense.vendor || '',
       receipt_number: expense.receipt_number || '',
       notes: expense.notes || '',
+      branch_id: (expense as any).branch_id || null,
     });
     setApprovedBy(expense.approved_by ?? null);
     setApprovalDate(expense.approval_date || '');
@@ -449,6 +455,21 @@ const Expenses: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label>Branch (optional)</Label>
+                  <BranchSelector
+                    variant="single"
+                    value={formData.branch_id || undefined}
+                    onValueChange={(v) =>
+                      setFormData((prev) => ({ ...prev, branch_id: (v as string | undefined) ?? null }))
+                    }
+                    allowClear
+                    placeholder="All branches (joint record)"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <EditableField
                     label="Approved By"
                     value={approvedTypeaheadValueSingle[0]?.display_name || 'None'}
@@ -652,6 +673,8 @@ const Expenses: React.FC = () => {
               </div>
             </div>
 
+            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <PledgeOptionsSelect
@@ -690,6 +713,21 @@ const Expenses: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label>Branch (optional)</Label>
+                <BranchSelector
+                  variant="single"
+                  value={formData.branch_id || undefined}
+                  onValueChange={(v) =>
+                    setFormData((prev) => ({ ...prev, branch_id: (v as string | undefined) ?? null }))
+                  }
+                  allowClear
+                  placeholder="All branches (joint record)"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label>Date *</Label>
                 <DatePicker
                   value={formData.date}
@@ -717,6 +755,21 @@ const Expenses: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Branch (optional)</Label>
+                <BranchSelector
+                  variant="single"
+                  value={formData.branch_id || undefined}
+                  onValueChange={(v) =>
+                    setFormData((prev) => ({ ...prev, branch_id: (v as string | undefined) ?? null }))
+                  }
+                  allowClear
+                  placeholder="All branches (joint record)"
+                />
               </div>
             </div>
 

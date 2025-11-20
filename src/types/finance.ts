@@ -354,6 +354,7 @@ export interface ExpenseFormData {
   description?: string;
   notes?: string;
   receipt_number?: string;
+  branch_id?: string | null;
 }
 
 export interface ContributionFormData {

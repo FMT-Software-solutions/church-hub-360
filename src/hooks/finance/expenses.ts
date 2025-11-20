@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { FinanceFilter, ExpenseRecord, PaymentMethod } from '@/types/finance';
@@ -62,6 +63,11 @@ function applyFinanceFilters(
     }
   }
 
+  if (filters.branch_id_filter && filters.branch_id_filter.length) {
+    const ids = (filters.branch_id_filter as string[]).join(',');
+    query = query.or(`branch_id.in.(${ids}),branch_id.is.null`);
+  }
+
   if (filters.date_filter) {
     const df = filters.date_filter;
     const today = new Date();
@@ -98,6 +104,7 @@ function applyFinanceFilters(
 
 export function useExpenses(params?: ExpenseQueryParams) {
   const { currentOrganization } = useOrganization();
+  const scope = useBranchScope(currentOrganization?.id);
 
   const queryParams: Required<Pick<ExpenseQueryParams, 'page' | 'pageSize'>> & ExpenseQueryParams = {
     page: 1,
@@ -106,7 +113,11 @@ export function useExpenses(params?: ExpenseQueryParams) {
   };
 
   return useQuery({
-    queryKey: expenseKeys.list(currentOrganization?.id || '', queryParams),
+    queryKey: [
+      ...expenseKeys.list(currentOrganization?.id || '', queryParams),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all',
+    ],
     queryFn: async (): Promise<PaginatedExpensesResponse> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -126,6 +137,20 @@ export function useExpenses(params?: ExpenseQueryParams) {
       }
 
       query = applyFinanceFilters(query, queryParams.filters);
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id', true);
+        if (scoped.abortIfEmpty) {
+          return {
+            data: [],
+            totalCount: 0,
+            totalPages: 1,
+            currentPage: queryParams.page!,
+            pageSize: queryParams.pageSize!,
+          };
+        }
+        query = scoped.query;
+      }
 
       const from = (queryParams.page! - 1) * queryParams.pageSize!;
       const to = from + queryParams.pageSize! - 1;
