@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
+import { useUserBranches } from '@/hooks/useBranchQueries';
 import { toast } from 'sonner';
 import type {
   Announcement,
@@ -13,23 +15,37 @@ import type {
 export const announcementKeys = {
   all: ['announcements'] as const,
   lists: () => [...announcementKeys.all, 'list'] as const,
-  list: (organizationId: string) => [...announcementKeys.lists(), organizationId] as const,
+  list: (organizationId: string, branchId?: string | 'all') => [...announcementKeys.lists(), organizationId, branchId] as const,
   details: () => [...announcementKeys.all, 'detail'] as const,
   detail: (id: string) => [...announcementKeys.details(), id] as const,
 };
 
-export function useAnnouncements() {
+export function useAnnouncements(branchId?: string) {
   const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
+  const { canManageAllData } = useRoleCheck();
+  const { data: userBranches = [] } = useUserBranches(user?.id, currentOrganization?.id);
   return useQuery({
-    queryKey: announcementKeys.list(currentOrganization?.id || ''),
+    queryKey: announcementKeys.list(currentOrganization?.id || '', branchId || 'all'),
     queryFn: async (): Promise<AnnouncementWithMeta[]> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
-      const { data, error } = await supabase
+      let query = supabase
         .from('announcements')
         .select(`*, profiles!announcements_created_by_fkey2(first_name,last_name)`) 
         .eq('organization_id', currentOrganization.id)
         .eq('is_deleted', false)
         .order('created_at', { ascending: false });
+
+      if (branchId) {
+        query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+      } else if (!canManageAllData()) {
+        const assignedBranchIds = (userBranches || []).map((ub: any) => ub.branch_id).filter(Boolean) as string[];
+        if (assignedBranchIds.length === 0) return [];
+        const ids = assignedBranchIds.join(',');
+        query = query.or(`branch_id.in.(${ids}),branch_id.is.null`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []).map((a: any) => {
         let slides_count: number | undefined = undefined;

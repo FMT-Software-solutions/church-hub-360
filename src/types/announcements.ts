@@ -1,6 +1,7 @@
 export interface Announcement {
   id: string;
   organization_id: string;
+  branch_id?: string | null;
   title: string;
   description: string;
   is_deleted: boolean;
@@ -32,10 +33,12 @@ export interface SlideDraft {
 export interface CreateAnnouncementInput {
   title: string;
   description: string;
+  branch_id?: string | null;
   slides?: string; // stringified JSON array of SlideDraft
 }
 
 export interface UpdateAnnouncementInput {
+  branch_id?: string | null;
   title?: string;
   description?: string;
   slides?: string; // stringified JSON array of SlideDraft

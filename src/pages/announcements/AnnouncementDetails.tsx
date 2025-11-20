@@ -21,6 +21,8 @@ import { toPng } from 'html-to-image';
 import { ArrowLeft, Download } from 'lucide-react';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { Label } from '@/components/ui/label';
+import { SingleBranchSelector } from '@/components/shared/BranchSelector';
 
 export default function AnnouncementDetails() {
   const { announcementId } = useParams();
@@ -158,7 +160,24 @@ export default function AnnouncementDetails() {
         <h1 className="text-2xl font-bold">
           {aQuery.data?.title || 'Announcement'}
         </h1>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-4 items-end">
+          <div className="w-[280px]">
+            <Label>Branch</Label>
+            <SingleBranchSelector
+              value={aQuery.data?.branch_id || undefined}
+              onValueChange={async (v) => {
+                if (!announcementId) return;
+                try {
+                  await updateAnnouncement.mutateAsync({
+                    id: announcementId,
+                    updates: { branch_id: v || null },
+                  });
+                } catch {}
+              }}
+              placeholder="All branches"
+              allowClear
+            />
+          </div>
           <Button
             variant={mode === 'list' ? 'default' : 'outline'}
             onClick={() => setMode('list')}

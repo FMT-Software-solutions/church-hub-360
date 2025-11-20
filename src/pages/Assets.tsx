@@ -33,6 +33,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import AssetListPrintService from '@/components/assets/AssetListPrintService';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { SingleBranchSelector } from '@/components/shared/BranchSelector';
 
 const CATEGORY_OPTIONS = [
   'All',
@@ -53,6 +54,7 @@ export default function Assets() {
   const [category, setCategory] = useState('All');
   const [status, setStatus] = useState('All');
   const [location, setLocation] = useState('');
+  const [branchId, setBranchId] = useState<string | undefined>(undefined);
   const [printOpen, setPrintOpen] = useState(false);
   const [startPrint, setStartPrint] = useState(false);
   const [selectedFields, setSelectedFields] = useState<string[]>([
@@ -94,8 +96,9 @@ export default function Assets() {
       category: category === 'All' ? undefined : category,
       status: status === 'All' ? undefined : status,
       location: location || undefined,
+      branch_id: branchId || undefined,
     }),
-    [page, pageSize, search, category, status, location]
+    [page, pageSize, search, category, status, location, branchId]
   );
 
   const { data, isLoading } = useAssets(params);
@@ -163,7 +166,7 @@ export default function Assets() {
       </div>
 
       <Card className="p-3 sm:p-4 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <Input
             placeholder="Search by name or description"
             value={search}
@@ -215,6 +218,15 @@ export default function Assets() {
               setLocation(e.target.value);
               setPage(1);
             }}
+          />
+          <SingleBranchSelector
+            value={branchId}
+            onValueChange={(v) => {
+              setBranchId(v);
+              setPage(1);
+            }}
+            placeholder="All branches"
+            allowClear
           />
         </div>
       </Card>

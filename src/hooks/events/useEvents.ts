@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
+import { useUserBranches } from '@/hooks/useBranchQueries';
 import { toast } from 'sonner';
 import type {
   EventActivity,
@@ -34,6 +36,10 @@ function getEventStatus(evt: Pick<EventActivity, 'start_time' | 'end_time' | 'is
 
 export function useEvents(filters?: EventActivityFilters, sort?: EventActivitySort) {
   const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
+  const { canManageAllData } = useRoleCheck();
+  const { data: userBranches = [] } = useUserBranches(user?.id, currentOrganization?.id);
+  const assignedBranchIds = (userBranches || []).map((ub: any) => ub.branch_id).filter(Boolean) as string[];
 
   return useQuery({
     queryKey: eventsKeys.list(currentOrganization?.id || '', filters),
@@ -47,7 +53,7 @@ export function useEvents(filters?: EventActivityFilters, sort?: EventActivitySo
         .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
-      if (filters?.branch_id) query = query.eq('branch_id', filters.branch_id);
+      if (filters?.branch_id) query = query.or(`branch_id.eq.${filters.branch_id},branch_id.is.null`);
       if (filters?.type) query = query.eq('type', filters.type);
       if (filters?.is_active !== undefined) query = query.eq('is_active', filters.is_active);
       if (filters?.search) query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
@@ -82,6 +88,11 @@ export function useEvents(filters?: EventActivityFilters, sort?: EventActivitySo
             : null,
         status: getEventStatus(evt),
       })).filter((evt) => {
+        if (!filters?.branch_id && !canManageAllData()) {
+          if (assignedBranchIds.length === 0) return false;
+          if (evt.branch_id == null) return true;
+          if (typeof evt.branch_id === 'string') return assignedBranchIds.includes(evt.branch_id);
+        }
         if (filters?.status) return evt.status === filters.status;
         return true;
       });

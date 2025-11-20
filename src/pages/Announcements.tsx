@@ -28,10 +28,12 @@ import { useNavigate } from 'react-router-dom';
 // removed SlideManager from creation flow; slides are edited in details page
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@radix-ui/react-scroll-area';
+import { SingleBranchSelector } from '@/components/shared/BranchSelector';
 
 export default function Announcements() {
   const navigate = useNavigate();
-  const announcementsQuery = useAnnouncements();
+  const [listBranchId, setListBranchId] = useState<string | undefined>(undefined);
+  const announcementsQuery = useAnnouncements(listBranchId);
   const deleteAnnouncement = useDeleteAnnouncement();
   const createAnnouncement = useCreateAnnouncement();
 
@@ -41,6 +43,7 @@ export default function Announcements() {
   const [shareOpen, setShareOpen] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formBranchId, setFormBranchId] = useState<string | undefined>(undefined);
   // preview removed
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -69,10 +72,12 @@ export default function Announcements() {
       const created = await createAnnouncement.mutateAsync({
         title: formTitle.trim(),
         description: formDescription,
+        branch_id: formBranchId || null,
       });
       setIsAddOpen(false);
       setFormTitle('');
       setFormDescription('');
+      setFormBranchId(undefined);
       setSaving(false);
       navigate(`/announcements/${created.id}`);
     } catch {}
@@ -83,7 +88,16 @@ export default function Announcements() {
       <div className="flex items-center gap-3">
         <Megaphone className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold">Announcements</h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-end gap-3">
+          <div className="w-[280px]">
+            <Label>Branch</Label>
+            <SingleBranchSelector
+              value={listBranchId}
+              onValueChange={(v) => setListBranchId(v || undefined)}
+              placeholder="All branches"
+              allowClear
+            />
+          </div>
           <Button onClick={() => setIsAddOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> New Announcement
           </Button>
@@ -252,6 +266,15 @@ export default function Announcements() {
                 {errors.description}
               </div>
             )}
+            <div>
+              <Label>Branch</Label>
+              <SingleBranchSelector
+                value={formBranchId}
+                onValueChange={(v) => setFormBranchId(v || undefined)}
+                placeholder="All branches"
+                allowClear
+              />
+            </div>
             <div className="flex justify-end pt-2">
               <Button
                 onClick={onCreate}

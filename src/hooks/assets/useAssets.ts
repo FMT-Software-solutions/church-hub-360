@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import type { Asset, AssetWithMeta, CreateAssetInput, UpdateAssetInput } from '@/types/assets';
+import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 
 export const assetKeys = {
   all: ['assets'] as const,
@@ -21,16 +22,22 @@ export interface AssetsFilterParams {
   assigned_to_type?: 'member' | 'group';
   assigned_to_member_id?: string;
   assigned_to_group_id?: string;
+  branch_id?: string;
 }
 
 export function useAssets(params: AssetsFilterParams = { page: 1, pageSize: 10 }) {
   const { currentOrganization } = useOrganization();
+  const scope = useBranchScope(currentOrganization?.id);
   const page = params.page || 1;
   const pageSize = params.pageSize || 10;
   const queryKeyParams = JSON.stringify({ ...params, page, pageSize });
 
   return useQuery({
-    queryKey: assetKeys.list(currentOrganization?.id || '', queryKeyParams),
+    queryKey: [
+      ...assetKeys.list(currentOrganization?.id || '', queryKeyParams),
+      'branchScope',
+      scope.isScoped ? scope.branchIds : 'all',
+    ],
     queryFn: async (): Promise<{ data: AssetWithMeta[]; total: number; page: number; pageSize: number; totalPages: number; }> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -47,11 +54,20 @@ export function useAssets(params: AssetsFilterParams = { page: 1, pageSize: 10 }
       if (params.assigned_to_type) query = query.eq('assigned_to_type', params.assigned_to_type);
       if (params.assigned_to_member_id) query = query.eq('assigned_to_member_id', params.assigned_to_member_id);
       if (params.assigned_to_group_id) query = query.eq('assigned_to_group_id', params.assigned_to_group_id);
+      if (params.branch_id) query = query.or(`branch_id.eq.${params.branch_id},branch_id.is.null`);
       if (params.search) {
         const s = params.search.trim();
         if (s) {
           query = query.or(`name.ilike.%${s}%,description.ilike.%${s}%`);
         }
+      }
+
+      {
+        const scoped = applyBranchScope(query, scope, 'branch_id', true);
+        if (scoped.abortIfEmpty) {
+          return { data: [], total: 0, page, pageSize, totalPages: 1 };
+        }
+        query = scoped.query;
       }
 
       const from = (page - 1) * pageSize;

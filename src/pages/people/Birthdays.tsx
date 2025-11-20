@@ -4,10 +4,15 @@ import { supabase } from '@/utils/supabase'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MemberSummary } from '@/types/members'
 import * as htmlToImage from 'html-to-image'
 import confetti from 'canvas-confetti'
+import { Label } from '@/components/ui/label'
+import { SingleBranchSelector } from '@/components/shared/BranchSelector'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRoleCheck } from '@/registry/access/RoleGuard'
+import { useUserBranches } from '@/hooks/useBranchQueries'
 
 function daysUntilBirthday(dobIso: string) {
   const now = new Date()
@@ -85,16 +90,34 @@ function BirthdayCelebrantCard({ member }: { member: MemberSummary }) {
 export default function Birthdays() {
   const { currentOrganization } = useOrganization()
   const orgId = currentOrganization?.id
+  const [branchId, setBranchId] = useState<string | undefined>(undefined)
+  const { user } = useAuth()
+  const { canManageAllData } = useRoleCheck()
+  const { data: userBranches = [] } = useUserBranches(user?.id, orgId)
+  const assignedBranchIds = useMemo(
+    () => userBranches.map((ub) => ub.branch_id).filter(Boolean) as string[],
+    [userBranches]
+  )
 
   const { data: members = [], isLoading } = useQuery({
-    queryKey: ['people-birthdays', orgId],
+    queryKey: ['people-birthdays', orgId, branchId || 'all'],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('members_summary')
-        .select('id, full_name, date_of_birth, profile_image_url, branch_name, phone, email, membership_id')
+        .select('id, full_name, date_of_birth, profile_image_url, branch_name, phone, email, membership_id, branch_id')
         .eq('organization_id', orgId!)
         .not('date_of_birth', 'is', null)
+
+      if (branchId) {
+        query = query.or(`branch_id.eq.${branchId},branch_id.is.null`)
+      } else if (!canManageAllData()) {
+        if (assignedBranchIds.length === 0) return []
+        const ids = assignedBranchIds.join(',')
+        query = query.or(`branch_id.in.(${ids}),branch_id.is.null`)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data || []
     },
@@ -135,9 +158,20 @@ export default function Birthdays() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Birthdays</h1>
-        <p className="text-muted-foreground">Celebrate today’s birthdays and see upcoming ones.</p>
+      <div className="flex items-start gap-4">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">Birthdays</h1>
+          <p className="text-muted-foreground">Celebrate today’s birthdays and see upcoming ones.</p>
+        </div>
+        <div className="w-full sm:w-[280px]">
+          <Label>Branch</Label>
+          <SingleBranchSelector
+            value={branchId}
+            onValueChange={(v) => setBranchId(v || undefined)}
+            placeholder="All branches"
+            allowClear
+          />
+        </div>
       </div>
 
       <div className="space-y-4">

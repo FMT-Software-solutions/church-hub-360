@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { DatePresetPicker, type DatePresetValue } from '@/components/attendance/reports/DatePresetPicker';
 import type { EventActivityFilters, EventActivityType, EventActivityStatus } from '@/types/events';
+import { SingleBranchSelector } from '@/components/shared/BranchSelector';
 
 interface EventFilterBarProps {
   filters: EventActivityFilters & { date_filter?: DatePresetValue };
@@ -37,6 +38,15 @@ export const EventFilterBar: React.FC<EventFilterBarProps> = ({ filters, onFilte
           </Select>
         </div>
         <div>
+          <Label>Branch</Label>
+          <SingleBranchSelector
+            value={filters.branch_id || undefined}
+            onValueChange={(v) => setFilter({ branch_id: v || undefined })}
+            placeholder="All branches"
+            allowClear
+          />
+        </div>
+        <div>
           <Label>Status</Label>
           <Select value={filters.status as EventActivityStatus | undefined} onValueChange={(v) => setFilter({ status: (v as EventActivityStatus) || undefined })}>
             <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
@@ -47,12 +57,13 @@ export const EventFilterBar: React.FC<EventFilterBarProps> = ({ filters, onFilte
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end">
-          {showAddButton && (
-            <Button onClick={onAddClick} className="w-full">Add Event/Activity</Button>
-          )}
-        </div>
       </div>
+
+      {showAddButton && (
+        <div className="flex items-end">
+          <Button onClick={onAddClick}>Add Event/Activity</Button>
+        </div>
+      )}
 
       <DatePresetPicker
         value={preset}
