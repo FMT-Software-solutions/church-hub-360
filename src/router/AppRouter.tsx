@@ -33,6 +33,7 @@ import AnnouncementDetails from '../pages/announcements/AnnouncementDetails';
 import AnnouncementPresent from '../pages/announcements/AnnouncementPresent';
 import BirthdayWish from '@/pages/present/BirthdayWish';
 import SlideDesignerDev from '../pages/dev/SlideDesignerDev';
+import ProvisionOrgOwnerTest from '../pages/dev/ProvisionOrgOwnerTest';
 import Assets from '../pages/Assets';
 import AddAsset from '../pages/assets/AddAsset';
 import EditAsset from '../pages/assets/EditAsset';
@@ -268,6 +269,7 @@ function AppRoutes() {
         path="/dev/announcement-slide-editor"
         element={<TestAnnouncementEditorLayout />}
       />
+      <Route path="/dev/provision-org-owner" element={<ProvisionOrgOwnerTest />} />
 
       {/* Catch-all route - redirect to dashboard if authenticated, login if not */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
