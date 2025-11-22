@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import type {
   FinanceFilter,
   IncomeRecord,
-  ExtendedIncomeType,
   PaymentMethod,
   IncomeType,
   IncomeResponseRow,
@@ -300,7 +299,7 @@ export function useIncome(id: string | null) {
 
 export interface CreateIncomeInput {
   amount: number;
-  category: ExtendedIncomeType;
+  category: string;
   payment_method: PaymentMethod;
   date: string; // YYYY-MM-DD
   description?: string;

@@ -12,7 +12,7 @@ import { ReceiptPrintDialog } from '@/components/finance/ReceiptPrintDialog';
 import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { Pagination } from '@/components/shared/Pagination';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { extendedIncomeTypes } from '@/constants/finance/income';
+import { useIncomePreferences } from '@/hooks/finance/useIncomePreferences';
 import { useDeleteIncome, useIncomes } from '@/hooks/finance/income';
 import type { FinanceFilter, IncomeResponseRow } from '@/types/finance';
 import type { AmountComparison } from '@/utils/finance/search';
@@ -59,6 +59,8 @@ const Income: React.FC = () => {
     amount_comparison: amountSearch || undefined,
   });
   const deleteIncome = useDeleteIncome();
+
+  const { categoryOptions } = useIncomePreferences();
 
   // Filter and sort data (client-side, after server filters/search)
   const filteredAndSortedData = useMemo(() => {
@@ -217,7 +219,8 @@ const Income: React.FC = () => {
       key: 'branch',
       label: 'Branch',
       sortable: true,
-      render: (_: any, record: IncomeResponseRow) => record.branch?.name || 'All branches',
+      render: (_: any, record: IncomeResponseRow) =>
+        record.branch?.name || 'All branches',
     },
     {
       key: 'receipt_number',
@@ -289,7 +292,7 @@ const Income: React.FC = () => {
       <FinanceFilterBar
         filters={filters}
         onFiltersChange={setFilters}
-        categoryOptions={extendedIncomeTypes.map((t) => ({
+        categoryOptions={categoryOptions.map((t: string) => ({
           value: t,
           label: t,
         }))}

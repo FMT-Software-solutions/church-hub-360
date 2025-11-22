@@ -23,7 +23,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { extendedIncomeTypes } from '@/constants/finance/income';
+import { useIncomePreferences } from '@/hooks/finance/useIncomePreferences';
+import { Settings } from 'lucide-react';
+import { IncomePreferencesDrawer } from '@/components/finance/IncomePreferencesDrawer';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import {
   useOccasionDetails,
@@ -95,6 +97,8 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
   };
 
   const { currentOrganization } = useOrganization();
+  const { categoryOptions } = useIncomePreferences();
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   // Derive editing id from current initialData to ensure it updates when selection changes
   const editingId: string | undefined = (initialData as any)?.id;
@@ -147,7 +151,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
 
   const [form, setForm] = useState<CreateIncomeInput>(() => ({
     amount: (initialData as any)?.amount ?? 0,
-    category: (initialData as any)?.category ?? extendedIncomeTypes[0],
+    category: (initialData as any)?.category ?? (categoryOptions?.[0] ?? ''),
     payment_method: (initialData as any)?.payment_method ?? 'cash',
     date: (initialData as any)?.date ?? new Date().toISOString(),
     description: (initialData as any)?.description ?? '',
@@ -201,7 +205,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
       setForm((prev) => ({
         ...prev,
         amount: data?.amount ?? 0,
-        category: data?.category ?? extendedIncomeTypes[0],
+        category: data?.category ?? (categoryOptions?.[0] ?? ''),
         payment_method: data?.payment_method ?? 'cash',
         date: data?.date ?? new Date().toISOString(),
         description: data?.description ?? '',
@@ -275,7 +279,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     setForm((prev) => ({
       ...prev,
       amount: 0,
-      category: extendedIncomeTypes[0],
+      category: categoryOptions?.[0] ?? '',
       payment_method: 'cash',
       date: new Date().toISOString(),
       description: '',
@@ -401,7 +405,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
 
   return (
     <Dialog open={computedOpen} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[720px]">
+      <DialogContent className="sm:max-w-[720px] max-h-[95vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>{title || (isAdd ? 'Add Income' : 'Edit Income')}</DialogTitle>
           <DialogDescription>
@@ -413,8 +417,8 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount & Types */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2 md:col-span-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="amount">Amount *</Label>
               <Input
                 id="amount"
@@ -436,7 +440,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
                 <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.amount}</p>
               )}
             </div>
-            <div className="space-y-2 md:col-span-1">
+            <div className="space-y-2 md:col-span-1 hidden">
               <Label>Income Type *</Label>
               <Select
                 value={form.income_type as IncomeType}
@@ -459,36 +463,37 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
             </div>
             <div className="space-y-2 md:col-span-1">
               <Label>Category *</Label>
-              <Select
-                value={form.category}
-                onValueChange={(value) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    category: value as any,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full" aria-invalid={!!errors.category}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {extendedIncomeTypes.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={form.category}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      category: value as any,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full" aria-invalid={!!errors.category}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="icon" className="h-9 w-9" type="button" onClick={() => setPrefsOpen(true)}>
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
               {errors.category && (
                 <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.category}</p>
               )}
             </div>
-          </div>
 
-          {/* Source Section */}
-          {visibility.source_type && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
+             <div className="space-y-2">
                 <Label>Source Type *</Label>
                 <Select
                   value={form.source_type as any}
@@ -518,103 +523,105 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
                   <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.source_type}</p>
                 )}
               </div>
+          </div>
 
-              <div className="md:col-span-2">
-                {form.source_type === 'member' && visibility.member_id && (
-                  <>
-                  <EditableField
-                    label="Select Member *"
-                    startInEdit={isAdd && !form.member_id}
-                    defaultShowCloseButton={!isAdd}
-                    value={
-                      memberValue?.[0]?.display_name ||
-                      (memberQuery.data
-                        ? (memberQuery.data as any).full_name ||
-                          `${(memberQuery.data as any).first_name ?? ''} ${
-                            (memberQuery.data as any).middle_name ?? ''
-                          } ${(memberQuery.data as any).last_name ?? ''}`.trim()
-                        : 'Not selected')
-                    }
-                    renderEditor={() => (
-                      <MemberSearchTypeahead
-                        organizationId={currentOrganization?.id || ''}
-                        value={memberValue}
-                        onChange={(members) => {
-                          setMemberValue(members);
-                          const first = (members as any[])[0];
-                          setForm((prev) => ({ ...prev, member_id: first?.id }));
-                          clearError('member_id');
-                        }}
-                        multiSelect={false}
-                      />
-                    )}
-                  />
-                  {errors.member_id && (
-                    <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.member_id}</p>
+          {/* Source Section */}
+          {visibility.source_type && (
+            <div className="md:col-span-2">
+              {form.source_type === 'member' && visibility.member_id && (
+                <>
+                <EditableField
+                  label="Select Member *"
+                  startInEdit={isAdd && !form.member_id}
+                  defaultShowCloseButton={!isAdd}
+                  value={
+                    memberValue?.[0]?.display_name ||
+                    (memberQuery.data
+                      ? (memberQuery.data as any).full_name ||
+                        `${(memberQuery.data as any).first_name ?? ''} ${
+                          (memberQuery.data as any).middle_name ?? ''
+                        } ${(memberQuery.data as any).last_name ?? ''}`.trim()
+                      : 'Not selected')
+                  }
+                  renderEditor={() => (
+                    <MemberSearchTypeahead
+                      organizationId={currentOrganization?.id || ''}
+                      value={memberValue}
+                      onChange={(members) => {
+                        setMemberValue(members);
+                        const first = (members as any[])[0];
+                        setForm((prev) => ({ ...prev, member_id: first?.id }));
+                        clearError('member_id');
+                      }}
+                      multiSelect={false}
+                    />
                   )}
-                  </>
+                />
+                {errors.member_id && (
+                  <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.member_id}</p>
                 )}
-                {form.source_type === 'group' && visibility.group_id && (
-                  <>
-                  <EditableField
-                    label="Select Group *"
-                    startInEdit={isAdd && !form.group_id}
-                    defaultShowCloseButton={!isAdd}
-                    value={groupQuery.data?.name || 'Not selected'}
-                    renderEditor={() => (
-                      <GroupSelect
-                        value={form.group_id}
-                        onChange={(id) => setForm((prev) => ({ ...prev, group_id: id }))}
-                      />
-                    )}
-                  />
-                  {errors.group_id && (
-                    <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.group_id}</p>
+                </>
+              )}
+              {form.source_type === 'group' && visibility.group_id && (
+                <>
+                <EditableField
+                  label="Select Group *"
+                  startInEdit={isAdd && !form.group_id}
+                  defaultShowCloseButton={!isAdd}
+                  value={groupQuery.data?.name || 'Not selected'}
+                  renderEditor={() => (
+                    <GroupSelect
+                      value={form.group_id}
+                      onChange={(id) => setForm((prev) => ({ ...prev, group_id: id }))}
+                    />
                   )}
-                  </>
+                />
+                {errors.group_id && (
+                  <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.group_id}</p>
                 )}
-                {form.source_type === 'tag_item' && visibility.tag_item_id && (
-                  <>
-                  <EditableField
-                    label="Select Tag Item *"
-                    startInEdit={isAdd && !form.tag_item_id}
-                    defaultShowCloseButton={!isAdd}
-                    value={(() => {
-                      const items = (tagsQuery.data || []).flatMap((t) => t.tag_items || []);
-                      const found = items.find((it) => it.id === form.tag_item_id);
-                      return found?.name || 'Not selected';
-                    })()}
-                    renderEditor={() => (
-                      <TagItemSelect
-                        value={form.tag_item_id}
-                        onChange={(id) => setForm((prev) => ({ ...prev, tag_item_id: id }))}
-                      />
-                    )}
-                  />
-                  {errors.tag_item_id && (
-                    <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.tag_item_id}</p>
+                </>
+              )}
+              {form.source_type === 'tag_item' && visibility.tag_item_id && (
+                <>
+                <EditableField
+                  label="Select Tag Item *"
+                  startInEdit={isAdd && !form.tag_item_id}
+                  defaultShowCloseButton={!isAdd}
+                  value={(() => {
+                    const items = (tagsQuery.data || []).flatMap((t) => t.tag_items || []);
+                    const found = items.find((it) => it.id === form.tag_item_id);
+                    return found?.name || 'Not selected';
+                  })()}
+                  renderEditor={() => (
+                    <TagItemSelect
+                      value={form.tag_item_id}
+                      onChange={(id) => setForm((prev) => ({ ...prev, tag_item_id: id }))}
+                    />
                   )}
-                  </>
+                />
+                {errors.tag_item_id && (
+                  <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.tag_item_id}</p>
                 )}
-                {form.source_type === 'other' && visibility.source && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sourceName">Name *</Label>
-                      <Input
-                        id="sourceName"
-                        value={form.source || ''}
-                        onChange={(e) => setForm((prev) => ({ ...prev, source: e.target.value }))}
-                        placeholder="Enter name"
-                        onBlur={() => clearError('source')}
-                        aria-invalid={!!errors.source}
-                      />
-                      {errors.source && (
-                        <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.source}</p>
-                      )}
-                    </div>
+                </>
+              )}
+              {form.source_type === 'other' && visibility.source && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceName">Name *</Label>
+                    <Input
+                      id="sourceName"
+                      value={form.source || ''}
+                      onChange={(e) => setForm((prev) => ({ ...prev, source: e.target.value }))}
+                      placeholder="Enter name"
+                      onBlur={() => clearError('source')}
+                      aria-invalid={!!errors.source}
+                    />
+                    {errors.source && (
+                      <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.source}</p>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -766,6 +773,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
             </Button>
           </DialogFooter>
         </form>
+        <IncomePreferencesDrawer open={prefsOpen} onOpenChange={setPrefsOpen} />
       </DialogContent>
     </Dialog>
   );

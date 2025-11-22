@@ -18,7 +18,7 @@ export interface BaseFinanceRecord {
 export interface IncomeRecord extends BaseFinanceRecord {
   // High-level income category flags
   income_type: 'general_income' | 'contribution' | 'donation' | 'pledge_payment';
-  category: ExtendedIncomeType;
+  category: string;
   occasion_name?: string;
   // Source of income and related relations
   source?: string;
@@ -150,7 +150,7 @@ export type ContributionType =
       notes?: string;
       envelope_number?: string;
       income_type: Extract<IncomeType, 'contribution' | 'donation'>;
-      category: ExtendedIncomeType;
+      category: string;
       attendance_occasion_id?: string;
       attendance_session_id?: string;
     }
@@ -358,7 +358,7 @@ export type ExtendedIncomeType = typeof extendedIncomeTypes[number];
 // Form types
 export interface IncomeFormData {
   amount: number;
-  category: ExtendedIncomeType;
+  category: string;
   occasion_name?: string;
   source?: string;
   payment_method: PaymentMethod;
