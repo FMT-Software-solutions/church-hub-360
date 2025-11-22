@@ -36,6 +36,7 @@ export function PaymentEditDialog({ open, onOpenChange, payment, onSuccess }: Pa
   const [amount, setAmount] = useState<number>(0);
   const [paymentDate, setPaymentDate] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [checkNumber, setCheckNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
   useEffect(() => {
@@ -43,11 +44,12 @@ export function PaymentEditDialog({ open, onOpenChange, payment, onSuccess }: Pa
       setAmount(payment.amount || 0);
       setPaymentDate(payment.payment_date || '');
       setPaymentMethod(payment.payment_method || 'cash');
+      setCheckNumber(payment.check_number || '');
       setNotes(payment.notes || '');
     }
   }, [open, payment]);
 
-  const canSubmit = !!payment && amount > 0 && !!paymentDate;
+  const canSubmit = !!payment && amount > 0 && !!paymentDate && (paymentMethod !== 'check' || (checkNumber || '').trim().length > 0);
   const isSubmitting = updatePayment.isPending;
 
   const handleSubmit = async () => {
@@ -58,6 +60,7 @@ export function PaymentEditDialog({ open, onOpenChange, payment, onSuccess }: Pa
         amount,
         payment_date: paymentDate,
         payment_method: paymentMethod,
+        check_number: checkNumber || undefined,
         notes: notes || undefined,
       },
     });
@@ -106,6 +109,13 @@ export function PaymentEditDialog({ open, onOpenChange, payment, onSuccess }: Pa
               </SelectContent>
             </Select>
           </div>
+
+          {paymentMethod === 'check' && (
+            <div className="space-y-2">
+              <Label htmlFor="check_number">Check Number</Label>
+              <Input id="check_number" value={checkNumber} onChange={(e) => setCheckNumber(e.target.value)} placeholder="Enter check number" />
+            </div>
+          )}
 
           <div className="md:col-span-2 space-y-2">
             <Label htmlFor="notes">Notes</Label>

@@ -313,6 +313,7 @@ export interface CreateIncomeInput {
   group_id?: string;
   tag_item_id?: string;
   receipt_number?: string;
+  check_number?: string;
   branch_id?: string | null;
   income_type?: IncomeType; // defaults to 'general_income'
   // Contribution-specific optional fields
@@ -349,6 +350,7 @@ export function useCreateIncome() {
         group_id: input.group_id || null,
         tag_item_id: input.tag_item_id || null,
         receipt_number: input.receipt_number || null,
+        check_number: input.check_number || null,
         created_by: user.id,
         income_type: input.income_type || 'general_income',
         envelope_number: input.envelope_number || null,
@@ -403,6 +405,11 @@ export function useUpdateIncome() {
         const raw = normalizedUpdates.receipt_number as string | undefined;
         const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
         normalizedUpdates.receipt_number = trimmed ? trimmed : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'check_number')) {
+        const raw = normalizedUpdates.check_number as string | undefined;
+        const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
+        normalizedUpdates.check_number = trimmed ? trimmed : null;
       }
 
       const { data, error } = await supabase

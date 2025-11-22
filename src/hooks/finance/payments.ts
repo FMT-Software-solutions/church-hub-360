@@ -227,7 +227,7 @@ export function useAllPledgePayments(params?: PaymentsQueryParams) {
 // Simple wrapper mutations for update/delete using existing table
 export interface UpdatePaymentInput {
   id: string;
-  updates: Partial<Pick<PledgePayment, 'amount' | 'payment_date' | 'payment_method' | 'notes'>>;
+  updates: Partial<Pick<PledgePayment, 'amount' | 'payment_date' | 'payment_method' | 'notes' | 'check_number'>>;
 }
 
 export function useUpdatePayment() {
@@ -239,10 +239,16 @@ export function useUpdatePayment() {
     mutationFn: async ({ id, updates }: UpdatePaymentInput): Promise<PledgePayment> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
       if (!user?.id) throw new Error('User not authenticated');
+      const normalizedUpdates: Record<string, any> = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'check_number')) {
+        const raw = normalizedUpdates.check_number as string | undefined;
+        const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
+        normalizedUpdates.check_number = trimmed ? trimmed : null;
+      }
 
       const { data, error } = await supabase
         .from('pledge_payments')
-        .update({ ...updates })
+        .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
         .eq('created_by', user.id)

@@ -95,6 +95,7 @@ const Expenses: React.FC = () => {
     payment_method: 'cash',
     vendor: '',
     receipt_number: '',
+    check_number: '',
     notes: '',
     branch_id: null,
   });
@@ -134,6 +135,7 @@ const Expenses: React.FC = () => {
       payment_method: 'cash',
       vendor: '',
       receipt_number: '',
+      check_number: '',
       notes: '',
       branch_id: null,
     });
@@ -150,11 +152,30 @@ const Expenses: React.FC = () => {
       ? formData.description.trim()
       : (formData.purpose && formData.purpose.trim()) || undefined;
 
-    if (selectedExpense) {
-      // Update existing expense via hook
-        await updateExpense.mutateAsync({
-          id: selectedExpense.id,
-          updates: {
+      if (selectedExpense) {
+        // Update existing expense via hook
+          await updateExpense.mutateAsync({
+            id: selectedExpense.id,
+            updates: {
+              amount: formData.amount,
+              category: (formData as any).category as any,
+              purpose: formData.purpose,
+              payment_method: formData.payment_method,
+              date: formData.date,
+              description: finalDescription,
+              vendor: formData.vendor,
+              receipt_number: formData.receipt_number,
+              check_number: formData.check_number,
+              notes: formData.notes,
+              approved_by: approvedBy ?? null,
+              approval_date: approvalDate ? approvalDate : null,
+              branch_id: formData.branch_id ?? null,
+            },
+          });
+        setIsEditDialogOpen(false);
+      } else {
+        // Create new expense via hook
+          await createExpense.mutateAsync({
             amount: formData.amount,
             category: (formData as any).category as any,
             purpose: formData.purpose,
@@ -163,31 +184,14 @@ const Expenses: React.FC = () => {
             description: finalDescription,
             vendor: formData.vendor,
             receipt_number: formData.receipt_number,
+            check_number: formData.check_number,
             notes: formData.notes,
             approved_by: approvedBy ?? null,
             approval_date: approvalDate ? approvalDate : null,
             branch_id: formData.branch_id ?? null,
-          },
-        });
-      setIsEditDialogOpen(false);
-    } else {
-      // Create new expense via hook
-        await createExpense.mutateAsync({
-          amount: formData.amount,
-          category: (formData as any).category as any,
-          purpose: formData.purpose,
-          payment_method: formData.payment_method,
-          date: formData.date,
-          description: finalDescription,
-          vendor: formData.vendor,
-          receipt_number: formData.receipt_number,
-          notes: formData.notes,
-          approved_by: approvedBy ?? null,
-          approval_date: approvalDate ? approvalDate : null,
-          branch_id: formData.branch_id ?? null,
-        });
-      setIsAddDialogOpen(false);
-    }
+          });
+        setIsAddDialogOpen(false);
+      }
 
     resetForm();
     setSelectedExpense(null);
@@ -205,6 +209,7 @@ const Expenses: React.FC = () => {
       payment_method: expense.payment_method,
       vendor: expense.vendor || '',
       receipt_number: expense.receipt_number || '',
+      check_number: (expense as any).check_number || '',
       notes: expense.notes || '',
       branch_id: (expense as any).branch_id || null,
     });
@@ -645,6 +650,15 @@ const Expenses: React.FC = () => {
                     Receipt Number
                   </Label>
                   <p>{selectedExpense.receipt_number}</p>
+                </div>
+              )}
+
+              {selectedExpense.check_number && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Check Number
+                  </Label>
+                  <p>{selectedExpense.check_number}</p>
                 </div>
               )}
 

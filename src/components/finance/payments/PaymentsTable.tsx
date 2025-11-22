@@ -49,6 +49,11 @@ export const PaymentsTable: React.FC<PaymentsTableProps> = ({ data, onEdit, onDe
       },
     },
     {
+      key: 'check_number',
+      label: 'Check No.',
+      render: (value: string | undefined) => value || '-',
+    },
+    {
       key: 'created_by_user',
       label: 'Recorded By',
       render: (_: unknown, record: any) => {

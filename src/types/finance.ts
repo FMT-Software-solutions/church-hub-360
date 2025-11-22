@@ -34,6 +34,7 @@ export interface IncomeRecord extends BaseFinanceRecord {
   attendance_session_id?: string;
   payment_method: PaymentMethod;
   receipt_number?: string;
+  check_number?: string;
   // Contribution-specific fields (optional for general income)
   envelope_number?: string;
   tax_deductible?: boolean;
@@ -103,6 +104,7 @@ export interface ExpenseRecord extends BaseFinanceRecord {
   purpose?: string;
   vendor?: string;
   receipt_number?: string;
+  check_number?: string;
   payment_method: PaymentMethod;
   approved_by?: string;
   approval_date?: string;
@@ -198,6 +200,7 @@ export interface PledgePayment {
   amount: number;
   payment_date: string;
   payment_method: PaymentMethod;
+  check_number?: string;
   notes?: string;
   branch_id: string | null;
   branch?: { id: string; name: string } | null;
@@ -366,6 +369,7 @@ export interface IncomeFormData {
   description?: string;
   notes?: string;
   receipt_number?: string;
+  check_number?: string;
 }
 
 export interface ExpenseFormData {
@@ -378,6 +382,7 @@ export interface ExpenseFormData {
   description?: string;
   notes?: string;
   receipt_number?: string;
+  check_number?: string;
   branch_id?: string | null;
 }
 
@@ -415,6 +420,7 @@ export interface PledgePaymentFormData {
   amount: number;
   payment_date: string;
   payment_method: PaymentMethod;
+  check_number?: string;
   notes?: string;
 }
 

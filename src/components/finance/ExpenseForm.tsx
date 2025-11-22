@@ -219,6 +219,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
       </div>
 
+      {data.payment_method === 'check' && (
+        <div className="space-y-2">
+          <Label htmlFor="checkNumber">Check Number *</Label>
+          <Input
+            id="checkNumber"
+            value={data.check_number || ''}
+            onChange={(e) => onChange({ ...data, check_number: e.target.value })}
+            placeholder="Enter check number"
+            required
+          />
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>
         <Textarea

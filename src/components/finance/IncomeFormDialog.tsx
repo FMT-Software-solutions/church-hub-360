@@ -165,6 +165,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     group_id: (initialData as any)?.group_id,
     tag_item_id: (initialData as any)?.tag_item_id,
     receipt_number: (initialData as any)?.receipt_number ?? undefined,
+    check_number: (initialData as any)?.check_number ?? undefined,
     branch_id: (initialData as any)?.branch_id ?? null,
     income_type: initialIncomeType,
     envelope_number: (initialData as any)?.envelope_number ?? '',
@@ -219,6 +220,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
         group_id: data?.group_id,
         tag_item_id: data?.tag_item_id,
         receipt_number: data?.receipt_number ?? undefined,
+        check_number: data?.check_number ?? undefined,
         branch_id: data?.branch_id ?? null,
         income_type: data?.income_type || 'general_income',
         envelope_number: data?.envelope_number ?? '',
@@ -293,6 +295,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
       group_id: undefined,
       tag_item_id: undefined,
       receipt_number: undefined,
+      check_number: undefined,
       envelope_number: '',
       tax_deductible: undefined,
       receipt_issued: undefined,
@@ -339,6 +342,12 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     // Payment method
     if (!form.payment_method) {
       nextErrors.payment_method = 'Please select a payment method.';
+    }
+    if (form.payment_method === 'check') {
+      const cn = (form.check_number || '').trim();
+      if (!cn) {
+        nextErrors.check_number = 'Check number is required for check payments.';
+      }
     }
 
     // Date
@@ -696,6 +705,22 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
               <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.payment_method}</p>
             )}
           </div>
+
+          {form.payment_method === 'check' && (
+            <div className="space-y-2">
+              <Label htmlFor="checkNumber">Check Number *</Label>
+              <Input
+                id="checkNumber"
+                value={form.check_number || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, check_number: e.target.value }))}
+                placeholder="Enter check number"
+                required
+              />
+              {errors.check_number && (
+                <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.check_number}</p>
+              )}
+            </div>
+          )}
 
           {/* Branch (optional) */}
           <div className="space-y-2">

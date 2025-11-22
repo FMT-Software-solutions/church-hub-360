@@ -188,6 +188,15 @@ export const IncomeViewDialog: React.FC<IncomeViewDialogProps> = ({
               </div>
             )}
 
+            {contribution.check_number && (
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Check Number
+                </Label>
+                <p>{contribution.check_number}</p>
+              </div>
+            )}
+
             <div className="pt-4 border-t">
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>

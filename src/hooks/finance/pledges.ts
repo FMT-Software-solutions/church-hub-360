@@ -529,6 +529,7 @@ export interface CreatePledgePaymentInput {
   amount: number;
   payment_date: string; // YYYY-MM-DD
   payment_method: PaymentMethod;
+  check_number?: string;
   notes?: string;
   branch_id?: string | null;
 }
@@ -558,6 +559,7 @@ export function useCreatePledgePayment() {
         amount: input.amount,
         payment_date: input.payment_date,
         payment_method: input.payment_method,
+        check_number: input.check_number || null,
         notes: input.notes || null,
         created_by: user.id,
         branch_id: pledgeBranchId,
@@ -601,12 +603,16 @@ export function useUpdatePledgePayment() {
     mutationFn: async ({ id, updates }: UpdatePledgePaymentInput): Promise<PledgePayment> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
       if (!user?.id) throw new Error('User not authenticated');
+      const normalizedUpdates: Record<string, any> = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'check_number')) {
+        const raw = normalizedUpdates.check_number as string | undefined;
+        const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
+        normalizedUpdates.check_number = trimmed ? trimmed : null;
+      }
 
       const { data, error } = await supabase
         .from('pledge_payments')
-        .update({
-          ...updates,
-        })
+        .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
         .eq('created_by', user.id)

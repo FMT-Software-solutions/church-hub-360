@@ -213,6 +213,7 @@ export interface CreateExpenseInput {
   description?: string;
   vendor?: string;
   receipt_number?: string;
+  check_number?: string;
   notes?: string;
   branch_id?: string | null;
   approved_by?: string | null;
@@ -240,6 +241,7 @@ export function useCreateExpense() {
         description: input.description || null,
         vendor: input.vendor || null,
         receipt_number: input.receipt_number || null,
+        check_number: input.check_number || null,
         notes: input.notes || null,
         approved_by: input.approved_by || null,
         approval_date: input.approval_date || null,
@@ -280,12 +282,21 @@ export function useUpdateExpense() {
     mutationFn: async ({ id, updates }: UpdateExpenseInput): Promise<ExpenseRecord> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
       if (!user?.id) throw new Error('User not authenticated');
+      const normalizedUpdates: Record<string, any> = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'receipt_number')) {
+        const raw = normalizedUpdates.receipt_number as string | undefined;
+        const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
+        normalizedUpdates.receipt_number = trimmed ? trimmed : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'check_number')) {
+        const raw = normalizedUpdates.check_number as string | undefined;
+        const trimmed = typeof raw === 'string' ? raw.trim() : undefined;
+        normalizedUpdates.check_number = trimmed ? trimmed : null;
+      }
 
       const { data, error } = await supabase
         .from('expenses')
-        .update({
-          ...updates,
-        })
+        .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
         .eq('created_by', user.id)
