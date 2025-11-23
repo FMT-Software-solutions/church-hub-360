@@ -181,7 +181,7 @@ function AppRoutes() {
         <Route
           path="finance"
           element={
-            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
+            <AccessGuard fallback={<Navigate to="/dashboard" replace /> }>
               <Finance />
             </AccessGuard>
           }
@@ -191,6 +191,7 @@ function AppRoutes() {
           <Route path="expenses" element={<Expenses />} />
           <Route path="contributions" element={<Contributions />} />
           <Route path="pledges" element={<Pledges />} />
+          <Route path="activity-logs" element={<ActivityLogs />} />
           {/* <Route path="budget-planning" element={<BudgetPlanning />} /> */}
         </Route>
 
@@ -221,7 +222,7 @@ function AppRoutes() {
           }
         />
         <Route path="reports" element={<Reports />} />
-        <Route path="activity-logs" element={<ActivityLogs />} />
+        
         <Route
           path="assets"
           element={

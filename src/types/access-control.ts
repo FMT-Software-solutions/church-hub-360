@@ -13,7 +13,8 @@ export type FinanceChildKey =
   | 'income'
   | 'expenses'
   | 'contributions'
-  | 'pledges';
+  | 'pledges'
+  | 'activity_logs';
 
 export interface VisibilityOverrides {
   sections?: {
@@ -32,6 +33,7 @@ export interface VisibilityOverrides {
       expenses?: boolean;
       contributions?: boolean;
       pledges?: boolean;
+      activity_logs?: boolean;
     };
     events?: boolean;
     announcements?: boolean;

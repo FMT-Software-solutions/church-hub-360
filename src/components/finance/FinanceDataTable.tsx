@@ -81,6 +81,7 @@ interface FinanceDataTableProps {
   // Control whether the per-table print header renders (useful for aggregated report prints)
   showPrintHeader?: boolean;
   groupByKey?: string;
+  toolbarExtra?: React.ReactNode;
 }
 
 export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
@@ -100,6 +101,7 @@ export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
   printDateRangeLabel,
   showPrintHeader = true,
   groupByKey,
+  toolbarExtra,
 }) => {
   const { currentOrganization } = useOrganization();
   const tableRef = useRef<HTMLDivElement | null>(null);
@@ -345,31 +347,36 @@ export const FinanceDataTable: React.FC<FinanceDataTableProps> = ({
   return (
     <div className="rounded-md border">
       {exportable && (
-        <div className="flex justify-end gap-2 p-2 border-b bg-muted/50">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            disabled={!data?.length}
-          >
-            CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportExcel}
-            disabled={!data?.length}
-          >
-            Excel
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            disabled={!data?.length}
-          >
-            Print
-          </Button>
+        <div className="flex items-center justify-between p-2 border-b bg-muted/50">
+          <div className="flex items-center gap-2">
+            {toolbarExtra}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={!data?.length}
+            >
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={!data?.length}
+            >
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              disabled={!data?.length}
+            >
+              Print
+            </Button>
+          </div>
         </div>
       )}
       <div ref={tableRef} className="print-wrapper">

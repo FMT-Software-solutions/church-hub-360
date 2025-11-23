@@ -398,6 +398,25 @@ export interface ContributionFormData {
   tax_deductible: boolean;
 }
 
+export type FinanceEntityType = 'income' | 'expense' | 'pledge_record' | 'pledge_payment' | 'contribution';
+
+export type FinanceActionType = 'create' | 'update' | 'delete' | 'print_receipt';
+
+export interface FinanceActivityLog {
+  id: string;
+  organization_id: string;
+  branch_id: string | null;
+  entity_type: FinanceEntityType;
+  entity_id: string;
+  action_type: FinanceActionType;
+  amount?: number;
+  payment_method?: PaymentMethod | string;
+  metadata?: Record<string, any> | null;
+  actor_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PledgeFormData {
   // Source info
   source_type: 'member' | 'group' | 'tag_item' | 'other' | 'church';

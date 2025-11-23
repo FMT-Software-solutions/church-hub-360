@@ -12,6 +12,8 @@ import type {
 } from '@/types/finance';
 import type { AmountComparison } from '@/utils/finance/search';
 import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
+import { insertFinanceActivityLog, sanitizeMetadata } from '@/utils/finance/activityLog';
+import { activityLogKeys } from '@/hooks/finance/activityLogs';
 
 export interface IncomeQueryParams {
   page?: number;
@@ -367,9 +369,24 @@ export function useCreateIncome() {
       if (error) throw error;
       return data as IncomeRecord;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: incomeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Income record created');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'income',
+          entity_id: (data as any).id,
+          action_type: 'create',
+          amount: (data as any).amount,
+          payment_method: (data as any).payment_method,
+          actor_id: user!.id,
+          metadata: variables ? sanitizeMetadata(variables as any) : null,
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error creating income:', error);
@@ -424,10 +441,40 @@ export function useUpdateIncome() {
       if (error) throw error;
       return data as IncomeRecord;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: incomeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: incomeKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Income record updated');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'income',
+          entity_id: (data as any).id,
+          action_type: 'update',
+          amount: (data as any).amount,
+          payment_method: (data as any).payment_method,
+          actor_id: user!.id,
+          metadata: variables?.updates ? sanitizeMetadata({ updates: variables.updates }) : null,
+        });
+        const updates = variables?.updates || {};
+        const printed = (updates as any).receipt_issued === true || Object.prototype.hasOwnProperty.call(updates, 'receipt_number');
+        if (printed) {
+          insertFinanceActivityLog({
+            organization_id: currentOrganization!.id,
+            branch_id: (data as any).branch_id || null,
+            entity_type: 'income',
+            entity_id: (data as any).id,
+            action_type: 'print_receipt',
+            amount: (data as any).amount,
+            payment_method: (data as any).payment_method,
+            actor_id: user!.id,
+            metadata: variables?.updates ? sanitizeMetadata({ updates: variables.updates }) : null,
+          });
+        }
+      } catch {}
     },
     onError: (error) => {
       console.error('Error updating income:', error);
@@ -462,9 +509,22 @@ export function useDeleteIncome() {
       if (error) throw error;
       return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: incomeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Income record deleted');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: null,
+          entity_type: 'income',
+          entity_id: id as string,
+          action_type: 'delete',
+          actor_id: user!.id,
+           metadata: { soft_delete: true },
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error deleting income:', error);

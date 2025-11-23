@@ -5,6 +5,8 @@ import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { FinanceFilter, ExpenseRecord, PaymentMethod, ExpenseCategory } from '@/types/finance';
+import { insertFinanceActivityLog, sanitizeMetadata } from '@/utils/finance/activityLog';
+import { activityLogKeys } from '@/hooks/finance/activityLogs';
 
 export interface ExpenseQueryParams {
   page?: number;
@@ -257,9 +259,24 @@ export function useCreateExpense() {
       if (error) throw error;
       return data as ExpenseRecord;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Expense record created');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'expense',
+          entity_id: (data as any).id,
+          action_type: 'create',
+          amount: (data as any).amount,
+          payment_method: (data as any).payment_method,
+          actor_id: user!.id,
+          metadata: variables ? sanitizeMetadata(variables as any) : null,
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error creating expense:', error);
@@ -306,10 +323,25 @@ export function useUpdateExpense() {
       if (error) throw error;
       return data as ExpenseRecord;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
       queryClient.invalidateQueries({ queryKey: expenseKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Expense record updated');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'expense',
+          entity_id: (data as any).id,
+          action_type: 'update',
+          amount: (data as any).amount,
+          payment_method: (data as any).payment_method,
+          actor_id: user!.id,
+          metadata: variables?.updates ? sanitizeMetadata({ updates: variables.updates }) : null,
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error updating expense:', error);
@@ -338,9 +370,22 @@ export function useDeleteExpense() {
       if (error) throw error;
       return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Expense record deleted');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: null,
+          entity_type: 'expense',
+          entity_id: id as string,
+          action_type: 'delete',
+          actor_id: user!.id,
+          metadata: { soft_delete: true },
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error deleting expense:', error);

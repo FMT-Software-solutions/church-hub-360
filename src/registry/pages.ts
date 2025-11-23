@@ -44,6 +44,7 @@ export const PAGES: PageEntry[] = [
   { path: '/assets', label: 'Assets', section: 'assets', protected: true, nav: true, icon: 'Package' },
   { path: '/user-management', label: 'Users', section: 'user_management', protected: true, nav: true, icon: 'Users' },
   { path: '/settings', label: 'Settings', section: 'settings', protected: true, nav: true, icon: 'Settings' },
+  { path: '/finance/activity-logs', label: 'Activity Logs', section: 'finance', child: 'activity_logs', protected: true, nav: true, icon: 'Activity' },
 ];
 
 export const NAV_ITEMS: NavItem[] = [
@@ -72,6 +73,7 @@ export const NAV_ITEMS: NavItem[] = [
       { type: 'link', path: '/finance/expenses', label: 'Expenses', icon: 'TrendingDown' },
       { type: 'link', path: '/finance/contributions', label: 'Contributions', icon: 'Heart' },
       { type: 'link', path: '/finance/pledges', label: 'Pledges', icon: 'Target' },
+      { type: 'link', path: '/finance/activity-logs', label: 'Activity Logs', icon: 'Activity' },
     ],
   },
   { type: 'link', path: '/events', label: 'Events and Activities', icon: 'CalendarDays' },
@@ -79,4 +81,5 @@ export const NAV_ITEMS: NavItem[] = [
   { type: 'link', path: '/assets', label: 'Assets', icon: 'Package' },
   { type: 'link', path: '/user-management', label: 'Users', icon: 'Users' },
   { type: 'link', path: '/settings', label: 'Settings', icon: 'Settings' },
+  
 ];

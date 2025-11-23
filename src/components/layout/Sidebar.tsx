@@ -18,7 +18,7 @@ import {
   // MessageSquare,
   CalendarDays,
   BarChart3,
-  // Activity,
+  Activity,
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
@@ -83,6 +83,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   CheckCircle,
   Tag,
   IdCard,
+  Activity,
 };
 
 function buildNavItemsFromRegistry(items: RegistryNavItem[]): NavItem[] {

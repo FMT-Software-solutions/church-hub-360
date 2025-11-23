@@ -11,6 +11,8 @@ import type {
   PledgeFilter,
 } from '@/types/finance';
 import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
+import { insertFinanceActivityLog, sanitizeMetadata } from '@/utils/finance/activityLog';
+import { activityLogKeys } from '@/hooks/finance/activityLogs';
 
 export interface PledgesQueryParams {
   page?: number;
@@ -370,9 +372,23 @@ export function useCreatePledge() {
       if (error) throw error;
       return data as PledgeRecord;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: pledgeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Pledge record created');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'pledge_record',
+          entity_id: (data as any).id,
+          action_type: 'create',
+          amount: (data as any).pledge_amount,
+          actor_id: user!.id,
+          metadata: variables ? sanitizeMetadata(variables as any) : null,
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error creating pledge:', error);
@@ -415,10 +431,24 @@ export function useUpdatePledge() {
       if (error) throw error;
       return data as PledgeRecord;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: pledgeKeys.lists() });
       queryClient.invalidateQueries({ queryKey: pledgeKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Pledge record updated');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'pledge_record',
+          entity_id: (data as any).id,
+          action_type: 'update',
+          amount: (data as any).pledge_amount,
+          actor_id: user!.id,
+          metadata: variables?.updates ? sanitizeMetadata({ updates: variables.updates }) : null,
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error updating pledge:', error);
@@ -447,9 +477,22 @@ export function useDeletePledge() {
       if (error) throw error;
       return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: pledgeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Pledge record deleted');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: null,
+          entity_type: 'pledge_record',
+          entity_id: id as string,
+          action_type: 'delete',
+          actor_id: user!.id,
+          metadata: { soft_delete: true },
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error deleting pledge:', error);
@@ -574,13 +617,28 @@ export function useCreatePledgePayment() {
       if (error) throw error;
       return data as PledgePayment;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       // Refresh payments queries (prefix match to cover all params)
       queryClient.invalidateQueries({ queryKey: pledgeKeys.payments() });
       // Refresh the pledge detail and overall pledges list to reflect updated totals
       queryClient.invalidateQueries({ queryKey: pledgeKeys.detail(data.pledge_id) });
       queryClient.invalidateQueries({ queryKey: pledgeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Pledge payment recorded');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'pledge_payment',
+          entity_id: (data as any).id,
+          action_type: 'create',
+          amount: (data as any).amount,
+          payment_method: (data as any).payment_method,
+          actor_id: user!.id,
+          metadata: variables ? sanitizeMetadata(variables as any) : { pledge_id: (data as any).pledge_id },
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error creating pledge payment:', error);
@@ -622,13 +680,28 @@ export function useUpdatePledgePayment() {
       if (error) throw error;
       return data as PledgePayment;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       // Refresh payments queries (prefix match to cover all params)
       queryClient.invalidateQueries({ queryKey: pledgeKeys.payments() });
       // Refresh the pledge detail and overall pledges list to reflect updated totals
       queryClient.invalidateQueries({ queryKey: pledgeKeys.detail(data.pledge_id) });
       queryClient.invalidateQueries({ queryKey: pledgeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Pledge payment updated');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: (data as any).branch_id || null,
+          entity_type: 'pledge_payment',
+          entity_id: (data as any).id,
+          action_type: 'update',
+          amount: (data as any).amount,
+          payment_method: (data as any).payment_method,
+          actor_id: user!.id,
+          metadata: variables?.updates ? sanitizeMetadata({ updates: variables.updates, pledge_id: (data as any).pledge_id }) : { pledge_id: (data as any).pledge_id },
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error updating pledge payment:', error);
@@ -657,13 +730,26 @@ export function useDeletePledgePayment() {
       if (error) throw error;
       return { success: true };
     },
-    onSuccess: (_, { pledge_id }) => {
+    onSuccess: (_, { pledge_id, id }) => {
       // Refresh payments queries (prefix match to cover all params)
       queryClient.invalidateQueries({ queryKey: pledgeKeys.payments() });
       // Refresh the pledge detail and overall pledges list to reflect updated totals
       queryClient.invalidateQueries({ queryKey: pledgeKeys.detail(pledge_id) });
       queryClient.invalidateQueries({ queryKey: pledgeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.lists() });
+      queryClient.refetchQueries({ queryKey: activityLogKeys.lists() });
       toast.success('Pledge payment deleted');
+      try {
+        insertFinanceActivityLog({
+          organization_id: currentOrganization!.id,
+          branch_id: null,
+          entity_type: 'pledge_payment',
+          entity_id: id as string,
+          action_type: 'delete',
+          actor_id: user!.id,
+          metadata: { pledge_id, soft_delete: true },
+        });
+      } catch {}
     },
     onError: (error) => {
       console.error('Error deleting pledge payment:', error);

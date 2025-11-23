@@ -9,7 +9,7 @@ export type SectionKey =
   | 'settings';
 
 export type PeopleChildKey = 'attendance' | 'tags_groups' | 'membership' | 'form_builder' | 'birthdays';
-export type FinanceChildKey = 'insights' | 'income' | 'expenses' | 'contributions' | 'pledges';
+export type FinanceChildKey = 'insights' | 'income' | 'expenses' | 'contributions' | 'pledges' | 'activity_logs';
 
 export const PEOPLE_CHILDREN: PeopleChildKey[] = [
   'attendance',
@@ -25,4 +25,5 @@ export const FINANCE_CHILDREN: FinanceChildKey[] = [
   'expenses',
   'contributions',
   'pledges',
+  'activity_logs',
 ];
