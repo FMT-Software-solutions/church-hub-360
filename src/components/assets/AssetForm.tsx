@@ -35,6 +35,8 @@ export interface AssetFormValues {
   assigned_to_type?: 'member' | 'group' | null;
   images: string[];
   purchase_date?: string | null;
+  purchase_cost?: number;
+  depreciation_percentage?: number;
 }
 
 export interface AssetFormProps {
@@ -75,6 +77,8 @@ export default function AssetForm({
     assigned_to_type: initialValues?.assigned_to_type || null,
     images: initialValues?.images || [],
     purchase_date: initialValues?.purchase_date || null,
+    purchase_cost: initialValues?.purchase_cost || undefined,
+    depreciation_percentage: initialValues?.depreciation_percentage || undefined,
   });
 
   const [categorySelection, setCategorySelection] = useState<string>(
@@ -159,9 +163,26 @@ export default function AssetForm({
         assignmentMode === 'none' ? null : values.assigned_to_type || null,
       images: values.images,
       purchase_date: values.purchase_date || null,
+      purchase_cost: values.purchase_cost || undefined,
+      depreciation_percentage: values.depreciation_percentage || undefined,
     };
     await onSubmit(payload);
   };
+
+  const depreciationPreview = useMemo(() => {
+    if (!values.purchase_cost || !values.depreciation_percentage) return null;
+    const cost = Number(values.purchase_cost);
+    const rate = Number(values.depreciation_percentage);
+    if (isNaN(cost) || isNaN(rate)) return null;
+    
+    const depreciationAmount = (cost * rate) / 100;
+    const currentValue = Math.max(0, cost - depreciationAmount);
+    
+    return {
+      depreciationAmount,
+      currentValue
+    };
+  }, [values.purchase_cost, values.depreciation_percentage]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -248,6 +269,52 @@ export default function AssetForm({
             disableFuture
           />
         </div>
+      </div>
+
+      <div className="border rounded-md p-4 bg-muted/20 space-y-4">
+        <h3 className="text-sm font-medium">Financial Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <Label>Purchase Cost</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={values.purchase_cost || ''}
+              onChange={(e) => handleChange('purchase_cost', parseFloat(e.target.value))}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-3">
+            <Label>Depreciation Percentage (%)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={values.depreciation_percentage || ''}
+              onChange={(e) => handleChange('depreciation_percentage', parseFloat(e.target.value))}
+              placeholder="0.0"
+            />
+          </div>
+        </div>
+        
+        {depreciationPreview && (
+          <div className="mt-4 p-3 bg-background rounded border text-sm grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-muted-foreground block">Depreciation Amount</span>
+              <span className="font-medium text-red-500">
+                -{new Intl.NumberFormat('en-US', { style: 'currency', currency: currentOrganization?.currency || 'GHS' }).format(depreciationPreview.depreciationAmount)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Current Estimated Value</span>
+              <span className="font-medium text-green-600">
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: currentOrganization?.currency || 'GHS' }).format(depreciationPreview.currentValue)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">

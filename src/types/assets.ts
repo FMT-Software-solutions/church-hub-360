@@ -14,6 +14,10 @@ export interface Asset {
   assigned_to_type?: 'member' | 'group' | null;
   images: string[];
   purchase_date?: string | null;
+  purchase_cost?: number;
+  depreciation_percentage?: number;
+  sold_amount?: number | null;
+  sold_date?: string | null;
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
@@ -35,6 +39,10 @@ export interface CreateAssetInput {
   assigned_to_type?: 'member' | 'group' | null;
   images?: string[];
   purchase_date?: string | null;
+  purchase_cost?: number;
+  depreciation_percentage?: number;
+  sold_amount?: number | null;
+  sold_date?: string | null;
 }
 
 export interface UpdateAssetInput extends Partial<CreateAssetInput> {}
