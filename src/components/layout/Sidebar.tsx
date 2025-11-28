@@ -28,6 +28,7 @@ import {
   Gift,
   Tag,
   IdCard,
+  Bell,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -84,6 +85,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Tag,
   IdCard,
   Activity,
+  Bell,
 };
 
 function buildNavItemsFromRegistry(items: RegistryNavItem[]): NavItem[] {
@@ -137,7 +139,9 @@ export function Sidebar() {
     .filter((item) => !item.devOnly || isDev)
     .filter((item) => {
       if (item.children && item.children.length > 0) {
-        return item.children.some((child) => (child.to ? canAccessPath(child.to) : false));
+        return item.children.some((child) =>
+          child.to ? canAccessPath(child.to) : false
+        );
       }
       if (item.to) {
         return canAccessPath(item.to);
@@ -221,7 +225,9 @@ export function Sidebar() {
                     className="w-48"
                   >
                     {item.children
-                      ?.filter((child) => (child.to ? canAccessPath(child.to) : false))
+                      ?.filter((child) =>
+                        child.to ? canAccessPath(child.to) : false
+                      )
                       .map((child) => {
                         const ChildIcon = child.icon;
                         return (
@@ -281,7 +287,9 @@ export function Sidebar() {
           {isExpanded && !isCollapsed && (
             <ul className="mt-1 ml-6 space-y-1">
               {item.children
-                ?.filter((child) => (child.to ? canAccessPath(child.to) : false))
+                ?.filter((child) =>
+                  child.to ? canAccessPath(child.to) : false
+                )
                 .map((child) => renderNavItem(child, level + 1))}
             </ul>
           )}
@@ -384,7 +392,9 @@ export function Sidebar() {
           {isExpanded && (
             <ul className="mt-1 ml-6 space-y-1">
               {item.children
-                ?.filter((child) => (child.to ? canAccessPath(child.to) : false))
+                ?.filter((child) =>
+                  child.to ? canAccessPath(child.to) : false
+                )
                 .map((child) => renderMobileNavItem(child, level + 1))}
             </ul>
           )}

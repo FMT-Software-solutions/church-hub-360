@@ -1,6 +1,7 @@
 import { OrganizationSelector } from '../shared/OrganizationSelector';
 import { UserProfileDropdown } from '../shared/UserProfileDropdown';
 import { RestartToUpdateButton } from '../../modules/auto-update/RestartToUpdateButton';
+import { NotificationCenter } from '../shared/NotificationCenter';
 
 export function Header() {
 
@@ -16,6 +17,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-4">
+          <NotificationCenter />
           <UserProfileDropdown />
         </div>
       </div>

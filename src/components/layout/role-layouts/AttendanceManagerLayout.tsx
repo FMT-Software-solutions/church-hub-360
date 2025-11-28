@@ -8,6 +8,7 @@ export function AttendanceManagerLayout() {
     '/people/attendance',
     '/people/attendance/marking',
     '/profile',
+    '/notifications',
   ];
   const isAllowed = allowedPrefixes.some((p) =>
     location.pathname.startsWith(p)

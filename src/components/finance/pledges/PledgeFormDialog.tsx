@@ -19,6 +19,8 @@ import { useGroup } from '@/hooks/useGroups';
 import { useTagsQuery } from '@/hooks/useRelationalTags';
 import { format } from 'date-fns';
 import { SingleBranchSelector } from '@/components/shared/BranchSelector';
+import { useEditRequest } from '@/hooks/finance/useEditRequests';
+import { EditRequestLockedView } from '@/components/finance/edit-request/EditRequestLockedView';
 
 interface PledgeFormDialogProps {
   open: boolean;
@@ -55,6 +57,14 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
   const memberQuery = useMember(memberId);
   const groupQuery = useGroup(groupId ?? null);
   const tagsQuery = useTagsQuery(currentOrganization?.id);
+
+  const { 
+    request: editRequest, 
+    isLoading: isLoadingRequest, 
+    canEdit, 
+    refetch: refetchRequest,
+    completeRequest 
+  } = useEditRequest('pledge_record', initialData?.id || '');
 
   useEffect(() => {
     if (!open) return;
@@ -161,6 +171,10 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
         description: finalDescription || undefined,
         branch_id: branchId || undefined,
       }});
+
+      if (editRequest && canEdit) {
+        completeRequest.mutate(editRequest.id);
+      }
     }
     onSuccess?.();
     onOpenChange(false);
@@ -176,6 +190,18 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
           </DialogDescription>
         </DialogHeader>
 
+        {mode === 'edit' && initialData?.id && !canEdit ? (
+          <div className="py-4">
+            <EditRequestLockedView 
+              request={editRequest}
+              isLoading={isLoadingRequest}
+              onCheckStatus={refetchRequest}
+              tableName="pledge_record"
+              recordId={initialData.id}
+            />
+          </div>
+        ) : (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="pledge_amount">Pledge Amount</Label>
@@ -365,6 +391,8 @@ export function PledgeFormDialog({ open, onOpenChange, mode, title, initialData,
             {mode === 'add' ? 'Add Pledge' : 'Save Changes'}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

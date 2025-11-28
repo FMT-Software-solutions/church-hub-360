@@ -251,7 +251,6 @@ export function useUpdatePayment() {
         .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id)
         .select()
         .single();
 
@@ -283,8 +282,7 @@ export function useDeletePayment() {
         .from('pledge_payments')
         .update({ is_deleted: true })
         .eq('id', id)
-        .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id);
+        .eq('organization_id', currentOrganization.id);
 
       if (error) throw error;
       return { success: true };

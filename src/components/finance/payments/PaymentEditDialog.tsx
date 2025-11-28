@@ -22,6 +22,8 @@ import { DatePicker } from '@/components/shared/DatePicker';
 import type { PaymentMethod, PledgePayment } from '@/types/finance';
 import { paymentMethodOptions } from '../constants';
 import { useUpdatePayment } from '@/hooks/finance/payments';
+import { useEditRequest } from '@/hooks/finance/useEditRequests';
+import { EditRequestLockedView } from '@/components/finance/edit-request/EditRequestLockedView';
 
 interface PaymentEditDialogProps {
   open: boolean;
@@ -37,6 +39,15 @@ export function PaymentEditDialog({
   onSuccess,
 }: PaymentEditDialogProps) {
   const updatePayment = useUpdatePayment();
+
+  // Edit Request Hook
+  const {
+    request: editRequest,
+    isLoading: isLoadingRequest,
+    canEdit,
+    refetch: refetchRequest,
+    completeRequest,
+  } = useEditRequest('pledge_payment', payment?.id || '');
 
   const [amount, setAmount] = useState<number>(0);
   const [paymentDate, setPaymentDate] = useState<string>('');
@@ -73,6 +84,11 @@ export function PaymentEditDialog({
         notes: notes || undefined,
       },
     });
+
+    if (editRequest?.id && canEdit) {
+      await completeRequest.mutateAsync(editRequest.id);
+    }
+
     onSuccess?.();
     onOpenChange(false);
   };
@@ -85,80 +101,97 @@ export function PaymentEditDialog({
           <DialogDescription>Update payment details</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="payment_amount">Payment Amount</Label>
-            <Input
-              id="payment_amount"
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
+        {open && payment && !canEdit ? (
+          <div className="py-4">
+            <EditRequestLockedView
+              request={editRequest}
+              isLoading={isLoadingRequest}
+              onCheckStatus={refetchRequest}
+              tableName="pledge_payment"
+              recordId={payment.id}
             />
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="payment_amount">Payment Amount</Label>
+                <Input
+                  id="payment_amount"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <DatePicker
-              label="Payment Date"
-              value={paymentDate}
-              onChange={setPaymentDate}
-            />
-          </div>
+              <div className="space-y-2">
+                <DatePicker
+                  label="Payment Date"
+                  value={paymentDate}
+                  onChange={setPaymentDate}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label>Payment Method</Label>
-            <Select
-              value={paymentMethod}
-              onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {paymentMethodOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select
+                  value={paymentMethod}
+                  onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethodOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {paymentMethod === 'cheque' && (
-            <div className="space-y-2">
-              <Label htmlFor="check_number">Cheque Number</Label>
-              <Input
-                id="check_number"
-                value={checkNumber}
-                onChange={(e) => setCheckNumber(e.target.value)}
-                placeholder="Enter cheque number"
-              />
+              {paymentMethod === 'cheque' && (
+                <div className="space-y-2">
+                  <Label htmlFor="check_number">Cheque Number</Label>
+                  <Input
+                    id="check_number"
+                    value={checkNumber}
+                    onChange={(e) => setCheckNumber(e.target.value)}
+                    placeholder="Enter cheque number"
+                  />
+                </div>
+              )}
+
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional notes"
+                />
+              </div>
             </div>
-          )}
 
-          <div className="md:col-span-2 space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes"
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
-            Save Changes
-          </Button>
-        </DialogFooter>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={!canSubmit || isSubmitting}
+              >
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

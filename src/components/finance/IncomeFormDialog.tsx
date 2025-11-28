@@ -45,6 +45,8 @@ import type {
 import React, { useEffect, useMemo, useState } from 'react';
 import { paymentMethodOptions } from './constants';
 import { BranchSelector } from '@/components/shared/BranchSelector';
+import { useEditRequest } from '@/hooks/finance/useEditRequests';
+import { EditRequestLockedView } from '@/components/finance/edit-request/EditRequestLockedView';
 
 
 type IncomeFieldKey =
@@ -102,6 +104,15 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
 
   // Derive editing id from current initialData to ensure it updates when selection changes
   const editingId: string | undefined = (initialData as any)?.id;
+
+  // Edit Request Hook
+  const { 
+    request: editRequest, 
+    isLoading: isLoadingRequest, 
+    canEdit, 
+    refetch: refetchRequest,
+    completeRequest 
+  } = useEditRequest('income', editingId || '');
 
   const initialIncomeType: IncomeType = (initialData as any)?.income_type || 'general_income';
 
@@ -200,6 +211,10 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
   // Sync form state with incoming initialData when dialog opens or when selection changes
   useEffect(() => {
     if (!computedOpen) return;
+
+    if (mode === 'edit' && editingId) {
+      refetchRequest();
+    }
 
     const data = initialData as any;
     if (data) {
@@ -400,6 +415,10 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
     try {
       if (mode === 'edit' && editingId) {
         const updated = await updateIncome.mutateAsync({ id: editingId, updates: { ...form } });
+        // Complete the request to release the lock
+        if (editRequest?.id && canEdit) {
+            await completeRequest.mutateAsync(editRequest.id);
+        }
         onSuccess?.(updated as any);
       } else {
         const created = await createIncome.mutateAsync({ ...form });
@@ -419,11 +438,22 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
           <DialogTitle>{title || (isAdd ? 'Add Income' : 'Edit Income')}</DialogTitle>
           <DialogDescription>
             {isAdd
-              ? 'Record a new income across contributions, donations, pledges, or general.'
-              : 'Update income details and sources.'}
+              ? 'Record a new income record.'
+              : 'Update income details.'}
           </DialogDescription>
         </DialogHeader>
 
+        {mode === 'edit' && !canEdit ? (
+          <div className="py-4">
+              <EditRequestLockedView 
+                request={editRequest}
+                isLoading={isLoadingRequest}
+                onCheckStatus={refetchRequest}
+                tableName="income"
+                recordId={editingId!}
+              />
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount & Types */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -798,6 +828,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
             </Button>
           </DialogFooter>
         </form>
+        )}
         <IncomePreferencesDrawer open={prefsOpen} onOpenChange={setPrefsOpen} />
       </DialogContent>
     </Dialog>

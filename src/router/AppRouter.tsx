@@ -18,6 +18,7 @@ import { OrganizationSelection } from '../pages/OrganizationSelection';
 // Protected pages
 import { Branches } from '../pages/Branches';
 import { Dashboard } from '../pages/Dashboard';
+import { Notifications } from '../pages/Notifications';
 import { Profile } from '../pages/Profile';
 import { Settings } from '../pages/Settings';
 import { OrganizationSelectionProtectedRoute } from '@/components/auth/OrganizationSelectionProtectedRoute';
@@ -127,6 +128,14 @@ function AppRoutes() {
         {/* Dashboard - default route */}
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route
+          path="notifications"
+          element={
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
+              <Notifications />
+            </AccessGuard>
+          }
+        />
 
         {/* Main application routes */}
         <Route
@@ -181,7 +190,7 @@ function AppRoutes() {
         <Route
           path="finance"
           element={
-            <AccessGuard fallback={<Navigate to="/dashboard" replace /> }>
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
               <Finance />
             </AccessGuard>
           }
@@ -216,13 +225,13 @@ function AppRoutes() {
         <Route
           path="announcements/:announcementId"
           element={
-            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
               <AnnouncementDetails />
             </AccessGuard>
           }
         />
         <Route path="reports" element={<Reports />} />
-        
+
         <Route
           path="assets"
           element={
@@ -234,7 +243,7 @@ function AppRoutes() {
         <Route
           path="assets/add"
           element={
-            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
               <AddAsset />
             </AccessGuard>
           }
@@ -242,7 +251,7 @@ function AppRoutes() {
         <Route
           path="assets/:assetId"
           element={
-            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
               <AssetDetail />
             </AccessGuard>
           }
@@ -250,7 +259,7 @@ function AppRoutes() {
         <Route
           path="assets/:assetId/edit"
           element={
-            <AccessGuard fallback={<Navigate to="/dashboard" replace />}> 
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
               <EditAsset />
             </AccessGuard>
           }
@@ -270,7 +279,10 @@ function AppRoutes() {
         path="/dev/announcement-slide-editor"
         element={<TestAnnouncementEditorLayout />}
       />
-      <Route path="/dev/provision-org-owner" element={<ProvisionOrgOwnerTest />} />
+      <Route
+        path="/dev/provision-org-owner"
+        element={<ProvisionOrgOwnerTest />}
+      />
 
       {/* Catch-all route - redirect to dashboard if authenticated, login if not */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

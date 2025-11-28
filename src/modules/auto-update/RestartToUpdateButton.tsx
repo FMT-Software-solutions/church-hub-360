@@ -31,6 +31,7 @@ export const RestartToUpdateButton: React.FC<RestartToUpdateButtonProps> = ({
   } = useUpdateStore();
 
   const [installType, setInstallType] = useState<InstallType>('appimage');
+  const [platform, setPlatform] = useState<string>('');
 
   // Fetch install type on mount
   useEffect(() => {
@@ -41,6 +42,7 @@ export const RestartToUpdateButton: React.FC<RestartToUpdateButtonProps> = ({
             'get-platform-info'
           );
           setInstallType(info.installType || 'package');
+          setPlatform(info.platform || '');
         } catch (e) {
           setInstallType('package');
         }
@@ -249,8 +251,11 @@ export const RestartToUpdateButton: React.FC<RestartToUpdateButtonProps> = ({
     );
   }
 
-  // Show install updates button for AppImage
-  if (installType === 'appimage' && isDownloadComplete) {
+  // Show install updates button for AppImage or Windows
+  if (
+    (installType === 'appimage' || platform === 'win32') &&
+    isDownloadComplete
+  ) {
     return (
       <Button
         onClick={handleInstallUpdates}
@@ -268,8 +273,8 @@ export const RestartToUpdateButton: React.FC<RestartToUpdateButtonProps> = ({
     );
   }
 
-  // For .deb/.rpm (installType === 'package'), show Download from Website bustton
-  if (installType === 'package' && hasUpdate) {
+  // For .deb/.rpm (installType === 'package') on non-Windows platforms, show Download from Website button
+  if (installType === 'package' && platform !== 'win32' && hasUpdate) {
     const handleDownloadClick = () => {
       const downloadUrl = import.meta.env.VITE_DOWNLOADS_PAGE_URL || '';
       if (downloadUrl) {

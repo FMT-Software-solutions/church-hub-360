@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
  
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 
 import {
   FinanceDataTable,
@@ -37,6 +37,8 @@ import { ChartColumn, ChartLine, DollarSign, Edit, Eye, Trash2, Settings } from 
 import { ExpenseForm } from '@/components/finance/ExpenseForm';
 import { useExpensePreferences } from '@/hooks/finance/useExpensePreferences';
 import { ExpensePreferencesDrawer } from '@/components/finance/ExpensePreferencesDrawer';
+import { useEditRequest } from '@/hooks/finance/useEditRequests';
+import { EditRequestLockedView } from '@/components/finance/edit-request/EditRequestLockedView';
 
 const Expenses: React.FC = () => {
   const { currentOrganization } = useOrganization();
@@ -102,6 +104,21 @@ const Expenses: React.FC = () => {
 
   const [approvedBy, setApprovedBy] = useState<string | null>(null);
   const [approvalDate, setApprovalDate] = useState<string>('');
+
+  // Edit Request Hook
+  const { 
+    request: editRequest, 
+    isLoading: isLoadingRequest, 
+    canEdit, 
+    refetch: refetchRequest,
+    completeRequest 
+  } = useEditRequest('expense', selectedExpense?.id || '');
+
+  useEffect(() => {
+    if (isEditDialogOpen && selectedExpense?.id) {
+        refetchRequest();
+    }
+  }, [isEditDialogOpen, selectedExpense?.id, refetchRequest]);
 
   // Prefill approved by typeahead and display
   const { data: approvedByDetails = [] } = useMemberDetails(approvedBy ? [approvedBy] : []);
@@ -172,6 +189,11 @@ const Expenses: React.FC = () => {
               branch_id: formData.branch_id ?? null,
             },
           });
+        
+          if (editRequest?.id && canEdit) {
+            await completeRequest.mutateAsync(editRequest.id);
+          }
+          
         setIsEditDialogOpen(false);
       } else {
         // Create new expense via hook
@@ -532,26 +554,40 @@ const Expenses: React.FC = () => {
               Update the expense information.
             </DialogDescription>
           </DialogHeader>
-          <ExpenseForm
-            data={formData}
-            onChange={(next) => setFormData(next)}
-            onApprovedByChange={setApprovedBy}
-            approvalDate={approvalDate}
-            onApprovalDateChange={setApprovalDate}
-            approvedTypeaheadValueSingle={approvedTypeaheadValueSingle}
-            organizationId={currentOrganization?.id || ''}
-            onSubmit={handleSubmit}
-            submitLabel="Update Expense"
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
+          {isEditDialogOpen && selectedExpense && !canEdit ? (
+             <div className="py-4">
+               <EditRequestLockedView 
+                 request={editRequest}
+                 isLoading={isLoadingRequest}
+                 onCheckStatus={refetchRequest}
+                 tableName="expense"
+                 recordId={selectedExpense.id}
+               />
+             </div>
+          ) : (
+            <>
+              <ExpenseForm
+                data={formData}
+                onChange={(next) => setFormData(next)}
+                onApprovedByChange={setApprovedBy}
+                approvalDate={approvalDate}
+                onApprovalDateChange={setApprovalDate}
+                approvedTypeaheadValueSingle={approvedTypeaheadValueSingle}
+                organizationId={currentOrganization?.id || ''}
+                onSubmit={handleSubmit}
+                submitLabel="Update Expense"
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

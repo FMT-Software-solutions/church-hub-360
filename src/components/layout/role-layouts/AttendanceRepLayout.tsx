@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 export function AttendanceRepLayout() {
   const location = useLocation();
   
-  const allowedPrefixes = ['/people/attendance/marking', '/profile'];
+  const allowedPrefixes = ['/people/attendance/marking', '/profile', '/notifications'];
   const isAllowed = allowedPrefixes.some((p) =>
     location.pathname.startsWith(p)
   );

@@ -223,6 +223,14 @@ const Income: React.FC = () => {
         record.branch?.name || 'All branches',
     },
     {
+      key: 'created_by',
+      label: 'Recorded By',
+      render: (_: any, record: IncomeResponseRow) =>
+        record.created_by_user
+          ? `${record.created_by_user.first_name} ${record.created_by_user.last_name}`
+          : '-',
+    },
+    {
       key: 'receipt_number',
       label: 'Receipt #',
       render: (value) => value || '-',

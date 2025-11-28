@@ -400,7 +400,7 @@ export interface ContributionFormData {
 
 export type FinanceEntityType = 'income' | 'expense' | 'pledge_record' | 'pledge_payment' | 'contribution';
 
-export type FinanceActionType = 'create' | 'update' | 'delete' | 'print_receipt';
+export type FinanceActionType = 'create' | 'update' | 'delete' | 'print_receipt' | 'request_edit' | 'approve_edit' | 'reject_edit' | 'cancel_edit' | 'complete_edit';
 
 export interface FinanceActivityLog {
   id: string;

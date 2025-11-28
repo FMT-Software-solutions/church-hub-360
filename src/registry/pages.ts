@@ -45,10 +45,12 @@ export const PAGES: PageEntry[] = [
   { path: '/user-management', label: 'Users', section: 'user_management', protected: true, nav: true, icon: 'Users' },
   { path: '/settings', label: 'Settings', section: 'settings', protected: true, nav: true, icon: 'Settings' },
   { path: '/finance/activity-logs', label: 'Activity Logs', section: 'finance', child: 'activity_logs', protected: true, nav: true, icon: 'Activity' },
+  { path: '/notifications', label: 'Notifications', protected: true, nav: true, icon: 'Bell' },
 ];
 
 export const NAV_ITEMS: NavItem[] = [
   { type: 'link', path: '/dashboard', label: 'Dashboard', icon: 'Home' },
+  { type: 'link', path: '/notifications', label: 'Notifications', icon: 'Bell' },
   { type: 'link', path: '/branches', label: 'Branches', icon: 'MapPin' },
   {
     type: 'group',

@@ -15,7 +15,17 @@ import { Eye, RefreshCw } from 'lucide-react'
 import { paymentMethodOptions } from '@/components/finance/constants'
 
 const ENTITY_TYPES: FinanceEntityType[] = ['income', 'expense', 'pledge_record', 'pledge_payment', 'contribution']
-const ACTION_TYPES: FinanceActionType[] = ['create', 'update', 'delete', 'print_receipt']
+const ACTION_TYPES: FinanceActionType[] = [
+  'create', 
+  'update', 
+  'delete', 
+  'print_receipt',
+  'request_edit',
+  'approve_edit',
+  'reject_edit',
+  'cancel_edit',
+  'complete_edit'
+]
 
 export function ActivityLogs() {
   const { currentOrganization } = useOrganization()

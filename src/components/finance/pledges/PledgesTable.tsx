@@ -39,6 +39,14 @@ export function PledgesTable({ data, actions = [], loading, printTitle, printDat
     { key: 'contributor_name', label: 'Source', sortable: true },
     { key: 'branch', label: 'Branch', sortable: true, render: (_: unknown, row: PledgeRecord) => row.branch?.name || 'All branches' },
     {
+      key: 'created_by',
+      label: 'Recorded By',
+      render: (_: unknown, row: PledgeRecord) =>
+        row.created_by_user
+          ? `${row.created_by_user.first_name} ${row.created_by_user.last_name}`
+          : '-',
+    },
+    {
       key: 'pledge_type',
       label: 'Pledge Type',
       sortable: true,

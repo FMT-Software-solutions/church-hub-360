@@ -434,7 +434,6 @@ export function useUpdateIncome() {
         .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id) // RLS requires creator
         .select()
         .single();
 
@@ -503,8 +502,7 @@ export function useDeleteIncome() {
         .from('income')
         .update({ is_deleted: true })
         .eq('id', id)
-        .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id);
+        .eq('organization_id', currentOrganization.id);
 
       if (error) throw error;
       return { success: true };

@@ -424,7 +424,6 @@ export function useUpdatePledge() {
         })
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id)
         .select()
         .single();
 
@@ -471,8 +470,7 @@ export function useDeletePledge() {
         .from('pledge_records')
         .update({ is_deleted: true })
         .eq('id', id)
-        .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id);
+        .eq('organization_id', currentOrganization.id);
 
       if (error) throw error;
       return { success: true };
@@ -673,7 +671,6 @@ export function useUpdatePledgePayment() {
         .update(normalizedUpdates)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
-        .eq('created_by', user.id)
         .select()
         .single();
 
@@ -724,8 +721,7 @@ export function useDeletePledgePayment() {
         .from('pledge_payments')
         .update({ is_deleted: true })
         .eq('id', id)
-        .eq('organization_id', currentOrganization!.id)
-        .eq('created_by', user.id);
+        .eq('organization_id', currentOrganization!.id);
 
       if (error) throw error;
       return { success: true };

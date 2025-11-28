@@ -9,7 +9,7 @@ export function FinanceAdminLayout() {
   const location = useLocation();
   const { canAccess, role } = useAccess();
   const { currentOrganization, isLoading } = useOrganization();
-  const allowedPrefixes = ['/finance', '/profile'];
+  const allowedPrefixes = ['/finance', '/profile', '/notifications'];
   const isAllowed = allowedPrefixes.some((p) =>
     location.pathname.startsWith(p)
   );
