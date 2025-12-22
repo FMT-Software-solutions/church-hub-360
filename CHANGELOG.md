@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-12-22
+
+### New Features
+ - Restrict finance record deletion to only owners
+
+### Bug Fixes
+- Fixed issues with finance stats,  reports, entry counts limit
+
+
 ## [1.1.0] - 2025-11-28
 
 ### New Features
