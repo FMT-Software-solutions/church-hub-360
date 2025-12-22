@@ -8,14 +8,13 @@
 
 module.exports = {
   // Version information
-  version: "1.2.0",
+  version: "1.2.1",
   
   // Release notes in markdown format
   releaseNotes: `### New Features
- - Restrict finance record deletion to only owners
 
 ### Bug Fixes
-- Fixed issues with finance stats,  reports, entry counts limit
+- Fixed issues expenses categories grouping and pagination
 `,
 
 
@@ -86,7 +85,7 @@ module.exports = {
     createCommit: true,
     createTag: true,
     pushChanges: true, // Set to true to automatically push
-    commitMessage: "Release v1.2.0"
+    commitMessage: "Release v1.2.1"
   },
 
   // Validation rules
