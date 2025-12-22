@@ -10,6 +10,7 @@ import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmation
 import { Pagination } from '@/components/shared/Pagination';
 // import { useOrganization } from '@/contexts/OrganizationContext';
 import { useDeleteIncome, useIncomes } from '@/hooks/finance/income';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
 import type {
   FinanceFilter,
   IncomeResponseRow,
@@ -19,8 +20,14 @@ import { Heart } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import type { AmountComparison } from '@/utils/finance/search';
 
+import {
+  mapDateFilterToPicker,
+  mapPickerToDateFilter,
+} from '@/utils/finance/dateFilter';
+
+import { useContributionStatsData } from '@/hooks/finance/useFinanceStats';
+
 const Contributions: React.FC = () => {
-  // Data: use contributions from income table
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState<string | undefined>(undefined);
@@ -28,11 +35,14 @@ const Contributions: React.FC = () => {
     null
   );
   const [filters, setFilters] = useState<FinanceFilter>({
-    date_filter: { type: 'preset', preset: 'this_month' },
+    date_filter: mapPickerToDateFilter(
+      mapDateFilterToPicker({ type: 'preset', preset: 'this_month' })
+    ),
   });
   const [recordTypeFilter, setRecordTypeFilter] = useState<'all' | IncomeType>(
     'all'
   );
+  const { isOwner } = useRoleCheck();
 
   const contributionsQuery = useIncomes({
     page,
@@ -45,6 +55,18 @@ const Contributions: React.FC = () => {
         ? ['contribution', 'donation']
         : [recordTypeFilter],
   });
+
+  // Dedicated query for stats
+  const { data: statsData } = useContributionStatsData({
+    search,
+    amount_comparison: amountSearch || undefined,
+    filters,
+    income_types:
+      recordTypeFilter === 'all'
+        ? ['contribution', 'donation']
+        : [recordTypeFilter],
+  });
+
   const contributions: IncomeResponseRow[] =
     contributionsQuery.data?.data || [];
 
@@ -117,44 +139,19 @@ const Contributions: React.FC = () => {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const totalAmount = filteredContributions.reduce(
-      (sum, contribution) => sum + contribution.amount,
-      0
-    );
-    const totalContributionAmount = filteredContributions
-      .filter((c) => c.income_type === 'contribution')
-      .reduce((sum, c) => sum + c.amount, 0);
-    const totalDonationAmount = filteredContributions
-      .filter((c) => c.income_type === 'donation')
-      .reduce((sum, c) => sum + c.amount, 0);
-    const recordCount = filteredContributions.length;
-    const averageAmount = recordCount > 0 ? totalAmount / recordCount : 0;
-
-    // Find top contributor
-    const contributorTotals = filteredContributions.reduce(
-      (acc, contribution) => {
-        const key = (contribution as any).contributor_name || 'Unknown';
-        acc[key] = (acc[key] || 0) + contribution.amount;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-
-    const topContributor = Object.entries(contributorTotals).reduce(
-      (max, [name, amount]) => (amount > max.amount ? { name, amount } : max),
-      { name: 'None', amount: 0 }
-    );
-
-    return {
-      totalAmount,
-      totalContributionAmount,
-      totalDonationAmount,
-      recordCount,
-      averageAmount,
-      topContributor: topContributor.name,
-      topContributorAmount: topContributor.amount,
-    };
-  }, [filteredContributions]);
+    if (!statsData) {
+      return {
+        totalAmount: 0,
+        totalContributionAmount: 0,
+        totalDonationAmount: 0,
+        recordCount: 0,
+        averageAmount: 0,
+        topContributor: 'None',
+        topContributorAmount: 0,
+      };
+    }
+    return statsData;
+  }, [statsData]);
 
   return (
     <div className="space-y-6">
@@ -212,6 +209,7 @@ const Contributions: React.FC = () => {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        canDelete={isOwner()}
         onReceipt={(record) => {
           setReceiptRecord(record);
           setIsReceiptDialogOpen(true);
@@ -276,7 +274,7 @@ const Contributions: React.FC = () => {
         isOpen={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={async () => {
-          if (selectedContribution) {
+          if (selectedContribution && isOwner()) {
             await deleteIncome.mutateAsync(selectedContribution.id);
           }
           setIsDeleteDialogOpen(false);

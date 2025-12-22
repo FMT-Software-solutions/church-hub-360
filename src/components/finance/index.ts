@@ -11,7 +11,8 @@ export {
   incomeStatsConfig,
   expenseStatsConfig,
   contributionStatsConfig,
-  pledgeStatsConfig
+  pledgeStatsConfig,
+  balanceStatsConfig
 } from './FinanceStatsCards';
 export type { StatCard } from './FinanceStatsCards';
 

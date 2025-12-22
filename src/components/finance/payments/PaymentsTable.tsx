@@ -9,6 +9,7 @@ interface PaymentsTableProps {
   data: PledgePayment[];
   onEdit: (record: PledgePayment) => void;
   onDelete: (record: PledgePayment) => void;
+  canDelete?: boolean;
   loading?: boolean;
   // Print metadata
   printTitle?: string;
@@ -17,7 +18,7 @@ interface PaymentsTableProps {
   printOrganizationName?: string;
 }
 
-export const PaymentsTable: React.FC<PaymentsTableProps> = ({ data, onEdit, onDelete, loading, printTitle, printDateFilter, printDateRangeLabel, printOrganizationName }) => {
+export const PaymentsTable: React.FC<PaymentsTableProps> = ({ data, onEdit, onDelete, canDelete = true, loading, printTitle, printDateFilter, printDateRangeLabel, printOrganizationName }) => {
   const [sortKey, setSortKey] = useState<string>('payment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const columns: TableColumn[] = [
@@ -95,13 +96,13 @@ export const PaymentsTable: React.FC<PaymentsTableProps> = ({ data, onEdit, onDe
       icon: <Edit className="h-4 w-4" />,
       onClick: onEdit,
     },
-    {
+    ...(canDelete ? [{
       key: 'delete',
       label: 'Delete',
       icon: <Trash2 className="h-4 w-4" />,
       onClick: onDelete,
-      variant: 'destructive',
-    },
+      variant: 'destructive' as const,
+    }] : []),
   ];
 
   const sortedData = useMemo(() => {

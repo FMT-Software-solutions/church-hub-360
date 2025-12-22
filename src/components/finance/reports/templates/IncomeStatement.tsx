@@ -20,6 +20,7 @@ interface IncomeStatementProps {
   groupUnit?: GroupUnit;
   dateFilter?: DateFilter;
   branchLabel?: string;
+  expenseGrouping?: 'category' | 'purpose';
 }
 
 export function IncomeStatement({
@@ -29,9 +30,10 @@ export function IncomeStatement({
   groupUnit,
   dateFilter,
   branchLabel,
+  expenseGrouping = 'purpose',
 }: IncomeStatementProps) {
   const inc = React.useMemo(() => incomeSections(incomes), [incomes]);
-  const exp = React.useMemo(() => expenseSections(expenses), [expenses]);
+  const exp = React.useMemo(() => expenseSections(expenses, expenseGrouping), [expenses, expenseGrouping]);
 
   const totalIncome = inc.generalTotal + inc.otherTotal;
   const totalExpense = exp.total;

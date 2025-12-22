@@ -14,15 +14,23 @@ import { Pagination } from '@/components/shared/Pagination';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIncomePreferences } from '@/hooks/finance/useIncomePreferences';
 import { useDeleteIncome, useIncomes } from '@/hooks/finance/income';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
+import { useIncomeStatsData } from '@/hooks/finance/useFinanceStats';
 import type { FinanceFilter, IncomeResponseRow } from '@/types/finance';
 import type { AmountComparison } from '@/utils/finance/search';
+import {
+  mapDateFilterToPicker,
+  mapPickerToDateFilter,
+} from '@/utils/finance/dateFilter';
 import { Edit, Eye, Receipt, Trash2 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 
 const Income: React.FC = () => {
   // Filters, search, sorting
   const [filters, setFilters] = useState<FinanceFilter>({
-    date_filter: { type: 'preset', preset: 'this_month' },
+    date_filter: mapPickerToDateFilter(
+      mapDateFilterToPicker({ type: 'preset', preset: 'this_month' })
+    ),
   });
   const [search, setSearch] = useState<string | undefined>(undefined);
   const [amountSearch, setAmountSearch] = useState<AmountComparison | null>(
@@ -30,6 +38,7 @@ const Income: React.FC = () => {
   );
   const [sortKey, setSortKey] = useState<string>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const { isOwner } = useRoleCheck();
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -107,33 +116,33 @@ const Income: React.FC = () => {
     return filtered;
   }, [incomesQuery.data?.data, filters, sortKey, sortDirection]);
 
+  const { data: statsData, isLoading: statsLoading } = useIncomeStatsData({
+    search,
+    filters,
+    income_type: 'general_income',
+    amount_comparison: amountSearch || undefined,
+  });
+
   // Calculate statistics
   const stats = useMemo(() => {
-    const totalIncome = filteredAndSortedData.reduce(
-      (sum, r) => sum + (r.amount || 0),
-      0
-    );
-    const recordCount = filteredAndSortedData.length;
-    const averageIncome = recordCount > 0 ? totalIncome / recordCount : 0;
-
-    const occasionTotals = filteredAndSortedData.reduce((acc, r) => {
-      acc[r.category] = (acc[r.category] || 0) + (r.amount || 0);
-      return acc;
-    }, {} as Record<string, number>);
-    const topOccasionEntry = Object.entries(occasionTotals).sort(
-      ([, a], [, b]) => b - a
-    )[0];
-    const topOccasion = topOccasionEntry ? topOccasionEntry[0] : 'N/A';
-    const topOccasionAmount = topOccasionEntry ? topOccasionEntry[1] : 0;
+    if (!statsData) {
+      return incomeStatsConfig({
+        totalIncome: 0,
+        recordCount: 0,
+        averageIncome: 0,
+        topOccasion: 'N/A',
+        topOccasionAmount: 0,
+      });
+    }
 
     return incomeStatsConfig({
-      totalIncome,
-      recordCount,
-      averageIncome,
-      topOccasion,
-      topOccasionAmount,
+      totalIncome: statsData.total_income,
+      recordCount: statsData.record_count,
+      averageIncome: statsData.average_income,
+      topOccasion: statsData.top_occasion,
+      topOccasionAmount: statsData.top_occasion_amount,
     });
-  }, [filteredAndSortedData]);
+  }, [statsData]);
 
   // Table columns
   const columns: TableColumn[] = [
@@ -266,16 +275,20 @@ const Income: React.FC = () => {
         setIsReceiptDialogOpen(true);
       },
     },
-    {
-      key: 'delete',
-      label: 'Delete',
-      icon: <Trash2 className="h-4 w-4" />,
-      onClick: (record) => {
-        setSelectedRecord(record as IncomeResponseRow);
-        setIsDeleteDialogOpen(true);
-      },
-      variant: 'destructive',
-    },
+    ...(isOwner()
+      ? [
+          {
+            key: 'delete',
+            label: 'Delete',
+            icon: <Trash2 className="h-4 w-4" />,
+            onClick: (record: any) => {
+              setSelectedRecord(record as IncomeResponseRow);
+              setIsDeleteDialogOpen(true);
+            },
+            variant: 'destructive' as const,
+          },
+        ]
+      : []),
   ];
 
   // Form handlers
@@ -294,7 +307,7 @@ const Income: React.FC = () => {
       </div>
 
       {/* Statistics Cards */}
-      <FinanceStatsCards stats={stats} loading={incomesQuery.isLoading} />
+      <FinanceStatsCards stats={stats} loading={statsLoading} />
 
       {/* Filter Bar */}
       <FinanceFilterBar
@@ -403,7 +416,7 @@ const Income: React.FC = () => {
         isOpen={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={async () => {
-          if (!selectedRecord?.id) return;
+          if (!selectedRecord?.id || !isOwner()) return;
           try {
             await deleteIncome.mutateAsync(selectedRecord.id);
             setIsDeleteDialogOpen(false);

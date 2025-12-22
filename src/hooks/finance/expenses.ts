@@ -13,6 +13,7 @@ export interface ExpenseQueryParams {
   pageSize?: number;
   search?: string;
   filters?: FinanceFilter;
+  enabled?: boolean;
 }
 
 export interface PaginatedExpensesResponse {
@@ -32,7 +33,7 @@ export const expenseKeys = {
   detail: (id: string) => [...expenseKeys.details(), id] as const,
 };
 
-function applyFinanceFilters(
+export function applyFinanceFilters(
   query: any,
   filters?: FinanceFilter
 ) {
@@ -123,6 +124,7 @@ export function useExpenses(params?: ExpenseQueryParams) {
       'branchScope',
       scope.isScoped ? scope.branchIds : 'all',
     ],
+    enabled: params?.enabled !== false && !!currentOrganization?.id,
     queryFn: async (): Promise<PaginatedExpensesResponse> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -175,7 +177,6 @@ export function useExpenses(params?: ExpenseQueryParams) {
         pageSize: queryParams.pageSize!,
       };
     },
-    enabled: !!currentOrganization?.id,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

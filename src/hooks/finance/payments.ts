@@ -15,6 +15,7 @@ export interface PaymentsQueryParams {
   amountSearch?: AmountComparison | null;
   paymentMethodFilter?: PaymentMethod[];
   filters?: PaymentFilter;
+  enabled?: boolean;
 }
 
 export interface PaginatedPaymentsResponse {
@@ -90,6 +91,7 @@ export function useAllPledgePayments(params?: PaymentsQueryParams) {
       'branchScope',
       scope.isScoped ? scope.branchIds : 'all',
     ],
+    enabled: params?.enabled !== false && !!currentOrganization?.id,
     queryFn: async (): Promise<PaginatedPaymentsResponse> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -218,7 +220,6 @@ export function useAllPledgePayments(params?: PaymentsQueryParams) {
         pageSize: queryParams.pageSize!,
       };
     },
-    enabled: !!currentOrganization?.id,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
@@ -323,6 +324,7 @@ export function usePledgePaymentsAsIncome(params?: PaymentsQueryParams) {
       'branchScope',
       scope.isScoped ? scope.branchIds : 'all',
     ],
+    enabled: params?.enabled !== false && !!currentOrganization?.id,
     queryFn: async (): Promise<PaginatedIncomeFromPaymentsResponse> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -443,7 +445,7 @@ export function usePledgePaymentsAsIncome(params?: PaymentsQueryParams) {
           created_at: r.created_at,
           updated_at: r.updated_at || r.created_at,
           income_type: 'pledge_payment',
-          category: 'Contribution',
+          category: 'Pledge Payment',
           occasion_name: occasion_label,
           pledge_id: r.pledge?.id,
           source: r.pledge?.source || undefined,
@@ -472,7 +474,6 @@ export function usePledgePaymentsAsIncome(params?: PaymentsQueryParams) {
         pageSize: queryParams.pageSize!,
       };
     },
-    enabled: !!currentOrganization?.id,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

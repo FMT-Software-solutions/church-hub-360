@@ -23,6 +23,7 @@ export interface IncomeQueryParams {
   income_type?: IncomeType; // optional, single type filter
   income_types?: IncomeType[]; // optional, multi-type filter
   amount_comparison?: AmountComparison | null; // dedicated amount operator search
+  enabled?: boolean;
 }
 
 export interface PaginatedIncomeResponse {
@@ -42,7 +43,7 @@ export const incomeKeys = {
   detail: (id: string) => [...incomeKeys.details(), id] as const,
 };
 
-function applyFinanceFilters(
+export function applyFinanceFilters(
   query: any,
   filters?: FinanceFilter
 ) {
@@ -129,6 +130,7 @@ export function useIncomes(params?: IncomeQueryParams) {
       'branchScope',
       scope.isScoped ? scope.branchIds : 'all',
     ],
+    enabled: params?.enabled !== false && !!currentOrganization?.id,
     queryFn: async (): Promise<PaginatedIncomeResponse> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -268,7 +270,6 @@ export function useIncomes(params?: IncomeQueryParams) {
         pageSize: queryParams.pageSize!,
       };
     },
-    enabled: !!currentOrganization?.id,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

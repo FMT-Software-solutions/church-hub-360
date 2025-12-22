@@ -14,6 +14,7 @@ export interface PivotTableProps {
   style?: React.CSSProperties;
   titleKey?: string;
   onTitleSave?: (key: string, value: string) => void;
+  rowHeaderLabel?: string;
 }
 
 const defaultFormat = (n: number) =>
@@ -29,6 +30,7 @@ export function PivotTable({
   style,
   titleKey,
   onTitleSave,
+  rowHeaderLabel = 'Item',
 }: PivotTableProps) {
   const hasData = rows && rows.length > 0;
   const columnTotals: Record<string, number> = hasData
@@ -61,13 +63,21 @@ export function PivotTable({
         <table className="min-w-full text-sm">
           <thead className="bg-muted">
             <tr>
-              <th className="px-3 py-2 text-left font-medium" data-col="item">Item</th>
+              <th className="px-3 py-2 text-left font-medium" data-col="item">
+                {rowHeaderLabel}
+              </th>
               {columnOrder.map((key) => (
-                <th key={key} className="px-3 py-2 text-right font-medium" data-col="date">
+                <th
+                  key={key}
+                  className="px-3 py-2 text-right font-medium"
+                  data-col="date"
+                >
                   {columnLabels[key] || key}
                 </th>
               ))}
-              <th className="px-3 py-2 text-right font-medium" data-col="total">Total</th>
+              <th className="px-3 py-2 text-right font-medium" data-col="total">
+                Total
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -79,13 +89,22 @@ export function PivotTable({
                 );
                 return (
                   <tr key={r.rowLabel} className="border-t">
-                    <td className="px-3 py-2 font-medium" data-col="item">{r.rowLabel}</td>
+                    <td className="px-3 py-2 font-medium" data-col="item">
+                      {r.rowLabel}
+                    </td>
                     {columnOrder.map((key) => (
-                      <td key={key} className="px-3 py-2 text-right" data-col="date">
+                      <td
+                        key={key}
+                        className="px-3 py-2 text-right"
+                        data-col="date"
+                      >
                         {valueFormatter(r.columns[key] || 0)}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-right font-semibold" data-col="total">
+                    <td
+                      className="px-3 py-2 text-right font-semibold"
+                      data-col="total"
+                    >
                       {valueFormatter(total)}
                     </td>
                   </tr>
@@ -105,9 +124,15 @@ export function PivotTable({
           {hasData ? (
             <tfoot className="bg-muted print:bg-transparent text-primary">
               <tr className="border-t">
-                <td className="px-3 py-2 font-medium" data-col="item">Total</td>
+                <td className="px-3 py-2 font-medium" data-col="item">
+                  Total
+                </td>
                 {columnOrder.map((key) => (
-                  <td key={key} className="px-3 py-2 text-right font-semibold" data-col="date">
+                  <td
+                    key={key}
+                    className="px-3 py-2 text-right font-semibold"
+                    data-col="date"
+                  >
                     {valueFormatter(columnTotals[key] || 0)}
                   </td>
                 ))}

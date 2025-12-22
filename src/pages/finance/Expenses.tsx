@@ -20,11 +20,13 @@ import type {
   TableAction,
   TableColumn,
 } from '@/components/finance/FinanceDataTable';
+import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { Pagination } from '@/components/shared/Pagination';
- 
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
 import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSearch';
 import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from '@/hooks/finance/expenses';
+import { useExpenseStatsData } from '@/hooks/finance/useFinanceStats';
 import type {
   ExpenseFormData,
   ExpenseRecord,
@@ -40,8 +42,11 @@ import { ExpensePreferencesDrawer } from '@/components/finance/ExpensePreference
 import { useEditRequest } from '@/hooks/finance/useEditRequests';
 import { EditRequestLockedView } from '@/components/finance/edit-request/EditRequestLockedView';
 
-const Expenses: React.FC = () => {
+import { mapDateFilterToPicker, mapPickerToDateFilter } from '@/utils/finance/dateFilter';
+
+const Expenses = () => {
   const { currentOrganization } = useOrganization();
+  const { isOwner } = useRoleCheck();
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
@@ -53,15 +58,15 @@ const Expenses: React.FC = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPrefsOpen, setIsPrefsOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(
     null
   );
   const [filters, setFilters] = useState<FinanceFilter>({
-    date_filter: {
-      type: 'preset',
-      preset: 'this_month',
-    },
+    date_filter: mapPickerToDateFilter(
+      mapDateFilterToPicker({ type: 'preset', preset: 'this_month' })
+    ),
     payment_method_filter: [],
     purpose_filter: undefined,
     approved_by_filter: undefined,
@@ -83,6 +88,12 @@ const Expenses: React.FC = () => {
   const { data: paginatedExpenses, isLoading } = useExpenses({
     page,
     pageSize,
+    filters,
+    search,
+  });
+
+  // Dedicated query for stats to fetch all matching records (up to 10k)
+  const { data: statsData } = useExpenseStatsData({
     filters,
     search,
   });
@@ -248,7 +259,8 @@ const Expenses: React.FC = () => {
 
   // Handle delete
   const handleDelete = async (expense: ExpenseRecord) => {
-    await deleteExpense.mutateAsync(expense.id);
+    setSelectedExpense(expense);
+    setIsDeleteDialogOpen(true);
   };
 
   // Filter expenses based on current filters
@@ -273,34 +285,24 @@ const Expenses: React.FC = () => {
 
   // Calculate statistics
   const stats = useMemo(() => {
-
-    const totalExpenses = filteredExpenses.reduce(
-      (sum, expense) => sum + expense.amount,
-      0
-    );
-
-    const recordCount = filteredExpenses.length;
-    const averageExpense = recordCount > 0 ? totalExpenses / recordCount : 0;
-    const purposeTotals = filteredExpenses.reduce((acc, expense) => {
-      const key = (expense.purpose || 'N/A');
-      acc[key] = (acc[key] || 0) + expense.amount ;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const topPurposeEntry = Object.entries(purposeTotals).sort(
-      ([, a], [, b]) => b - a
-    )[0];
-    const topPurpose = topPurposeEntry ? topPurposeEntry[0] : 'N/A';
-    const topPurposeAmount = topPurposeEntry ? topPurposeEntry[1] : 0;
+    if (!statsData) {
+      return {
+        totalExpenses: 0,
+        recordCount: 0,
+        averageExpense: 0,
+        topPurpose: 'N/A',
+        topPurposeAmount: 0,
+      };
+    }
 
     return {
-      totalExpenses,
-      recordCount,
-      averageExpense,
-      topPurpose,
-      topPurposeAmount,
+      totalExpenses: statsData.total_expenses,
+      recordCount: statsData.record_count,
+      averageExpense: statsData.average_expense,
+      topPurpose: statsData.top_purpose,
+      topPurposeAmount: statsData.top_purpose_amount,
     };
-  }, [filteredExpenses]);
+  }, [statsData]);
 
   // Table columns
   const columns: TableColumn[] = [
@@ -394,13 +396,13 @@ const Expenses: React.FC = () => {
       icon: <Edit className="h-4 w-4" />,
       onClick: handleEdit,
     },
-    {
+    ...(isOwner() ? [{
       key: 'delete',
       label: 'Delete',
       icon: <Trash2 className="h-4 w-4" />,
       onClick: handleDelete,
-      variant: 'destructive',
-    },
+      variant: 'destructive' as const,
+    }] : []),
   ];
 
   
@@ -633,8 +635,19 @@ const Expenses: React.FC = () => {
                   <Label className="text-sm font-medium text-muted-foreground">
                     Date
                   </Label>
-                  <p>{format(new Date(selectedExpense.date), 'PPP')}</p>
+                  <p>{format(new Date(selectedExpense.date), 'MMM dd, yyyy')}</p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Category
+                  </Label>
+                  <p className="capitalize">
+                    {categoryLabelMap[selectedExpense.category] || String(selectedExpense.category).replace('_', ' ')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
                     Payment Method
@@ -643,58 +656,34 @@ const Expenses: React.FC = () => {
                     {selectedExpense.payment_method.replace('_', ' ')}
                   </p>
                 </div>
+                {selectedExpense.vendor && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Vendor
+                    </Label>
+                    <p>{selectedExpense.vendor}</p>
+                  </div>
+                )}
               </div>
 
-              {selectedExpense.approved_by && (
+              {(selectedExpense.receipt_number || selectedExpense.check_number) && (
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">
-                      Approved By
-                    </Label>
-                    <p>{approvedByViewName || selectedExpense.approved_by}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">
-                      Approval Date
-                    </Label>
-                    <p>{selectedExpense.approval_date ? format(new Date(selectedExpense.approval_date), 'PPP') : '-'}</p>
-                  </div>
-                </div>
-              )}
-
-              {selectedExpense.created_by_user && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Record Created By
-                  </Label>
-                  <p>{`${selectedExpense.created_by_user.first_name} ${selectedExpense.created_by_user.last_name}`}</p>
-                </div>
-              )}
-
-              {selectedExpense.vendor && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Vendor
-                  </Label>
-                  <p>{selectedExpense.vendor}</p>
-                </div>
-              )}
-
-              {selectedExpense.receipt_number && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Receipt Number
-                  </Label>
-                  <p>{selectedExpense.receipt_number}</p>
-                </div>
-              )}
-
-              {selectedExpense.check_number && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Cheque Number
-                  </Label>
-                  <p>{selectedExpense.check_number}</p>
+                  {selectedExpense.receipt_number && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">
+                        Receipt #
+                      </Label>
+                      <p>{selectedExpense.receipt_number}</p>
+                    </div>
+                  )}
+                  {selectedExpense.check_number && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">
+                        Check #
+                      </Label>
+                      <p>{selectedExpense.check_number}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -703,22 +692,22 @@ const Expenses: React.FC = () => {
                   <Label className="text-sm font-medium text-muted-foreground">
                     Notes
                   </Label>
-                  <p>{selectedExpense.notes}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedExpense.notes}
+                  </p>
                 </div>
               )}
 
-              <div className="pt-4 border-t">
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>
-                    Created:{' '}
-                    {format(new Date(selectedExpense.created_at), 'PPp')}
-                  </span>
-                  <span>
-                    Updated:{' '}
-                    {format(new Date(selectedExpense.updated_at), 'PPp')}
-                  </span>
-                </div>
-              </div>
+              {approvedByViewName && (
+                 <div>
+                   <Label className="text-sm font-medium text-muted-foreground">
+                     Approved By
+                   </Label>
+                   <p className="text-sm">
+                     {approvedByViewName} {selectedExpense.approval_date ? ` on ${format(new Date(selectedExpense.approval_date), 'MMM dd, yyyy')}` : ''}
+                   </p>
+                 </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -739,6 +728,24 @@ const Expenses: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={async () => {
+          if (selectedExpense && isOwner()) {
+            await deleteExpense.mutateAsync(selectedExpense.id);
+          }
+          setIsDeleteDialogOpen(false);
+          setSelectedExpense(null);
+        }}
+        title="Delete Expense"
+        description="Are you sure you want to delete this expense record?"
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+        isLoading={deleteExpense.isPending}
+      />
       <ExpensePreferencesDrawer open={isPrefsOpen} onOpenChange={setIsPrefsOpen} />
     </div>
   );

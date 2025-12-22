@@ -10,6 +10,7 @@ import { DatePresetPicker, type DatePresetValue } from '@/components/attendance/
 import { mapPickerToDateFilter, mapDateFilterToPicker } from '@/utils/finance/dateFilter';
 import { formatDateFilterLabel } from '@/utils/finance/dateRange';
 import { buildPivotSpec, dateToBucketKey, type GroupUnit } from '@/utils/finance/grouping';
+import { expenseSections } from '@/utils/finance/reports/aggregations';
 import { PivotTable, type PivotRow } from '@/components/finance/reports/PivotTable';
 import { IncomeStatement } from '@/components/finance/reports/templates/IncomeStatement';
 import { PledgesSummary } from '@/components/finance/reports/templates/PledgesSummary';
@@ -54,6 +55,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
   const [groupUnit, setGroupUnit] = React.useState<GroupUnit>('month');
   const [layout, setLayout] = React.useState<'pivot' | 'list' | 'template'>('pivot');
   const [templateStyle, setTemplateStyle] = React.useState<'income_statement' | 'pledges_summary' | 'donations_breakdown'>('income_statement');
+  const [expenseGrouping, setExpenseGrouping] = React.useState<'category' | 'purpose'>('purpose');
   const [datePresetValue, setDatePresetValue] = React.useState<DatePresetValue>(mapDateFilterToPicker(filters.date_filter));
   const reportTitle = 'Finance Report';
 
@@ -145,7 +147,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
     for (const r of source) {
       const bucket = dateToBucketKey(r.date, groupUnit);
       if (!columnOrder.includes(bucket)) continue;
-      const rowLabel = String(r.purpose || 'Unspecified');
+      const rowLabel = String(expenseGrouping === 'category' ? (r.category || 'Unspecified') : (r.purpose || 'Unspecified'));
       const row = rowsMap.get(rowLabel) || {};
       sumInto(row, bucket, r.amount || 0);
       rowsMap.set(rowLabel, row);
@@ -171,7 +173,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
   // (Optional) payments pivot can be added later using payments[] when needed
 
   const sections = React.useMemo(() => {
-    const s: Array<{ key: string; title: string; rows: PivotRow[] }> = [];
+    const s: Array<{ key: string; title: string; rows: PivotRow[]; rowHeaderLabel?: string }> = [];
     if (selectedItems.includes('all_income')) {
       const { rows } = buildIncomePivot(incomes, pivotLabels['all_income']);
       s.push({ key: 'all_income', title: pivotLabels['all_income'], rows });
@@ -194,14 +196,19 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
     }
     if (selectedItems.includes('expenses')) {
       const { rows } = buildExpensesPivot(expenses);
-      s.push({ key: 'expenses', title: pivotLabels['expenses'], rows });
+      s.push({ 
+        key: 'expenses', 
+        title: pivotLabels['expenses'], 
+        rows,
+        rowHeaderLabel: expenseGrouping === 'category' ? 'Category' : 'Purpose'
+      });
     }
     if (selectedItems.includes('pledges')) {
       const { rows } = buildPledgesPivot(pledges);
       s.push({ key: 'pledges', title: pivotLabels['pledges'], rows });
     }
     return s;
-  }, [selectedItems, incomes, expenses, pledges, payments, groupUnit, filters.date_filter, pivotLabels]);
+  }, [selectedItems, incomes, expenses, pledges, payments, groupUnit, filters.date_filter, pivotLabels, expenseGrouping]);
 
   const handlePivotTitleSave = (key: string, value: string) => {
     setPivotLabel(key as PivotLabelKey, value);
@@ -269,22 +276,33 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
         };
 
         const pushExpenseSheet = (title: string, src: ExpenseRecord[]) => {
-          const header = ['Date', 'Item', 'Amount', 'Method', 'Vendor', 'Receipt', 'Cheque Number', 'Notes'];
-          const rows: (string | number)[][] = [header];
-          src.forEach((r) => {
-            rows.push([
-              r.date || r.created_at || '',
-              r.description || r.purpose || '',
-              r.amount || 0,
-              r.payment_method || '',
-              r.vendor || '',
-              r.receipt_number || '',
-              r.check_number || '',
-              r.notes || '',
-            ]);
-          });
-          const ws = XLSX.utils.aoa_to_sheet(rows);
-          XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30));
+          if (expenseGrouping === 'category') {
+            const header = ['Category', 'Amount'];
+            const rows: (string | number)[][] = [header];
+            const { items } = expenseSections(src, 'category');
+            items.forEach((item) => {
+              rows.push([item.label, item.amount]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30));
+          } else {
+            const header = ['Date', 'Item', 'Amount', 'Method', 'Vendor', 'Receipt', 'Cheque Number', 'Notes'];
+            const rows: (string | number)[][] = [header];
+            src.forEach((r) => {
+              rows.push([
+                r.date || r.created_at || '',
+                r.description || r.purpose || '',
+                r.amount || 0,
+                r.payment_method || '',
+                r.vendor || '',
+                r.receipt_number || '',
+                r.check_number || '',
+                r.notes || '',
+              ]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30));
+          }
         };
 
         // Pledge payments are part of incomes in this generator; use Income rows above
@@ -332,7 +350,10 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
           sumBy(other).forEach(([label, amt]) => rows.push([incomeLabels.other_income, label, amt]));
           rows.push([incomeLabels.other_income, incomeLabels.total_other_income, other.reduce((s, r) => s + (r.amount || 0), 0)]);
           const expMap = new Map<string, number>();
-          expenses.forEach((r) => expMap.set(r.purpose || 'Unspecified', (expMap.get(r.purpose || 'Unspecified') || 0) + (r.amount || 0)));
+          expenses.forEach((r) => {
+            const key = expenseGrouping === 'category' ? (r.category || 'Unspecified') : (r.purpose || 'Unspecified');
+            expMap.set(key, (expMap.get(key) || 0) + (r.amount || 0));
+          });
           Array.from(expMap.entries()).forEach(([label, amt]) => rows.push([incomeLabels.expenditure, label, amt]));
           rows.push([incomeLabels.expenditure, incomeLabels.total_expenditure, expenses.reduce((s, r) => s + (r.amount || 0), 0)]);
           const totalIncome = incomes.reduce((s, r) => s + (r.amount || 0), 0);
@@ -412,20 +433,28 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
         };
         const pushExpenses = (src: ExpenseRecord[]) => {
           lines.push(`# ${pivotLabels['expenses']}`);
-          lines.push('Date,Item,Amount,Method,Vendor,Receipt,Cheque Number,Notes');
-          src.forEach((r) => {
-            const row = [
-              r.date || r.created_at || '',
-              r.description || r.purpose || '',
-              String(r.amount || 0),
-              r.payment_method || '',
-              r.vendor || '',
-              r.receipt_number || '',
-              r.check_number || '',
-              (r.notes || '').replace(/\n/g, ' '),
-            ].join(',');
-            lines.push(row);
-          });
+          if (expenseGrouping === 'category') {
+            lines.push('Category,Amount');
+            const { items } = expenseSections(src, 'category');
+            items.forEach((item) => {
+              lines.push(`${item.label},${item.amount}`);
+            });
+          } else {
+            lines.push('Date,Item,Amount,Method,Vendor,Receipt,Cheque Number,Notes');
+            src.forEach((r) => {
+              const row = [
+                r.date || r.created_at || '',
+                r.description || r.purpose || '',
+                String(r.amount || 0),
+                r.payment_method || '',
+                r.vendor || '',
+                r.receipt_number || '',
+                r.check_number || '',
+                (r.notes || '').replace(/\n/g, ' '),
+              ].join(',');
+              lines.push(row);
+            });
+          }
           lines.push('');
         };
 
@@ -661,6 +690,20 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
                 </Select>
               </div>
             </div>
+            {(((layout === 'pivot' || layout === 'list') && selectedItems.includes('expenses')) || (layout === 'template' && templateStyle === 'income_statement')) && (
+              <div className="mt-3">
+                <Label className="mb-1 block">Expense Grouping</Label>
+                <Select value={expenseGrouping} onValueChange={(v) => setExpenseGrouping(v as any)}>
+                  <SelectTrigger className='w-full'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="purpose">By Purpose</SelectItem>
+                    <SelectItem value="category">By Category</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {layout === 'template' ? (
               <div className="grid grid-cols-1 gap-3">
                 <div>
@@ -727,6 +770,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
                     columnOrder={columnOrder}
                     columnLabels={compactColumnLabels}
                     valueFormatter={formatCurrency}
+                    rowHeaderLabel={sec.rowHeaderLabel}
                     className="pivot-table"
                     style={{
                       // inject CSS variables to control print widths
@@ -757,7 +801,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
                 )}
                 
                 {selectedItems.includes('expenses') && (
-                  <ExpensesDetailListSection title={`Expenses (${rangeLabel})${branchName ? ` • Branch: ${branchName}` : ''}`} data={expenses} />
+                  <ExpensesDetailListSection title={`Expenses (${rangeLabel})${branchName ? ` • Branch: ${branchName}` : ''}`} data={expenses} grouping={expenseGrouping} />
                 )}
                 {selectedItems.includes('pledges') && (
                   <section className="space-y-2">
@@ -776,6 +820,7 @@ export const FinanceReportGenerator: React.FC<FinanceReportGeneratorProps> = ({
                     groupUnit={groupUnit}
                     dateFilter={filters.date_filter}
                     branchLabel={branchName}
+                    expenseGrouping={expenseGrouping}
                   />
                 )}
                 {templateStyle === 'pledges_summary' && (

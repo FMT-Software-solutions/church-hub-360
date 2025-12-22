@@ -20,6 +20,7 @@ export interface PledgesQueryParams {
   search?: string;
   filters?: PledgeFilter;
   amountSearch?: { operator: '>' | '>=' | '=' | '<' | '<=' | '!='; value: number } | null;
+  enabled?: boolean;
 }
 
 export interface PaginatedPledgesResponse {
@@ -134,6 +135,7 @@ export function usePledges(params?: PledgesQueryParams) {
       'branchScope',
       scope.isScoped ? scope.branchIds : 'all',
     ],
+    enabled: params?.enabled !== false && !!currentOrganization?.id,
     queryFn: async (): Promise<PaginatedPledgesResponse> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
@@ -254,7 +256,6 @@ export function usePledges(params?: PledgesQueryParams) {
         pageSize: queryParams.pageSize!,
       };
     },
-    enabled: !!currentOrganization?.id,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

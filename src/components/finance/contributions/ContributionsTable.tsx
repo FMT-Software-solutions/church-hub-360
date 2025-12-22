@@ -14,6 +14,7 @@ interface ContributionsTableProps {
   onView: (record: IncomeResponseRow) => void;
   onEdit: (record: IncomeResponseRow) => void;
   onDelete: (record: IncomeResponseRow) => void;
+  canDelete?: boolean;
   onReceipt?: (record: IncomeResponseRow) => void;
   // Print metadata
   printTitle?: string;
@@ -27,6 +28,7 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
   onView,
   onEdit,
   onDelete,
+  canDelete = true,
   onReceipt,
   printTitle,
   printDateFilter,
@@ -127,7 +129,8 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
       key: 'branch',
       label: 'Branch',
       sortable: true,
-      render: (_: any, record: IncomeResponseRow) => record.branch?.name || 'All branches',
+      render: (_: any, record: IncomeResponseRow) =>
+        record.branch?.name || 'All branches',
     },
     {
       key: 'created_by',
@@ -170,13 +173,17 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
       icon: <Receipt className="h-4 w-4" />,
       onClick: onReceipt || (() => {}),
     },
-    {
-      key: 'delete',
-      label: 'Delete',
-      icon: <Trash2 className="h-4 w-4" />,
-      onClick: onDelete,
-      variant: 'destructive',
-    },
+    ...(canDelete
+      ? [
+          {
+            key: 'delete',
+            label: 'Delete',
+            icon: <Trash2 className="h-4 w-4" />,
+            onClick: onDelete,
+            variant: 'destructive' as const,
+          },
+        ]
+      : []),
   ];
 
   const sortedData = useMemo(() => {

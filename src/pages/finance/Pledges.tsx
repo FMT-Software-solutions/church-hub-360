@@ -17,6 +17,7 @@ import { PaymentsTable } from '@/components/finance/payments/PaymentsTable';
 import { PaymentEditDialog } from '@/components/finance/payments/PaymentEditDialog';
 import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { useAllPledgePayments, useDeletePayment } from '@/hooks/finance/payments';
+import { useRoleCheck } from '@/registry/access/RoleGuard';
 // Removed editable report labels; keep Pledges page static
 
 // Removed mock data; using real hook data
@@ -25,9 +26,11 @@ export function Pledges() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showDeletePledgeDialog, setShowDeletePledgeDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [selectedPledge, setSelectedPledge] = useState<PledgeRecord | null>(null);
   const [activeTab, setActiveTab] = useState('pledges');
+  const { isOwner } = useRoleCheck();
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -149,15 +152,16 @@ export function Pledges() {
         setShowEditDialog(true);
       },
     },
-    {
+    ...(isOwner() ? [{
       key: 'delete',
       label: 'Delete',
       icon: <Trash2 className="h-4 w-4" />,
-      onClick: async (record: PledgeRecord) => {
-        await deletePledge.mutateAsync(record.id);
+      onClick: (record: PledgeRecord) => {
+        setSelectedPledge(record);
+        setShowDeletePledgeDialog(true);
       },
-      variant: 'destructive',
-    },
+      variant: 'destructive' as const,
+    }] : []),
   ];
 
   const deletePayment = useDeletePayment();
@@ -251,6 +255,7 @@ export function Pledges() {
               setSelectedPayment(p);
               setShowDeletePaymentDialog(true);
             }}
+            canDelete={isOwner()}
             loading={paymentsLoading}
             printTitle={'Pledge Payments'}
             printDateFilter={paymentFilters.date_filter}
@@ -345,15 +350,37 @@ export function Pledges() {
           isOpen={showDeletePaymentDialog}
           onClose={() => setShowDeletePaymentDialog(false)}
           onConfirm={async () => {
-            await deletePayment.mutateAsync(selectedPayment!.id);
-            setShowDeletePaymentDialog(false);
-            setPaymentsPage(1);
+            if (isOwner()) {
+              await deletePayment.mutateAsync(selectedPayment!.id);
+              setShowDeletePaymentDialog(false);
+              setPaymentsPage(1);
+            }
           }}
           title="Delete Payment"
           description="This action will mark the payment as deleted. You can’t undo this."
           confirmButtonText="Delete"
           cancelButtonText="Cancel"
           isLoading={deletePayment.isPending}
+        />
+      )}
+
+      {/* Delete Pledge Confirmation */}
+      {selectedPledge && (
+        <DeleteConfirmationDialog
+          isOpen={showDeletePledgeDialog}
+          onClose={() => setShowDeletePledgeDialog(false)}
+          onConfirm={async () => {
+             if (isOwner()) {
+               await deletePledge.mutateAsync(selectedPledge!.id);
+               setShowDeletePledgeDialog(false);
+               setPage(1);
+             }
+          }}
+          title="Delete Pledge"
+          description="This action will mark the pledge as deleted. You can’t undo this."
+          confirmButtonText="Delete"
+          cancelButtonText="Cancel"
+          isLoading={deletePledge.isPending}
         />
       )}
     </div>

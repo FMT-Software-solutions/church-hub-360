@@ -33,8 +33,10 @@ export function incomeSections(incomes: IncomeResponseRow[]) {
   };
 }
 
-export function expenseSections(expenses: ExpenseRecord[]) {
-  const map = sumByCategory(expenses, (r) => r.purpose || 'Unspecified');
+export function expenseSections(expenses: ExpenseRecord[], grouping: 'category' | 'purpose' = 'category') {
+  const map = sumByCategory(expenses, (r) => 
+    grouping === 'category' ? (r.category || 'Unspecified') : (r.purpose || 'Unspecified')
+  );
   return {
     items: Array.from(map.entries()).map(([label, amount]) => ({ label, amount })),
     total: expenses.reduce((s, r) => s + (r.amount || 0), 0),

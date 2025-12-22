@@ -10,6 +10,7 @@ import {
   Target,
   PieChart,
   BarChart3,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -279,7 +280,7 @@ export const incomeStatsConfig = (data: {
     },
     {
       id: 'top_occasion',
-      title: 'Top Occasion',
+      title: 'Top Record',
       value: data.topOccasion,
       subtitle: data.topOccasionAmount
         ? formatCurrency(data.topOccasionAmount)
@@ -429,6 +430,45 @@ export const pledgeStatsConfig = (data: {
       value: formatCurrency(data.pendingAmount),
       icon: <Calendar className="h-4 w-4" />,
       color: 'warning',
+    },
+  ];
+};
+
+export const balanceStatsConfig = (data: {
+  totalIncome: number;
+  totalExpenses: number;
+}): StatCard[] => {
+  const balance = data.totalIncome - data.totalExpenses;
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'GHS',
+    }).format(amount);
+  };
+
+  return [
+    {
+      id: 'summary_income',
+      title: 'Total Revenue',
+      value: formatCurrency(data.totalIncome),
+      icon: <DollarSign className="h-4 w-4" />,
+      color: 'success',
+      subtitle: 'Income + Contributions',
+    },
+    {
+      id: 'summary_expenses',
+      title: 'Total Expenses',
+      value: formatCurrency(data.totalExpenses),
+      icon: <DollarSign className="h-4 w-4" />,
+      color: 'destructive',
+    },
+    {
+      id: 'summary_balance',
+      title: 'Net Balance',
+      value: formatCurrency(balance),
+      icon: <Wallet className="h-4 w-4" />,
+      color: balance >= 0 ? 'success' : 'destructive',
+      subtitle: balance >= 0 ? 'Surplus' : 'Deficit',
     },
   ];
 };

@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { FinanceDataTable } from '@/components/finance/FinanceDataTable';
+import { expenseSections } from '@/utils/finance/reports/aggregations';
 import type {
   IncomeResponseRow,
   ExpenseRecord,
@@ -52,34 +53,35 @@ export function IncomeDetailListSection({
 
   return (
     <section className="space-y-2">
-      <h3 className="text-base font-semibold tracking-tight">
-        {title}
-      </h3>
-      <FinanceDataTable
-        columns={[
-          {
-            key: 'date',
-            label: 'Date',
-            render: (v: any) => (v ? format(new Date(v), 'MMM dd, yyyy') : ''),
-          },
-          { key: 'item', label: 'Item/Occasion' },
-          { key: 'category', label: 'Category' },
-          {
-            key: 'amount',
-            label: 'Amount',
-            render: (v: any) => formatCurrency(v as number),
-          },
-          { key: 'method', label: 'Method' },
-          { key: 'source', label: 'Source' },
-          { key: 'receipt', label: 'Receipt' },
-          { key: 'check_number', label: 'Check No.' },
-          { key: 'notes', label: 'Notes' },
-        ]}
-        data={rows}
-        printTitle={title}
-        exportable={false}
-        showPrintHeader={false}
-      />
+      <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      <div className="max-h-[500px] overflow-auto print:max-h-full">
+        <FinanceDataTable
+          columns={[
+            {
+              key: 'date',
+              label: 'Date',
+              render: (v: any) =>
+                v ? format(new Date(v), 'MMM dd, yyyy') : '',
+            },
+            { key: 'item', label: 'Item/Occasion' },
+            { key: 'category', label: 'Category' },
+            {
+              key: 'amount',
+              label: 'Amount',
+              render: (v: any) => formatCurrency(v as number),
+            },
+            { key: 'method', label: 'Method' },
+            { key: 'source', label: 'Source' },
+            { key: 'receipt', label: 'Receipt' },
+            { key: 'check_number', label: 'Check No.' },
+            { key: 'notes', label: 'Notes' },
+          ]}
+          data={rows}
+          printTitle={title}
+          exportable={false}
+          showPrintHeader={false}
+        />
+      </div>
     </section>
   );
 }
@@ -87,7 +89,38 @@ export function IncomeDetailListSection({
 export function ExpensesDetailListSection({
   title,
   data,
-}: SectionProps<ExpenseRecord>) {
+  grouping = 'category',
+}: SectionProps<ExpenseRecord> & { grouping?: 'category' | 'purpose' }) {
+  if (grouping === 'category') {
+    const { items } = expenseSections(data, 'category');
+    const rows = items.map((item) => ({
+      item: item.label,
+      amount: item.amount,
+    }));
+
+    return (
+      <section className="space-y-2">
+        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+        <div className="max-h-[500px] overflow-auto print:max-h-full">
+          <FinanceDataTable
+            columns={[
+              { key: 'item', label: 'Category' },
+              {
+                key: 'amount',
+                label: 'Amount',
+                render: (v: any) => formatCurrency(v as number),
+              },
+            ]}
+            data={rows}
+            printTitle={title}
+            exportable={false}
+            showPrintHeader={false}
+          />
+        </div>
+      </section>
+    );
+  }
+
   const rows = (data || []).map((r) => ({
     date: r.date || r.created_at,
     item: r.description || r.purpose || '',
@@ -101,33 +134,34 @@ export function ExpensesDetailListSection({
 
   return (
     <section className="space-y-2">
-      <h3 className="text-base font-semibold tracking-tight">
-        {title}
-      </h3>
-      <FinanceDataTable
-        columns={[
-          {
-            key: 'date',
-            label: 'Date',
-            render: (v: any) => (v ? format(new Date(v), 'MMM dd, yyyy') : ''),
-          },
-          { key: 'item', label: 'Item' },
-          {
-            key: 'amount',
-            label: 'Amount',
-            render: (v: any) => formatCurrency(v as number),
-          },
-          { key: 'method', label: 'Method' },
-          { key: 'vendor', label: 'Vendor' },
-          { key: 'receipt', label: 'Receipt' },
-          { key: 'check_number', label: 'Check No.' },
-          { key: 'notes', label: 'Notes' },
-        ]}
-        data={rows}
-        printTitle={title}
-        exportable={false}
-        showPrintHeader={false}
-      />
+      <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      <div className="max-h-[500px] overflow-auto print:max-h-full">
+        <FinanceDataTable
+          columns={[
+            {
+              key: 'date',
+              label: 'Date',
+              render: (v: any) =>
+                v ? format(new Date(v), 'MMM dd, yyyy') : '',
+            },
+            { key: 'item', label: 'Item' },
+            {
+              key: 'amount',
+              label: 'Amount',
+              render: (v: any) => formatCurrency(v as number),
+            },
+            { key: 'method', label: 'Method' },
+            { key: 'vendor', label: 'Vendor' },
+            { key: 'receipt', label: 'Receipt' },
+            { key: 'check_number', label: 'Check No.' },
+            { key: 'notes', label: 'Notes' },
+          ]}
+          data={rows}
+          printTitle={title}
+          exportable={false}
+          showPrintHeader={false}
+        />
+      </div>
     </section>
   );
 }
@@ -159,33 +193,34 @@ export function PledgePaymentsDetailListSection({
 
   return (
     <section className="space-y-2">
-      <h3 className="text-base font-semibold tracking-tight">
-        {title}
-      </h3>
-      <FinanceDataTable
-        columns={[
-          {
-            key: 'date',
-            label: 'Date',
-            render: (v: any) => (v ? format(new Date(v), 'MMM dd, yyyy') : ''),
-          },
-          { key: 'pledge', label: 'Pledge' },
-          {
-            key: 'amount',
-            label: 'Amount',
-            render: (v: any) => formatCurrency(v as number),
-          },
-          { key: 'method', label: 'Method' },
-          { key: 'source', label: 'Source' },
-          { key: 'check_number', label: 'Check No.' },
-          { key: 'recordedBy', label: 'Recorded By' },
-          { key: 'notes', label: 'Notes' },
-        ]}
-        data={rows}
-        printTitle={title}
-        exportable={false}
-        showPrintHeader={false}
-      />
+      <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      <div className="max-h-[500px] overflow-auto print:max-h-full">
+        <FinanceDataTable
+          columns={[
+            {
+              key: 'date',
+              label: 'Date',
+              render: (v: any) =>
+                v ? format(new Date(v), 'MMM dd, yyyy') : '',
+            },
+            { key: 'pledge', label: 'Pledge' },
+            {
+              key: 'amount',
+              label: 'Amount',
+              render: (v: any) => formatCurrency(v as number),
+            },
+            { key: 'method', label: 'Method' },
+            { key: 'source', label: 'Source' },
+            { key: 'check_number', label: 'Check No.' },
+            { key: 'recordedBy', label: 'Recorded By' },
+            { key: 'notes', label: 'Notes' },
+          ]}
+          data={rows}
+          printTitle={title}
+          exportable={false}
+          showPrintHeader={false}
+        />
+      </div>
     </section>
   );
 }
