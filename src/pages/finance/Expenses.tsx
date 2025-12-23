@@ -43,6 +43,7 @@ import { useEditRequest } from '@/hooks/finance/useEditRequests';
 import { EditRequestLockedView } from '@/components/finance/edit-request/EditRequestLockedView';
 
 import { mapDateFilterToPicker, mapPickerToDateFilter } from '@/utils/finance/dateFilter';
+import { paymentMethodOptions } from '@/components/finance/constants';
 
 const Expenses = () => {
   const { currentOrganization } = useOrganization();
@@ -506,16 +507,7 @@ const Expenses = () => {
       <ExpenseFilterBar
         filters={filters}
         onFiltersChange={setFilters}
-        paymentMethodOptions={[
-          { value: 'cash', label: 'Cash' },
-          { value: 'check', label: 'Check' },
-          { value: 'credit_card', label: 'Credit Card' },
-          { value: 'debit_card', label: 'Debit Card' },
-          { value: 'bank_transfer', label: 'Bank Transfer' },
-          { value: 'mobile_payment', label: 'Mobile Payment' },
-          { value: 'online', label: 'Online' },
-          { value: 'other', label: 'Other' },
-        ]}
+        paymentMethodOptions={paymentMethodOptions}
         onSearchChange={(term) => setSearch(term)}
         showAddButton={true}
         onAddClick={() => setIsAddDialogOpen(true)}
@@ -687,7 +679,7 @@ const Expenses = () => {
                   {selectedExpense.check_number && (
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">
-                        Check #
+                        Cheque #
                       </Label>
                       <p>{selectedExpense.check_number}</p>
                     </div>
