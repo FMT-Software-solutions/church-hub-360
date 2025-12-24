@@ -44,7 +44,7 @@ import { EditRequestLockedView } from '@/components/finance/edit-request/EditReq
 
 import { mapDateFilterToPicker, mapPickerToDateFilter } from '@/utils/finance/dateFilter';
 import { paymentMethodOptions } from '@/components/finance/constants';
-import { toast } from 'sonner';
+import type { AmountComparison } from '@/utils/finance/search';
 
 const Expenses = () => {
   const { currentOrganization } = useOrganization();
@@ -76,6 +76,7 @@ const Expenses = () => {
 
   // Text search for expenses
   const [search, setSearch] = useState<string | undefined>(undefined);
+  const [amountSearch, setAmountSearch] = useState<AmountComparison | null>(null);
   const [sortKey, setSortKey] = useState<string>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const { categoryKeys, categoryOptions } = useExpensePreferences();
@@ -92,6 +93,7 @@ const Expenses = () => {
     pageSize,
     filters,
     search,
+    amount_comparison: amountSearch,
     sortKey,
     sortDirection,
   });
@@ -178,11 +180,6 @@ const Expenses = () => {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.branch_id) {
-      toast.error('Please select a branch.');
-      return;
-    }
 
     // Map purpose to description if description is empty
     const finalDescription = formData.description && formData.description.trim()
@@ -515,6 +512,8 @@ const Expenses = () => {
         onFiltersChange={setFilters}
         paymentMethodOptions={paymentMethodOptions}
         onSearchChange={(term) => setSearch(term)}
+        amountSearch={amountSearch}
+        onAmountSearchChange={setAmountSearch}
         showAddButton={true}
         onAddClick={() => setIsAddDialogOpen(true)}
         addButtonLabel="Add Expense"

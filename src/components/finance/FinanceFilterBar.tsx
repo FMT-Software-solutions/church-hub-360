@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import type { DateFilter, FinanceFilter, IncomeType } from '@/types/finance';
 import { format } from 'date-fns';
-import { CalendarIcon, Download, Filter, Plus, Search, X } from 'lucide-react';
+import { CalendarIcon, Download, Filter, Plus, X } from 'lucide-react';
 import React from 'react';
 import { paymentMethodOptions as paymentMethodOptionsConst } from './constants';
 import { DatePresetPicker, type DatePresetValue } from '@/components/attendance/reports/DatePresetPicker';
@@ -31,9 +31,9 @@ import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSear
 import { useOccasionDetails, useSessionDetails } from '@/hooks/attendance/useAttendanceSearch';
 import { useGroup } from '@/hooks/useGroups';
 import { useTagsQuery } from '@/hooks/useRelationalTags';
-import { useDebounceValue } from '@/hooks/useDebounce';
-import { Switch } from '@/components/ui/switch';
-import type { AmountComparison, AmountOperator } from '@/utils/finance/search';
+import { useSearchAmount } from '@/hooks/finance/useSearchAmount';
+import { SearchAmountSwitcher } from '@/components/finance/SearchAmountSwitcher';
+import type { AmountComparison } from '@/utils/finance/search';
 import { useBranches } from '@/hooks/useBranchQueries';
 
 interface FilterOption {
@@ -90,40 +90,29 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
   filterVisibility,
   incomeTypeFilterOptions = ['general_income', 'contribution', 'donation', 'pledge_payment'],
 }) => {
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const debouncedSearchTerm = useDebounceValue(searchTerm, 1000);
   const [showFilters, setShowFilters] = React.useState(false);
   const [pendingFilters, setPendingFilters] = React.useState<FinanceFilter>(filters);
   const { currentOrganization } = useOrganization();
   const { data: branches = [] } = useBranches(currentOrganization?.id);
 
-  // Local amount search mode state
-  const [searchMode, setSearchMode] = React.useState<'text' | 'amount'>('text');
-  const [amountOperator, setAmountOperator] = React.useState<AmountOperator>('=');
-  const [amountInput, setAmountInput] = React.useState<string>('');
-
-  // Propagate debounced search term to parent
-  React.useEffect(() => {
-    const next = debouncedSearchTerm?.trim();
-    if (!onSearchChange) return;
-    if (searchMode === 'text') {
-      onSearchChange(next ? next : undefined);
-    }
-  }, [debouncedSearchTerm, onSearchChange, searchMode]);
-
-  // When switching modes, clear counterpart search
-  React.useEffect(() => {
-    if (searchMode === 'amount') {
-      // Clear text search when entering amount mode
-      setSearchTerm('');
-      onSearchChange?.(undefined);
-    } else {
-      // Clear amount search when switching back to text mode
-      setAmountInput('');
-      setAmountOperator('=');
-      onAmountSearchChange?.(null);
-    }
-  }, [searchMode]);
+  // Use reusable search amount logic
+  const {
+    searchMode,
+    setSearchMode,
+    amountOperator,
+    setAmountOperator,
+    amountInput,
+    setAmountInput,
+    searchTerm,
+    setSearchTerm,
+    debouncedSearchTerm,
+    handleApplyAmount,
+    handleClearAmount,
+    handleClearText
+  } = useSearchAmount({
+    onSearchChange,
+    onAmountSearchChange
+  });
 
   // Sync pending filters when advanced panel opens or when external filters change
   React.useEffect(() => {
@@ -275,79 +264,18 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
       {/* Top row with search, date filter, and actions */}
       <div className="flex flex-col sm:flex-row gap-8 items-start sm:items-center justify-between">
         <div className="flex flex-1 gap-2 items-center">
-          {/* Search mode toggle */}
-          <div className="flex items-center gap-2">
-            <Label htmlFor="amount-mode" className="text-xs">Amount</Label>
-            <Switch
-              id="amount-mode"
-              checked={searchMode === 'amount'}
-              onCheckedChange={(checked) => setSearchMode(checked ? 'amount' : 'text')}
-            />
-          </div>
-
-          {/* Operator select when amount mode */}
-          {searchMode === 'amount' && (
-            <div className="min-w-[110px]">
-              <Select
-                value={amountOperator}
-                onValueChange={(v) => setAmountOperator(v as AmountOperator)}
-              >
-                <SelectTrigger className="w-[110px]">
-                  <SelectValue placeholder=">" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=">">&gt;</SelectItem>
-                  <SelectItem value=">=">&gt;=</SelectItem>
-                  <SelectItem value="=">=</SelectItem>
-                  <SelectItem value="<">{'<'}</SelectItem>
-                  <SelectItem value="<=">{'<='}</SelectItem>
-                  <SelectItem value="!=">!=</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Unified input: displays either text or amount with operator */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder={searchMode === 'amount' ? 'Enter amount (e.g., 100 or 1,000.50)' : searchPlaceholder}
-              value={searchMode === 'amount' ? `${amountOperator} ${amountInput}` : searchTerm}
-              onChange={(e) => {
-                if (searchMode === 'amount') {
-                  const raw = e.target.value;
-                  // Strip leading operator if user edits it inline, keep only numeric part after operator
-                  const cleaned = raw.replace(/^\s*([<>]=?|!?=)?\s*/, '');
-                  // Allow digits, commas, dot
-                  const numericPart = cleaned.replace(/[^0-9.,]/g, '');
-                  setAmountInput(numericPart);
-                } else {
-                  setSearchTerm(e.target.value);
-                }
-              }}
-              className="pl-9"
-            />
-          </div>
-
-          {/* Apply button when in amount mode */}
-          {searchMode === 'amount' && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                const numStr = amountInput.replace(/,/g, '');
-                const num = Number(numStr);
-                if (!Number.isNaN(num)) {
-                  onAmountSearchChange?.({ operator: amountOperator, value: num });
-                } else {
-                  // If invalid, clear any applied amount search
-                  onAmountSearchChange?.(null);
-                }
-              }}
-              disabled={!amountInput.trim()}
-            >
-              Apply
-            </Button>
-          )}
+          <SearchAmountSwitcher
+            searchMode={searchMode}
+            onSearchModeChange={setSearchMode}
+            amountOperator={amountOperator}
+            onAmountOperatorChange={setAmountOperator}
+            amountInput={amountInput}
+            onAmountInputChange={setAmountInput}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            onApplyAmount={handleApplyAmount}
+            searchPlaceholder={searchPlaceholder}
+          />
 
           {/* Income Type Filter (Dynamic) */}
           <div>
@@ -474,10 +402,7 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
                 variant="ghost"
                 size="sm"
                 className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
-                onClick={() => {
-                  setSearchTerm('');
-                  onSearchChange?.(undefined);
-                }}
+                onClick={handleClearText}
               >
                 <X className="h-2 w-2" />
               </Button>
@@ -492,11 +417,7 @@ export const FinanceFilterBar: React.FC<FinanceFilterBarProps> = ({
                 variant="ghost"
                 size="sm"
                 className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
-                onClick={() => {
-                  setAmountInput('');
-                  setAmountOperator('=');
-                  onAmountSearchChange?.(null);
-                }}
+                onClick={handleClearAmount}
               >
                 <X className="h-2 w-2" />
               </Button>

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { FinanceFilter, ExpenseRecord, PaymentMethod, ExpenseCategory } from '@/types/finance';
 import { insertFinanceActivityLog, sanitizeMetadata } from '@/utils/finance/activityLog';
 import { activityLogKeys } from '@/hooks/finance/activityLogs';
+import { applyAmountComparison, type AmountComparison } from '@/utils/finance/search';
 
 export interface ExpenseQueryParams {
   page?: number;
@@ -15,6 +16,7 @@ export interface ExpenseQueryParams {
   filters?: FinanceFilter;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
+  amount_comparison?: AmountComparison | null;
   enabled?: boolean;
 }
 
@@ -227,6 +229,7 @@ export function useExpenses(params?: ExpenseQueryParams) {
           `description.ilike.%${q}%,vendor.ilike.%${q}%,receipt_number.ilike.%${q}%,category.ilike.%${q}%,purpose.ilike.%${q}%`
         );
       }
+      query = applyAmountComparison(query, queryParams.amount_comparison);
       query = applyFinanceFilters(query, queryParams.filters);
       
       // Re-apply branch scope

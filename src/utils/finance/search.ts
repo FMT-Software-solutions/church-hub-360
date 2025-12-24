@@ -40,3 +40,24 @@ export function compareAmount(amount: number, comp: AmountComparison): boolean {
       return false;
   }
 }
+
+export function applyAmountComparison(query: any, comparison?: AmountComparison | null) {
+  if (!comparison || comparison.value === undefined) return query;
+  
+  switch (comparison.operator) {
+    case '>':
+      return query.gt('amount', comparison.value);
+    case '>=':
+      return query.gte('amount', comparison.value);
+    case '<':
+      return query.lt('amount', comparison.value);
+    case '<=':
+      return query.lte('amount', comparison.value);
+    case '=':
+      return query.eq('amount', comparison.value);
+    case '!=':
+      return query.neq('amount', comparison.value);
+    default:
+      return query;
+  }
+}

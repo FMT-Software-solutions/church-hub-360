@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,8 +51,61 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     addPurpose,
   } = useExpensePreferences();
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const clearError = (key: string) =>
+    setErrors((prev) => {
+      const { [key]: _omit, ...rest } = prev;
+      return rest;
+    });
+
+  const validateForm = (): Record<string, string> => {
+    const nextErrors: Record<string, string> = {};
+
+    if (!data.amount || data.amount <= 0) {
+      nextErrors.amount = 'Amount must be greater than zero.';
+    }
+
+    if (!data.branch_id) {
+      nextErrors.branch_id = 'Please select a branch.';
+    }
+
+    if (!data.category) {
+      nextErrors.category = 'Please select a category.';
+    }
+
+    if (!data.description?.trim()) {
+      nextErrors.description = 'Please provide a description.';
+    }
+
+    if (!data.date) {
+      nextErrors.date = 'Please provide a date.';
+    }
+
+    if (!data.payment_method) {
+      nextErrors.payment_method = 'Please select a payment method.';
+    }
+
+    if (data.payment_method === 'cheque' && !data.check_number?.trim()) {
+      nextErrors.check_number =
+        'Cheque number is required for cheque payments.';
+    }
+
+    return nextErrors;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    onSubmit(e);
+  };
+
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2 col-span-2">
           <Label>Branch</Label>
@@ -67,6 +120,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             }
             placeholder="Select branch"
           />
+          {errors.branch_id && (
+            <p className="text-destructive text-sm mt-1" aria-live="polite">
+              {errors.branch_id}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2 col-span-2">
@@ -83,8 +141,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 amount: parseFloat(e.target.value) || 0,
               })
             }
+            onBlur={() => clearError('amount')}
+            aria-invalid={!!errors.amount}
             required
           />
+          {errors.amount && (
+            <p className="text-destructive text-sm mt-1" aria-live="polite">
+              {errors.amount}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Category *</Label>
@@ -94,7 +159,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               onChange({ ...data, category: value as any, purpose: '' })
             }
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" aria-invalid={!!errors.category}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -105,6 +170,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               ))}
             </SelectContent>
           </Select>
+          {errors.category && (
+            <p className="text-destructive text-sm mt-1" aria-live="polite">
+              {errors.category}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -129,8 +199,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           value={data.description || ''}
           onChange={(e) => onChange({ ...data, description: e.target.value })}
           placeholder="Brief description of the expense"
+          onBlur={() => clearError('description')}
+          aria-invalid={!!errors.description}
           required
         />
+        {errors.description && (
+          <p className="text-destructive text-sm mt-1" aria-live="polite">
+            {errors.description}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -142,6 +219,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             label={undefined}
             formatDateLabel={(date) => format(date, 'MMM dd, yyyy')}
           />
+          {errors.date && (
+            <p className="text-destructive text-sm mt-1" aria-live="polite">
+              {errors.date}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="paymentMethod">Payment Method *</Label>
@@ -151,7 +233,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               onChange({ ...data, payment_method: value })
             }
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger
+              className="w-full"
+              aria-invalid={!!errors.payment_method}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -162,6 +247,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               ))}
             </SelectContent>
           </Select>
+          {errors.payment_method && (
+            <p className="text-destructive text-sm mt-1" aria-live="polite">
+              {errors.payment_method}
+            </p>
+          )}
         </div>
       </div>
 
@@ -228,8 +318,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               onChange({ ...data, check_number: e.target.value })
             }
             placeholder="Enter check number"
+            onBlur={() => clearError('check_number')}
+            aria-invalid={!!errors.check_number}
             required
           />
+          {errors.check_number && (
+            <p className="text-destructive text-sm mt-1" aria-live="polite">
+              {errors.check_number}
+            </p>
+          )}
         </div>
       )}
 

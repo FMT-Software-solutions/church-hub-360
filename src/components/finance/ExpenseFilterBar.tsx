@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import type { DateFilter, FinanceFilter } from '@/types/finance';
 import { format } from 'date-fns';
-import { CalendarIcon, Filter, Plus, Search, X } from 'lucide-react';
+import { CalendarIcon, Filter, Plus, X } from 'lucide-react';
 import React from 'react';
 import { paymentMethodOptions as paymentMethodOptionsConst } from './constants';
 import { DatePresetPicker, type DatePresetValue } from '@/components/attendance/reports/DatePresetPicker';
@@ -27,6 +27,9 @@ import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSear
 import { useExpensePreferences } from '@/hooks/finance/useExpensePreferences';
 import { BranchSelector } from '@/components/shared/BranchSelector';
 import { useBranches } from '@/hooks/useBranchQueries';
+import type { AmountComparison } from '@/utils/finance/search';
+import { useSearchAmount } from '@/hooks/finance/useSearchAmount';
+import { SearchAmountSwitcher } from '@/components/finance/SearchAmountSwitcher';
 
 interface FilterOption {
   value: string;
@@ -39,6 +42,8 @@ interface ExpenseFilterBarProps {
   paymentMethodOptions?: FilterOption[];
   searchPlaceholder?: string;
   onSearchChange?: (search?: string) => void;
+  amountSearch?: AmountComparison | null;
+  onAmountSearchChange?: (cmp: AmountComparison | null) => void;
   showAddButton?: boolean;
   onAddClick?: () => void;
   addButtonLabel?: string;
@@ -50,15 +55,35 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
   paymentMethodOptions = [],
   searchPlaceholder = 'Search expenses...',
   onSearchChange,
+  amountSearch,
+  onAmountSearchChange,
   showAddButton = true,
   onAddClick,
   addButtonLabel = 'Add Expense',
 }) => {
-  const [searchTerm, setSearchTerm] = React.useState('');
   const [showFilters, setShowFilters] = React.useState(false);
   const [pendingFilters, setPendingFilters] = React.useState<FinanceFilter>(filters);
   const { currentOrganization } = useOrganization();
   const { purposeOptions, categoryKeys, categoryOptions, getPurposeOptions } = useExpensePreferences();
+
+  // Use reusable search amount logic
+  const {
+    searchMode,
+    setSearchMode,
+    amountOperator,
+    setAmountOperator,
+    amountInput,
+    setAmountInput,
+    searchTerm,
+    setSearchTerm,
+    debouncedSearchTerm,
+    handleApplyAmount,
+    handleClearAmount,
+    handleClearText
+  } = useSearchAmount({
+    onSearchChange,
+    onAmountSearchChange
+  });
 
   // Sync pending filters when advanced panel opens or when external filters change
   React.useEffect(() => {
@@ -136,24 +161,21 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
       {/* Top row with search, date filter, and actions */}
       <div className="flex flex-col sm:flex-row gap-8 items-start sm:items-center justify-between">
         <div className="flex flex-1 gap-2 items-center">
-          <div className='flex flex-1 gap-2 items-center'>
-            {/* Text search */}
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder={searchPlaceholder}
-                value={searchTerm}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setSearchTerm(next);
-                  onSearchChange?.(next.trim() ? next.trim() : undefined);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <SearchAmountSwitcher
+            searchMode={searchMode}
+            onSearchModeChange={setSearchMode}
+            amountOperator={amountOperator}
+            onAmountOperatorChange={setAmountOperator}
+            amountInput={amountInput}
+            onAmountInputChange={setAmountInput}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            onApplyAmount={handleApplyAmount}
+            searchPlaceholder={searchPlaceholder}
+          />
 
-            {/* Date Filter using DatePresetPicker */}
-            <Popover>
+          {/* Date Filter using DatePresetPicker */}
+          <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -203,12 +225,41 @@ export const ExpenseFilterBar: React.FC<ExpenseFilterBarProps> = ({
               {addButtonLabel}
             </Button>
           )}
-        </div>
       </div>
 
       {/* Active Filters Display */}
-      {(datePresetValue || filters.purpose_filter?.length || filters.category_filter?.length || filters.approved_by_filter?.length || filters.payment_method_filter?.length || (filters.amount_range && (filters.amount_range.min !== undefined || filters.amount_range.max !== undefined))) && (
+      {(debouncedSearchTerm || amountSearch || datePresetValue || filters.purpose_filter?.length || filters.category_filter?.length || filters.approved_by_filter?.length || filters.payment_method_filter?.length || (filters.amount_range && (filters.amount_range.min !== undefined || filters.amount_range.max !== undefined))) && (
         <div className="flex flex-wrap gap-2">
+          {/* Search term (text mode) */}
+          {searchMode === 'text' && debouncedSearchTerm && (
+            <Badge variant="secondary" className="gap-1">
+              Search: {debouncedSearchTerm}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                onClick={handleClearText}
+              >
+                <X className="h-2 w-2" />
+              </Button>
+            </Badge>
+          )}
+
+          {/* Amount search badge (amount mode) */}
+          {amountSearch && (
+            <Badge variant="secondary" className="gap-1">
+              Amount: {amountSearch.operator} {amountSearch.value}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                onClick={handleClearAmount}
+              >
+                <X className="h-2 w-2" />
+              </Button>
+            </Badge>
+          )}
+
           {/* Date filter badge */}
           {(() => {
             const df = filters.date_filter;

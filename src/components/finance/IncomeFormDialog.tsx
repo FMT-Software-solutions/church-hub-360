@@ -459,6 +459,22 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
           </div>
         ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+           {/* Branch */}
+          <div className="space-y-2">
+            <Label>Branch *</Label>
+            <BranchSelector
+              variant="single"
+              value={form.branch_id || undefined}
+              onValueChange={(v) =>
+                setForm((prev) => ({ ...prev, branch_id: (v as string | undefined) ?? null }))
+              }
+              placeholder="Select branch"
+            />
+             {errors.branch_id && (
+                <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.branch_id}</p>
+              )}
+          </div>
+          
           {/* Amount & Types */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2 md:col-span-2">
@@ -756,21 +772,7 @@ export const IncomeFormDialog: React.FC<IncomeFormDialogProps> = ({
             </div>
           )}
 
-          {/* Branch */}
-          <div className="space-y-2">
-            <Label>Branch *</Label>
-            <BranchSelector
-              variant="single"
-              value={form.branch_id || undefined}
-              onValueChange={(v) =>
-                setForm((prev) => ({ ...prev, branch_id: (v as string | undefined) ?? null }))
-              }
-              placeholder="Select branch"
-            />
-             {errors.branch_id && (
-                <p className="text-destructive text-sm mt-1" aria-live="polite">{errors.branch_id}</p>
-              )}
-          </div>
+         
 
           {/* Date & Envelope */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
