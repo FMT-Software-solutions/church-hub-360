@@ -20,6 +20,7 @@ type Payload = {
     email: string
     password: string
   }
+  isPurchase?: boolean
   productId?: string
   appName?: string
   provisioningSecret: string
@@ -132,7 +133,7 @@ serve(async (req) => {
     }
 
     const payload: Payload = await req.json()
-    const { organizationDetails, userDetails, provisioningSecret } = payload
+    const { organizationDetails, userDetails, provisioningSecret, isPurchase } = payload
 
     if (!organizationDetails?.id || !organizationDetails?.name) {
       return new Response(JSON.stringify({ error: 'Missing organization details' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -148,13 +149,36 @@ serve(async (req) => {
 
     const { data: existingOrg } = await supabaseAdmin
       .from('organizations')
-      .select('id')
+      .select('id, has_purchased')
       .eq('id', organizationDetails.id)
       .maybeSingle()
 
+    // Handle existing organization logic
     if (existingOrg) {
-      return new Response(JSON.stringify({ error: 'Organization already exists' }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (isPurchase) {
+        if (existingOrg.has_purchased) {
+          // Already purchased, nothing to do
+          return new Response(JSON.stringify({ success: true, message: 'Organization already purchased' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // Update to purchased status
+        const { error: updateError } = await supabaseAdmin
+          .from('organizations')
+          .update({ has_purchased: true, trial_end_date: null })
+          .eq('id', existingOrg.id)
+
+        if (updateError) {
+          return new Response(JSON.stringify({ error: updateError.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        return new Response(JSON.stringify({ success: true, message: 'Organization upgraded to purchased status' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+      } else {
+        return new Response(JSON.stringify({ success: true, message: 'Organization already exists' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
     }
+
+    const trialEndDate = isPurchase ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
     const orgInsert = {
       id: organizationDetails.id,
@@ -165,6 +189,8 @@ serve(async (req) => {
       brand_colors: PURPLE_THEME,
       theme_name: 'purple',
       is_active: true,
+      has_purchased: !!isPurchase,
+      trial_end_date: trialEndDate,
     }
 
     const { data: org, error: orgError } = await supabaseAdmin

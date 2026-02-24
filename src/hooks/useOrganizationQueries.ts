@@ -49,7 +49,9 @@ export function useUserOrganizations(userId: string | undefined) {
             logo_settings,
             brand_colors,
             notification_settings,
-            is_active
+            is_active,
+            trial_end_date,
+            has_purchased
           )
         `)
         .eq('user_id', userId)

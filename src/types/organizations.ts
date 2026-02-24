@@ -47,6 +47,8 @@ export interface Organization {
   notification_settings: NotificationSettings;
   theme_name?: string | null;
   is_active: boolean;
+  trial_end_date?: string | null;
+  has_purchased?: boolean;
 }
 
 // User organization relationship interface

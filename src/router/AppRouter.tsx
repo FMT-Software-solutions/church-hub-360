@@ -64,6 +64,8 @@ import { MembershipFormBuilder } from '@/pages/people/MembershipFormBuilder';
 import { TestAnnouncementEditorLayout } from '@/modules/AnnouncementSlideBuilder/TestEditorLayout';
 import { AccessGuard } from '@/registry/access/AccessGuard';
 import { PeopleAccessGuard } from '@/components/auth/PeopleAccessGuard';
+import { TrialExpiredGuard } from '@/components/shared/TrialExpiredGuard';
+import { TrialNotification } from '@/components/shared/TrialNotification';
 
 function AppRoutes() {
   return (
@@ -120,7 +122,9 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <OrganizationSelectionProtectedRoute>
-              <RoleAwareLayout />
+              <TrialExpiredGuard>
+                <RoleAwareLayout />
+              </TrialExpiredGuard>
             </OrganizationSelectionProtectedRoute>
           </ProtectedRoute>
         }
@@ -296,7 +300,10 @@ export function AppRouter() {
       <AuthProvider>
         <OrganizationProvider>
           <PaletteProvider>
-            <AppRoutes />
+            <div>
+              <AppRoutes />
+              <TrialNotification />
+            </div>
           </PaletteProvider>
         </OrganizationProvider>
       </AuthProvider>

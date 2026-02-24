@@ -34,6 +34,8 @@ import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '../../contexts/SidebarContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { TrialStatus } from '../shared/TrialStatus';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import {
   DropdownMenu,
@@ -115,6 +117,7 @@ const navItems: NavItem[] = buildNavItemsFromRegistry(NAV_ITEMS);
 
 export function Sidebar() {
   const isDev = import.meta.env.DEV;
+  const { currentOrganization } = useOrganization();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     // Initialize with auto-expanded parent if child is active
@@ -450,6 +453,14 @@ export function Sidebar() {
             </ul>
           </nav>
           <div className="p-2 border-t border-border">
+            {currentOrganization && (
+              <div className="mb-2 px-2">
+                <TrialStatus
+                  trialEndDate={currentOrganization.trial_end_date || null}
+                  hasPurchased={currentOrganization.has_purchased || false}
+                />
+              </div>
+            )}
             <Button
               onClick={handleSignOut}
               className="w-full text-red-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-400"
@@ -505,6 +516,14 @@ export function Sidebar() {
         </nav>
 
         <div className="p-2 border-t border-border">
+          {currentOrganization && (
+            <div className="mb-2 px-2">
+              <TrialStatus
+                trialEndDate={currentOrganization.trial_end_date || null}
+                hasPurchased={currentOrganization.has_purchased || false}
+              />
+            </div>
+          )}
           {isCollapsed ? (
             <TooltipProvider>
               <Tooltip>
