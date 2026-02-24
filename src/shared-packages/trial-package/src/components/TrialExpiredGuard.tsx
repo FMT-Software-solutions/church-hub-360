@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import { useTrialStatus, OrganizationLike } from '../hooks/useTrialStatus';
+import { useTrialStatus, type OrganizationLike } from '../hooks/useTrialStatus';
 import { Button } from './ui/button';
 
 interface TrialExpiredGuardProps {
@@ -84,7 +84,7 @@ export function TrialExpiredGuard({
               Contact Support
             </button>
           </p>
-          
+
           {ThemeSwitcherComponent && (
             <div className="flex justify-center">
               <ThemeSwitcherComponent />
