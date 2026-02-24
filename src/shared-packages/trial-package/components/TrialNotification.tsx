@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useTrialStatus, OrganizationLike } from '../hooks/useTrialStatus';
+import { useTrialStatus, type OrganizationLike } from '../hooks/useTrialStatus';
 import { Button } from './ui/button';
 
 interface TrialNotificationProps {
