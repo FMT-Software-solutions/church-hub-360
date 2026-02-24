@@ -454,7 +454,7 @@ export function Sidebar() {
           </nav>
           <div className="p-2 border-t border-border">
             {currentOrganization && (
-              <div className="mb-2 px-2">
+              <div className="mb-2 px-2 flex justify-center">
                 <TrialStatus
                   trialEndDate={currentOrganization.trial_end_date || null}
                   hasPurchased={currentOrganization.has_purchased || false}
@@ -517,7 +517,7 @@ export function Sidebar() {
 
         <div className="p-2 border-t border-border">
           {currentOrganization && (
-            <div className="mb-2 px-2">
+            <div className="mb-2 px-2 flex justify-center">
               <TrialStatus
                 trialEndDate={currentOrganization.trial_end_date || null}
                 hasPurchased={currentOrganization.has_purchased || false}

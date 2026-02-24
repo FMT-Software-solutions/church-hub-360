@@ -33,9 +33,12 @@ import { openExternalUrl } from '../../utils/external-url';
 import { useUpdateStore } from '../../modules/auto-update/stores/updateStore';
 import { processAvatarUrl, isElectron } from '../../utils/asset-path';
 import { useRoleCheck } from '@/registry/access/RoleGuard';
+import { TrialStatus } from './TrialStatus';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export function UserProfileDropdown() {
   const { user, signOut } = useAuth();
+  const { currentOrganization } = useOrganization();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { hasUpdate } = useUpdateStore();
@@ -77,9 +80,8 @@ export function UserProfileDropdown() {
   }
 
   const { profile } = user;
-  const displayName = `${profile.first_name || ''} ${
-    profile.last_name || ''
-  }`.trim();
+  const displayName = `${profile.first_name || ''} ${profile.last_name || ''
+    }`.trim();
   const fallbackText =
     profile.first_name && profile.last_name
       ? `${profile.first_name[0]}${profile.last_name[0]}`
@@ -124,6 +126,13 @@ export function UserProfileDropdown() {
                 <p className="text-xs leading-none text-muted-foreground mt-1 truncate">
                   {profile.email}
                 </p>
+                {currentOrganization && (
+                  <TrialStatus
+                    trialEndDate={currentOrganization.trial_end_date || null}
+                    hasPurchased={currentOrganization.has_purchased || false}
+                    className="mt-1"
+                  />
+                )}
               </div>
             </div>
           </div>
