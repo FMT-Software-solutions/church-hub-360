@@ -151,8 +151,7 @@ export function useEditRequest(tableName: RequestTableName, recordId: string) {
 
 
 
-            const recipients = reviewers?.map(r => r.user_id).filter(id => {
-
+            const recipients = reviewers?.map(r => r.user_id).filter(_id => {
                 return true;
             }) || [];
 
@@ -478,7 +477,7 @@ export function useRequestById(requestId: string | null) {
                     table: 'edit_requests',
                     filter: `id=eq.${requestId}`,
                 },
-                (payload) => {
+                () => {
                     // Invalidate the query to fetch the latest data
                     queryClient.invalidateQueries({ queryKey: ['edit_request', requestId] });
                 }
