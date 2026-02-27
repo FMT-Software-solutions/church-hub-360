@@ -10,6 +10,7 @@ interface UserUpdateData {
   selectedBranchIds?: string[];
   visibilityOverrides?: any;
   canCreateUsers?: boolean;
+  canApproveRequests?: boolean;
 }
 
 interface UserChanges {
@@ -27,6 +28,7 @@ interface UserChanges {
   hasAnyChanges: boolean;
   overridesChanged?: boolean;
   canCreateUsersChanged?: boolean;
+  canApproveRequestsChanged?: boolean;
 }
 
 /**
@@ -56,7 +58,7 @@ export function detectUserChanges(
   if (updateData.firstName !== undefined && updateData.firstName !== currentUser.profile.first_name) {
     changes.profileChanges.first_name = updateData.firstName;
   }
-  
+
   if (updateData.lastName !== undefined && updateData.lastName !== currentUser.profile.last_name) {
     changes.profileChanges.last_name = updateData.lastName;
   }
@@ -70,7 +72,7 @@ export function detectUserChanges(
 
   // Check branch changes
   const currentBranchIds = currentUser.user_branches?.map(ub => ub.branch_id).filter((id): id is string => id !== null) || [];
-  
+
   let newBranchIds: string[] = [];
   if (updateData.assignAllBranches) {
     newBranchIds = activeBranches;
@@ -102,13 +104,20 @@ export function detectUserChanges(
     changes.canCreateUsersChanged = true;
   }
 
+  // Check can_approve_requests changes
+  const currentCanApprove = currentUser.user_organizations?.[0]?.can_approve_requests ?? false;
+  if (updateData.canApproveRequests !== undefined && updateData.canApproveRequests !== currentCanApprove) {
+    changes.canApproveRequestsChanged = true;
+  }
+
   // Determine if there are any changes
-  changes.hasAnyChanges = 
+  changes.hasAnyChanges =
     Object.keys(changes.profileChanges).length > 0 ||
     changes.roleChanged ||
     changes.branchChanges.hasChanges ||
     !!changes.overridesChanged ||
-    !!changes.canCreateUsersChanged;
+    !!changes.canCreateUsersChanged ||
+    !!changes.canApproveRequestsChanged;
 
   return changes;
 }
@@ -132,6 +141,7 @@ export function transformUserUpdateData(
       : updateData.selectedBranchIds || updateData.branchIds || [],
     visibilityOverrides: updateData.visibilityOverrides,
     canCreateUsers: updateData.canCreateUsers,
+    canApproveRequests: updateData.canApproveRequests,
   };
 
   // Remove undefined values

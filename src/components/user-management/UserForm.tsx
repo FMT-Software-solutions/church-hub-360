@@ -33,6 +33,7 @@ interface UserFormData {
   assignAllBranches?: boolean;
   visibilityOverrides?: VisibilityOverrides;
   canCreateUsers?: boolean;
+  canApproveRequests?: boolean;
 }
 
 interface UserFormProps {
@@ -62,6 +63,7 @@ export function UserForm({
     assignAllBranches: false,
     visibilityOverrides: { sections: {} },
     canCreateUsers: true,
+    canApproveRequests: false,
   });
   const [disabledMap, setDisabledMap] = useState<Record<string, boolean>>({});
 
@@ -69,13 +71,14 @@ export function UserForm({
     if (mode === 'edit' && user) {
       const userBranchIds = user.user_branches?.map(ub => ub.branch_id).filter(Boolean) || [];
       const activeBranchIds = branches.filter(b => b.is_active).map(b => b.id);
-      const hasAllBranches = activeBranchIds.length > 0 && 
+      const hasAllBranches = activeBranchIds.length > 0 &&
         activeBranchIds.every(id => userBranchIds.includes(id));
-      
+
       const userRole = user.user_organizations?.[0]?.role || 'branch_admin';
       const vis = user.user_organizations?.[0]?.visibility_overrides || {};
       const canCreateUsers = user.user_organizations?.[0]?.can_create_users ?? true;
-      
+      const canApproveRequests = user.user_organizations?.[0]?.can_approve_requests ?? false;
+
       setFormData({
         email: user.profile.email || '',
         firstName: user.profile.first_name || '',
@@ -85,6 +88,7 @@ export function UserForm({
         assignAllBranches: hasAllBranches,
         visibilityOverrides: vis,
         canCreateUsers,
+        canApproveRequests,
       });
       setDisabledMap(disabledForRole(userRole));
     }
@@ -120,6 +124,7 @@ export function UserForm({
       selectedBranchIds: role === 'admin' ? [] : prev.selectedBranchIds,
       visibilityOverrides: defaults,
       canCreateUsers: getDefaultCapability(role).can_create_users ?? prev.canCreateUsers,
+      canApproveRequests: role === 'admin' ? true : prev.canApproveRequests, // Default to true for admin if desired, or false. Let's keep existing behavior or set default.
     }));
     setDisabledMap(disabledForRole(role));
   };
@@ -133,9 +138,9 @@ export function UserForm({
   }, [mode]);
 
   const requiresBranch = ['write', 'read', 'branch_admin', 'finance_admin', 'attendance_manager', 'attendance_rep'].includes(formData.role) && !formData.assignAllBranches;
-  
+
   const canBeAssignedAllBranches = ['branch_admin', 'write', 'read', 'finance_admin', 'attendance_manager', 'attendance_rep'].includes(formData.role);
-  
+
   const handleAssignAllBranchesChange = (checked: boolean) => {
     const activeBranchIds = branches.filter(b => b.is_active).map(b => b.id);
     setFormData(prev => ({
@@ -239,11 +244,11 @@ export function UserForm({
               Assign all branches
             </Label>
           </div>
-          
-         
+
+
         </div>
       )}
-      
+
       {requiresBranch && (
         <div className='space-y-1'>
           <Label htmlFor="branches">
@@ -455,11 +460,11 @@ export function UserForm({
             </div>
           </div>
 
-          
+
         </div>
       )}
 
-      {(formData.role === 'admin' || formData.role === 'branch_admin' ) && (
+      {(formData.role === 'admin' || formData.role === 'branch_admin') && (
         <div className="flex items-center space-x-2 text-sm my-6">
           <Checkbox
             id="can-create-users"
@@ -470,6 +475,17 @@ export function UserForm({
         </div>
       )}
 
+      {isOwner() && (formData.role === 'admin' || formData.role === 'branch_admin' || formData.role === 'finance_admin') && (
+        <div className="flex items-center space-x-2 text-sm my-6">
+          <Checkbox
+            id="can-approve-requests"
+            checked={!!formData.canApproveRequests}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, canApproveRequests: !!checked }))}
+          />
+          <Label htmlFor="can-approve-requests">Allow this user to approve finance edit requests</Label>
+        </div>
+      )}
+
       <div className="flex space-x-2">
         <Button type="submit" disabled={isLoading} className="flex-1">
           {isLoading
@@ -477,8 +493,8 @@ export function UserForm({
               ? 'Creating...'
               : 'Updating...'
             : mode === 'create'
-            ? 'Create User'
-            : 'Update User'}
+              ? 'Create User'
+              : 'Update User'}
         </Button>
         <Button
           type="button"

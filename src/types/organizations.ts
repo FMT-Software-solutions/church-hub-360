@@ -57,6 +57,9 @@ export interface UserOrganization {
   user_id: string;
   organization_id: string;
   role: UserRole;
+  visibility_overrides?: any;
+  can_create_users?: boolean;
+  can_approve_requests?: boolean;
   created_at: string;
   updated_at: string;
   organization?: Organization; // Optional populated organization data

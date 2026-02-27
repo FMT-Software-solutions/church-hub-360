@@ -2,6 +2,7 @@ import {
   usePendingRequests,
   useRequestById,
 } from '@/hooks/finance/useEditRequests';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, X, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -24,9 +25,8 @@ function RequestItem({
 
   return (
     <div
-      className={`border rounded-lg p-6 space-y-4 ${
-        !isPending ? 'bg-muted/30' : ''
-      }`}
+      className={`border rounded-lg p-6 space-y-4 ${!isPending ? 'bg-muted/30' : ''
+        }`}
     >
       <div className="flex justify-between items-start">
         <div>
@@ -94,6 +94,8 @@ export function NotificationDetail({
     isLoading: isNotificationLoading,
   } = useNotification(notificationId);
   const { isOwner } = useRoleCheck();
+  const { currentOrganization } = useOrganization();
+  const canApproveRequests = currentOrganization?.user_permissions?.capabilities?.can_approve_requests ?? false;
 
   // Logic for edit requests
   const isEditRequest =
@@ -168,7 +170,7 @@ export function NotificationDetail({
             </div>
           )}
 
-          {isEditRequest && isOwner() && (
+          {isEditRequest && (isOwner() || canApproveRequests) && (
             <div className="pt-4 border-t">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                 Request Details

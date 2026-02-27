@@ -34,6 +34,7 @@ export function useUserOrganizations(userId: string | undefined) {
           role,
           visibility_overrides,
           can_create_users,
+          can_approve_requests,
           created_at,
           updated_at,
           organization:organizations!inner(
@@ -66,7 +67,10 @@ export function useUserOrganizations(userId: string | undefined) {
           user_role: item.role as OrganizationRole,
           user_permissions: {
             visibility_overrides: item.visibility_overrides || {},
-            capabilities: { can_create_users: item.can_create_users ?? true }
+            capabilities: { 
+              can_create_users: item.can_create_users ?? true,
+              can_approve_requests: item.can_approve_requests ?? false
+            }
           }
         })) || [];
 

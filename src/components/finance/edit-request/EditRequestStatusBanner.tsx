@@ -1,8 +1,9 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { EditRequest } from '@/types/finance-requests';
-import { Clock, Lock, RefreshCw, XCircle } from 'lucide-react';
+import { Clock, Lock, RefreshCw, XCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePendingRequests } from '@/hooks/finance/useEditRequests';
 
 interface EditRequestStatusBannerProps {
   request: EditRequest;
@@ -10,6 +11,7 @@ interface EditRequestStatusBannerProps {
   onCancel: () => void;
   isRefreshing: boolean;
   isOwner?: boolean;
+  canApproveRequests?: boolean;
 }
 
 export function EditRequestStatusBanner({
@@ -18,8 +20,10 @@ export function EditRequestStatusBanner({
   onCancel,
   isRefreshing,
   isOwner,
+  canApproveRequests,
 }: EditRequestStatusBannerProps) {
   const { user } = useAuth();
+  const { resolveRequest } = usePendingRequests();
   const isRequester = request.requester_id === user?.id;
 
   if (!isRequester) {
@@ -80,6 +84,19 @@ export function EditRequestStatusBanner({
               />
               Check Status
             </Button>
+            
+            {canApproveRequests && (
+                <Button
+                  size="sm"
+                  onClick={() => resolveRequest.mutate({ requestId: request.id, status: 'approved' })}
+                  disabled={resolveRequest.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle className="mr-2 h-3 w-3" />
+                  Approve
+                </Button>
+            )}
+
             <Button
               size="sm"
               variant="ghost"
@@ -87,7 +104,7 @@ export function EditRequestStatusBanner({
               onClick={onCancel}
             >
               <XCircle className="mr-2 h-3 w-3" />
-              Cancel Request
+              Cancel
             </Button>
           </div>
         </AlertDescription>

@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 // Query Keys
 export const userKeys = {
   all: ['users'] as const,
-  organizationUsers: (organizationId: string) => 
+  organizationUsers: (organizationId: string) =>
     [...userKeys.all, 'organization', organizationId] as const,
   user: (id: string) => [...userKeys.all, 'detail', id] as const,
 };
@@ -22,6 +22,7 @@ interface CreateUserData {
   branchIds?: string[];
   visibilityOverrides?: any;
   canCreateUsers?: boolean;
+  canApproveRequests?: boolean;
 }
 
 interface UpdateUserData {
@@ -34,6 +35,7 @@ interface UpdateUserData {
     branchIds?: string[];
     visibilityOverrides?: any;
     canCreateUsers?: boolean;
+    canApproveRequests?: boolean;
   };
 }
 
@@ -62,6 +64,7 @@ export function useUserQueries() {
           is_active,
           visibility_overrides,
           can_create_users,
+          can_approve_requests,
           organization_id,
           created_at,
           updated_at,
@@ -96,7 +99,7 @@ export function useUserQueries() {
       // This is more efficient than individual queries per user
       const userIds = data?.map(userOrg => userOrg.user_id).filter(Boolean) || [];
       let userBranchesMap: Record<string, any[]> = {};
-      
+
       if (userIds.length > 0) {
         const { data: branchesData, error: branchesError } = await supabase
           .from('user_branches')
@@ -135,7 +138,7 @@ export function useUserQueries() {
         const profile = Array.isArray(userOrg.profiles) ? userOrg.profiles[0] : userOrg.profiles;
         const authUser = Array.isArray(userOrg.auth_users) ? userOrg.auth_users[0] : userOrg.auth_users;
         const userBranches = userBranchesMap[userOrg.user_id] || [];
-        
+
         return {
           id: userOrg.user_id || '',
           email: profile?.email || '',
@@ -155,6 +158,7 @@ export function useUserQueries() {
             is_active: userOrg.is_active,
             visibility_overrides: userOrg.visibility_overrides,
             can_create_users: userOrg.can_create_users,
+            can_approve_requests: userOrg.can_approve_requests,
             created_at: userOrg.created_at,
             updated_at: userOrg.updated_at,
             organization: {
@@ -163,14 +167,14 @@ export function useUserQueries() {
             }
           }],
           user_branches: userBranches.map(ub => ({
-             id: ub.id,
-             user_id: ub.user_id,
-             branch_id: ub.branch_id,
-             organization_id: currentOrganization.id,
-             created_at: ub.created_at,
-             updated_at: ub.updated_at,
-             branch: ub.branch
-           }))
+            id: ub.id,
+            user_id: ub.user_id,
+            branch_id: ub.branch_id,
+            organization_id: currentOrganization.id,
+            created_at: ub.created_at,
+            updated_at: ub.updated_at,
+            branch: ub.branch
+          }))
         };
       }) || [];
     },
@@ -227,6 +231,7 @@ export function useUserQueries() {
             organizationId: currentOrganization.id,
             visibilityOverrides: userData.visibilityOverrides,
             canCreateUsers: userData.canCreateUsers,
+            canApproveRequests: userData.canApproveRequests,
           }),
         }
       );
@@ -248,8 +253,8 @@ export function useUserQueries() {
       // Toast notification handled in component
     },
     onError: () => {
-        // Error handling in component
-      },
+      // Error handling in component
+    },
   });
 
   // Update user mutation
@@ -269,23 +274,24 @@ export function useUserQueries() {
             updated_at: new Date().toISOString(),
           })
           .eq('id', authUserId);
-        
+
         updates.push(Promise.resolve(profileUpdate));
       }
 
       // 2. Update role if changed
-      if (userData.role || userData.visibilityOverrides !== undefined || userData.canCreateUsers !== undefined) {
+      if (userData.role || userData.visibilityOverrides !== undefined || userData.canCreateUsers !== undefined || userData.canApproveRequests !== undefined) {
         const roleUpdate = supabase
           .from('user_organizations')
           .update({
             ...(userData.role !== undefined && { role: userData.role }),
             ...(userData.visibilityOverrides !== undefined && { visibility_overrides: userData.visibilityOverrides }),
             ...(userData.canCreateUsers !== undefined && { can_create_users: userData.canCreateUsers }),
+            ...(userData.canApproveRequests !== undefined && { can_approve_requests: userData.canApproveRequests }),
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', authUserId)
           .eq('organization_id', currentOrganization.id);
-        
+
         updates.push(Promise.resolve(roleUpdate));
       }
 
@@ -296,9 +302,9 @@ export function useUserQueries() {
           .from('user_branches')
           .select('branch_id')
           .eq('user_id', authUserId);
-        
+
         const currentBranchIds = currentBranches?.map(b => b.branch_id).filter(Boolean) || [];
-        
+
         // Determine which branches to assign
         let newBranchIds: string[] = [];
         if (userData.branchIds) {
@@ -318,7 +324,7 @@ export function useUserQueries() {
             .delete()
             .eq('user_id', authUserId)
             .in('branch_id', branchesToRemove);
-          
+
           updates.push(Promise.resolve(deleteBranches));
         }
 
@@ -336,14 +342,14 @@ export function useUserQueries() {
           const addBranches = supabase
             .from('user_branches')
             .insert(branchInserts);
-          
+
           updates.push(Promise.resolve(addBranches));
         }
       }
 
       // Execute all updates
       const results = await Promise.all(updates);
-      
+
       // Check for errors
       for (const result of results) {
         if (result.error) {
@@ -359,8 +365,8 @@ export function useUserQueries() {
       // Toast notification handled in component
     },
     onError: () => {
-        // Error handling in component
-      },
+      // Error handling in component
+    },
   });
 
   // Fetch inactive users in the current organization
@@ -406,7 +412,7 @@ export function useUserQueries() {
       // Get user branches separately
       const userIds = profilesData?.map(user => user.user_id) || [];
       let userBranchesData: any[] = [];
-      
+
       if (userIds.length > 0) {
         const { data: branchesData, error: branchesError } = await supabase
           .from('user_branches')
@@ -442,7 +448,7 @@ export function useUserQueries() {
           user_branches: userBranchesMap[user.user_id] || []
         };
       }) || [];
- 
+
       return combinedData;
     },
     enabled: !!currentOrganization,
@@ -453,11 +459,11 @@ export function useUserQueries() {
   const reactivateUser = useMutation({
     mutationFn: async ({ userId, organizationId }: { userId: string; organizationId: string }) => {
       if (!currentOrganization) throw new Error('No organization selected');
-      
+
       // Update user_organizations to set is_active = true
       const { data, error } = await supabase
         .from('user_organizations')
-        .update({ 
+        .update({
           is_active: true,
           updated_at: new Date().toISOString()
         })
@@ -489,11 +495,11 @@ export function useUserQueries() {
   const deactivateUser = useMutation({
     mutationFn: async ({ userId, organizationId }: { userId: string; organizationId: string }) => {
       if (!currentOrganization) throw new Error('No organization selected');
-      
+
       // Update user_organizations to set is_active = false
       const { data, error } = await supabase
         .from('user_organizations')
-        .update({ 
+        .update({
           is_active: false,
           updated_at: new Date().toISOString()
         })

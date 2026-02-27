@@ -18,7 +18,7 @@ function getNewUserInvitationTemplate(userName: string, email: string, organizat
     muted: '#64748B',
     border: '#E2E8F0'
   };
-  
+
   return {
     subject: `Welcome to ${organizationName} - Your Account Details`,
     html: `
@@ -109,7 +109,7 @@ function getExistingUserNotificationTemplate(userName: string, organizationName:
     muted: '#64748B',
     border: '#E2E8F0'
   };
-  
+
   return {
     subject: `You've been added to ${organizationName}`,
     html: `
@@ -188,7 +188,7 @@ serve(async (req) => {
     // Validate environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
         JSON.stringify({ error: 'Server configuration error' }),
@@ -236,7 +236,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-    
+
     if (!user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized request. User not found.' }),
@@ -255,8 +255,8 @@ serve(async (req) => {
       )
     }
 
-    const { email, firstName, lastName, role, branchIds, organizationId, visibilityOverrides, canCreateUsers } = requestBody
-    
+    const { email, firstName, lastName, role, branchIds, organizationId, visibilityOverrides, canCreateUsers, canApproveRequests } = requestBody
+
     console.log(`Creating user: ${email}, role: ${role}, organization: ${organizationId}, branches: ${branchIds?.join(', ') || 'none'}`)
 
     // Validate organizationId is provided
@@ -327,7 +327,7 @@ serve(async (req) => {
     // Check if user already exists in auth.users
     const { data: existingUsers, error: existingUserError } = await supabaseAdmin.auth.admin.listUsers()
     const existingUser = existingUsers?.users?.find(user => user.email === email)
-    
+
     let userId: string
     let profileId: string
     let tempPassword: string | null = null
@@ -336,7 +336,7 @@ serve(async (req) => {
     if (existingUser) {
       // User already exists
       userId = existingUser.id
-      
+
       // With unified IDs, the user ID is the same as the profile ID
       profileId = userId
 
@@ -357,7 +357,7 @@ serve(async (req) => {
     } else {
       // User doesn't exist, create new user
       isNewUser = true
-      
+
       // Generate a temporary password (10 characters)
       tempPassword = Math.random().toString(36).slice(-10)
 
@@ -381,7 +381,7 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      
+
       console.log(`Successfully created auth user: ${newUser?.user?.id}`)
 
       if (!newUser?.user?.id) {
@@ -457,7 +457,8 @@ serve(async (req) => {
         is_active: true,
         created_by: user.id,
         visibility_overrides: visibilityOverrides || {},
-        can_create_users: typeof canCreateUsers === 'boolean' ? canCreateUsers : true
+        can_create_users: typeof canCreateUsers === 'boolean' ? canCreateUsers : true,
+        can_approve_requests: typeof canApproveRequests === 'boolean' ? canApproveRequests : false
       })
 
     if (orgError) {
@@ -475,7 +476,7 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-    
+
     console.log(`Successfully assigned user ${userId} to organization ${organizationId}`)
 
     // If branchIds are provided and user is not admin/owner, add user to multiple branches
@@ -509,7 +510,7 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      
+
       console.log(`Successfully assigned user ${userId} to branches: ${branchIds.join(', ')}`)
     } else if (['admin', 'owner'].includes(role)) {
       console.log(`User ${userId} has ${role} role - skipping branch assignment (gets access to all branches)`)
@@ -530,9 +531,9 @@ serve(async (req) => {
     if (organizationData && Deno.env.get('RESEND_API_KEY')) {
       try {
         let emailTemplate
-        
+
         const fullName = `${firstName} ${lastName}`.trim();
-        
+
         if (isNewUser && tempPassword) {
           // Send new user invitation with temporary password
           emailTemplate = getNewUserInvitationTemplate(
@@ -567,7 +568,7 @@ serve(async (req) => {
     }
 
     console.log(`Successfully created user ${userId} (${email}) with role ${role} in organization ${organizationId}${isNewUser ? ' - new user' : ' - existing user'}${tempPassword ? ` - temp password: ${tempPassword}` : ''}`)
-    
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -588,7 +589,7 @@ serve(async (req) => {
 
   } catch (error) {
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: `Internal server error: ${error.message}`
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

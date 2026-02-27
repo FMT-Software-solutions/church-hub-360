@@ -20,7 +20,7 @@ export function EditRequestLockedView({
   tableName,
   recordId,
 }: EditRequestLockedViewProps) {
-  const { cancelRequest, isOwner } = useEditRequest(
+  const { cancelRequest, isOwner, canApproveRequests } = useEditRequest(
     tableName as RequestTableName,
     recordId
   );
@@ -43,6 +43,7 @@ export function EditRequestLockedView({
           onCancel={() => cancelRequest.mutate(request.id)}
           isRefreshing={isLoading}
           isOwner={isOwner}
+          canApproveRequests={canApproveRequests}
         />
 
         <div className="flex flex-col gap-2 p-4 bg-muted/50 rounded-lg border border-border/50">

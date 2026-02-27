@@ -44,6 +44,7 @@ export interface UserWithRelations extends AuthUserWithProfile {
     is_active: boolean;
     visibility_overrides?: any;
     can_create_users?: boolean;
+    can_approve_requests?: boolean;
     created_at: string;
     updated_at: string;
     organization: {
@@ -92,6 +93,8 @@ export interface CreateUserInput {
   phone?: string;
   gender?: string;
   date_of_birth?: string;
+  can_create_users?: boolean;
+  can_approve_requests?: boolean;
 }
 
 // User update input
@@ -106,6 +109,8 @@ export interface UpdateUserInput {
   branch_ids?: string[];
   has_all_branches?: boolean;
   is_active?: boolean;
+  can_create_users?: boolean;
+  can_approve_requests?: boolean;
 }
 
 // Update types for modifying existing records
@@ -219,11 +224,11 @@ export function isActiveUser(authUser: AuthUser): boolean {
 
 export function hasRecentLogin(authUser: AuthUser, daysThreshold: number = 30): boolean {
   if (!authUser.last_login) return false;
-  
+
   const lastLogin = new Date(authUser.last_login);
   const threshold = new Date();
   threshold.setDate(threshold.getDate() - daysThreshold);
-  
+
   return lastLogin > threshold;
 }
 
@@ -231,35 +236,35 @@ export function isOtpBlocked(authUser: AuthUser): boolean {
   // Check if user has exceeded request limit
   const requestCount = authUser.otp_requests_count || 0;
   if (requestCount >= 4) return true;
-  
+
   return false;
 }
 
 export function canRequestOtp(authUser: AuthUser): boolean {
   // Check if user is blocked
   if (isOtpBlocked(authUser)) return false;
-  
+
   // Check time-based restriction (5 minutes between requests)
   if (authUser.last_otp_request) {
     const lastRequest = new Date(authUser.last_otp_request);
     const now = new Date();
     const timeDiff = now.getTime() - lastRequest.getTime();
     const minutesDiff = timeDiff / (1000 * 60);
-    
+
     if (minutesDiff < 5) return false;
   }
-  
+
   return true;
 }
 
 export function getOtpCooldownMinutes(authUser: AuthUser): number {
   if (!authUser.last_otp_request) return 0;
-  
+
   const lastRequest = new Date(authUser.last_otp_request);
   const now = new Date();
   const timeDiff = now.getTime() - lastRequest.getTime();
   const minutesDiff = timeDiff / (1000 * 60);
-  
+
   return Math.max(0, 5 - minutesDiff);
 }
 

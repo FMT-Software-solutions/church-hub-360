@@ -45,6 +45,7 @@ export interface VisibilityOverrides {
 
 export interface UserCapabilities {
   can_create_users?: boolean;
+  can_approve_requests?: boolean;
 }
 
 export interface UserPermissions {
