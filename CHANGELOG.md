@@ -6,9 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### New Features
 
+- Enabled Trial usage for new users
+
 ### Enhancements
 
-- Enabled Trial usage for new users
+- Edit request enhancements
 
 ## [1.2.2] - 2025-12-24
 

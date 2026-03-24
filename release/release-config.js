@@ -17,6 +17,7 @@ module.exports = {
 
 ### Enhancements
 - Enabled Trial usage for new users
+- Edit request enhancements
 `,
 
 
