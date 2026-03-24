@@ -74,8 +74,29 @@ export function DateTimePicker({
   const handleDateSelect = (picked: Date | undefined) => {
     if (picked) {
       const datePart = picked.toISOString().slice(0, 10);
-      const timePart = timeOnly && /^\d{2}:\d{2}$/.test(timeOnly) ? `${timeOnly}:00` : '00:00:00';
-      onChange(`${datePart}T${timePart}`);
+      let timePart = timeOnly && /^\d{2}:\d{2}$/.test(timeOnly) ? `${timeOnly}:00` : '00:00:00';
+
+      const newDateTimeStr = `${datePart}T${timePart}`;
+
+      // Check if new date/time would be before minDate
+      if (minDate) {
+        const minDateObj = new Date(minDate);
+        const newDateObj = new Date(newDateTimeStr);
+        if (newDateObj < minDateObj) {
+          // If the selected date is the same as minDate but time is earlier, adjust time
+          if (datePart === minDateObj.toISOString().slice(0, 10)) {
+            timePart = `${minDateObj.toISOString().slice(11, 16)}:00`;
+            onChange(`${datePart}T${timePart}`);
+          } else {
+            // Let onChange handle it, but it might be invalid based on getDisabledDates anyway
+            onChange(newDateTimeStr);
+          }
+        } else {
+          onChange(newDateTimeStr);
+        }
+      } else {
+        onChange(newDateTimeStr);
+      }
     } else {
       onChange('');
     }
@@ -89,7 +110,21 @@ export function DateTimePicker({
       return;
     }
     const datePart = dateOnly || new Date().toISOString().slice(0, 10);
-    onChange(`${datePart}T${newTime}:00`);
+    const newDateTimeStr = `${datePart}T${newTime}:00`;
+
+    // Check if new time would be before minDate
+    if (minDate) {
+      const minDateObj = new Date(minDate);
+      const newDateObj = new Date(newDateTimeStr);
+      if (newDateObj < minDateObj) {
+        // Automatically adjust to minDate if selected time is earlier
+        const minTimePart = minDateObj.toISOString().slice(11, 16);
+        onChange(`${datePart}T${minTimePart}:00`);
+        return;
+      }
+    }
+
+    onChange(newDateTimeStr);
   };
 
   const getDisabledDates = (date: Date) => {
@@ -107,14 +142,26 @@ export function DateTimePicker({
       return true;
     }
 
-    // Check min date
-    if (minDateObj && date < minDateObj) {
-      return true;
+    // Check min date (compare only the date parts)
+    if (minDateObj) {
+      const dateCopy = new Date(date);
+      dateCopy.setHours(0, 0, 0, 0);
+      const minDateCopy = new Date(minDateObj);
+      minDateCopy.setHours(0, 0, 0, 0);
+      if (dateCopy < minDateCopy) {
+        return true;
+      }
     }
 
-    // Check max date
-    if (maxDateObj && date > maxDateObj) {
-      return true;
+    // Check max date (compare only the date parts)
+    if (maxDateObj) {
+      const dateCopy = new Date(date);
+      dateCopy.setHours(0, 0, 0, 0);
+      const maxDateCopy = new Date(maxDateObj);
+      maxDateCopy.setHours(0, 0, 0, 0);
+      if (dateCopy > maxDateCopy) {
+        return true;
+      }
     }
 
     return false;

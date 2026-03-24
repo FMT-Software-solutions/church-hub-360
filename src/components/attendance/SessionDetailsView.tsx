@@ -14,6 +14,7 @@ import {
   validateSessionForMarking,
 } from '@/utils/attendance/sessionValidation';
 import { useMemo, useState } from 'react';
+import { useDebounceValue } from '@/hooks/useDebounce';
 import {
   LinksQrCard,
   ManualMarkingCard,
@@ -32,6 +33,7 @@ export function SessionDetailsView({
 }: SessionDetailsViewProps) {
   const { currentOrganization } = useOrganization();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounceValue(search, 500);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchFields, setSearchFields] = useState<
@@ -67,9 +69,9 @@ export function SessionDetailsView({
   );
 
   // Fallback to all members when no allowed list
-  const { data: paginated, isLoading: loadingAll } = useMembersSummaryPaginated(
+  const { data: paginated, isLoading: loadingAll, isFetching } = useMembersSummaryPaginated(
     currentOrganization?.id,
-    { search, branch_id: session.branch_id ?? undefined },
+    { search: debouncedSearch, branch_id: session.branch_id ?? undefined },
     page,
     pageSize,
     null
@@ -98,8 +100,18 @@ export function SessionDetailsView({
 
   // Client-side filtering by search term and fields
   const filteredMembers = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const isLocalOnly = allowedMembers.length > 0;
+    const termToUse = isLocalOnly ? search : debouncedSearch;
+    const term = termToUse.trim().toLowerCase();
+
     if (!term) return baseMembers;
+
+    // If using server-side search and currently fetching new data,
+    // avoid applying the local filter to old data to prevent flickering empty lists.
+    if (!isLocalOnly && isFetching) {
+      return baseMembers;
+    }
+
     return baseMembers.filter((member) => {
       const pool: string[] = [];
       if (searchFields.includes('name')) {
@@ -119,7 +131,7 @@ export function SessionDetailsView({
         pool.push((member.membership_id || '').toLowerCase());
       return pool.some((val) => val.includes(term));
     });
-  }, [baseMembers, search, searchFields]);
+  }, [baseMembers, search, debouncedSearch, searchFields, allowedMembers.length, isFetching]);
 
   const presentMap = useMemo(() => {
     const map = new Map<string, boolean>();

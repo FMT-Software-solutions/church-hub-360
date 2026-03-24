@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { attendanceSessionKeys } from './useAttendanceSessions';
 import type { AttendanceSession } from '@/types/attendance';
 import type { MemberSummary } from '@/types/members';
 
@@ -69,6 +70,11 @@ export function useMarkAttendance() {
     onSuccess: (_data, variables) => {
       // Invalidate records for this session
       queryClient.invalidateQueries({ queryKey: attendanceMarkingKeys.records(variables.sessionId) });
+      
+      // Invalidate sessions to update the attendance count
+      queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.detail(variables.sessionId) });
+      queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.stats() });
     },
   });
 }
@@ -89,6 +95,11 @@ export function useUnmarkAttendance() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: attendanceMarkingKeys.records(variables.sessionId) });
+      
+      // Invalidate sessions to update the attendance count
+      queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.detail(variables.sessionId) });
+      queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.stats() });
     },
   });
 }

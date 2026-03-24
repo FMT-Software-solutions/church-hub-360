@@ -3,10 +3,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pagination } from '@/components/shared/Pagination';
-import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle, Filter } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -228,69 +242,81 @@ export function ManualMarkingCard({
                       onChange={(e) => setSearch(e.target.value)}
                     />
                   </div>
-                  <div className="flex gap-2 items-center text-xs">
-                    <label className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={searchFields.includes('name')}
-                        onChange={(e) =>
-                          setSearchFields((prev) =>
-                            e.target.checked
-                              ? [...prev, 'name']
-                              : prev.filter((f) => f !== 'name')
-                          )
-                        }
-                      />{' '}
-                      Name
-                    </label>
-                    {modes.email && (
-                      <label className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={searchFields.includes('email')}
-                          onChange={(e) =>
-                            setSearchFields((prev) =>
-                              e.target.checked
-                                ? [...prev, 'email']
-                                : prev.filter((f) => f !== 'email')
-                            )
-                          }
-                        />{' '}
-                        Email
-                      </label>
-                    )}
-                    {modes.phone && (
-                      <label className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={searchFields.includes('phone')}
-                          onChange={(e) =>
-                            setSearchFields((prev) =>
-                              e.target.checked
-                                ? [...prev, 'phone']
-                                : prev.filter((f) => f !== 'phone')
-                            )
-                          }
-                        />{' '}
-                        Phone
-                      </label>
-                    )}
-                    {modes.membership_id && (
-                      <label className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={searchFields.includes('membershipId')}
-                          onChange={(e) =>
-                            setSearchFields((prev) =>
-                              e.target.checked
-                                ? [...prev, 'membershipId']
-                                : prev.filter((f) => f !== 'membershipId')
-                            )
-                          }
-                        />{' '}
-                        Membership ID
-                      </label>
-                    )}
+                  <div className="flex gap-2 items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <DropdownMenu>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon" className="shrink-0">
+                                <Filter className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <DropdownMenuContent align="end" className="w-[200px]">
+                            <DropdownMenuLabel>Search Fields</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem
+                              checked={searchFields.includes('name')}
+                              onCheckedChange={(checked) =>
+                                setSearchFields((prev) =>
+                                  checked
+                                    ? [...prev, 'name']
+                                    : prev.filter((f) => f !== 'name')
+                                )
+                              }
+                            >
+                              Name
+                            </DropdownMenuCheckboxItem>
+                            {modes.email && (
+                              <DropdownMenuCheckboxItem
+                                checked={searchFields.includes('email')}
+                                onCheckedChange={(checked) =>
+                                  setSearchFields((prev) =>
+                                    checked
+                                      ? [...prev, 'email']
+                                      : prev.filter((f) => f !== 'email')
+                                  )
+                                }
+                              >
+                                Email
+                              </DropdownMenuCheckboxItem>
+                            )}
+                            {modes.phone && (
+                              <DropdownMenuCheckboxItem
+                                checked={searchFields.includes('phone')}
+                                onCheckedChange={(checked) =>
+                                  setSearchFields((prev) =>
+                                    checked
+                                      ? [...prev, 'phone']
+                                      : prev.filter((f) => f !== 'phone')
+                                  )
+                                }
+                              >
+                                Phone
+                              </DropdownMenuCheckboxItem>
+                            )}
+                            {modes.membership_id && (
+                              <DropdownMenuCheckboxItem
+                                checked={searchFields.includes('membershipId')}
+                                onCheckedChange={(checked) =>
+                                  setSearchFields((prev) =>
+                                    checked
+                                      ? [...prev, 'membershipId']
+                                      : prev.filter((f) => f !== 'membershipId')
+                                  )
+                                }
+                              >
+                                Membership ID
+                              </DropdownMenuCheckboxItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <TooltipContent>
+                          <p>Filter search fields</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
 
@@ -366,7 +392,7 @@ export function ManualMarkingCard({
                       );
                     })}
 
-                  {filteredMembers.length === 0 && (
+                  {filteredMembers.length === 0 && !(hasAllowedList ? loadingAllowed : loadingAll) && (
                     <div className="text-sm text-muted-foreground py-6 text-center">
                       No members found{search ? ' for your search' : ''}.
                     </div>

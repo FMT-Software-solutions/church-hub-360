@@ -94,9 +94,9 @@ export function GlobalSettingsStep({
             <div className='space-y-1'>
               <div className="flex items-center justify-between p-2 border rounded-md">
                 <div className="text-sm font-medium">Session Open</div>
-              <Switch checked={isOpen} onCheckedChange={onChangeIsOpen} />
+                <Switch checked={isOpen} onCheckedChange={onChangeIsOpen} />
               </div>
-                <div className="text-xs text-muted-foreground">Allow marking while open</div>
+              <div className="text-xs text-muted-foreground">Allow marking while open</div>
             </div>
           </div>
         </div>
@@ -126,6 +126,14 @@ export function GlobalSettingsStep({
                 const updated = new Date(base);
                 updated.setHours(h ?? 0, m ?? 0, 0, 0);
                 onChangeGlobalStartISO(updated.toISOString());
+
+                // Automatically adjust end time if it's now before the new start time
+                const endBase = new Date(globalEndISO);
+                if (updated > endBase) {
+                  const newEnd = new Date(updated);
+                  newEnd.setHours(newEnd.getHours() + 2);
+                  onChangeGlobalEndISO(newEnd.toISOString());
+                }
               }}
             />
           </div>
@@ -140,84 +148,95 @@ export function GlobalSettingsStep({
                 const base = new Date(globalEndISO);
                 const updated = new Date(base);
                 updated.setHours(h ?? 0, m ?? 0, 0, 0);
+
+                // Ensure end time is not before start time
+                const startBase = new Date(globalStartISO);
+                const startHours = startBase.getHours();
+                const startMinutes = startBase.getMinutes();
+
+                if (h < startHours || (h === startHours && m < startMinutes)) {
+                  // If invalid, default to 2 hours after start time
+                  updated.setHours(startHours + 2, startMinutes, 0, 0);
+                }
+
                 onChangeGlobalEndISO(updated.toISOString());
               }}
             />
           </div>
         </div>
 
-      
-          {/* Allowed Tags */}
-            {tags.length > 0 && (
-              <div className="space-y-2 my-12">
-                <Label>Allowed Tags (Optional)</Label>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Restrict attendance to members with specific tags
-                </p>
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                {tags.map((tag: RelationalTagWithItems) => (
-                  <div key={tag.id} className="space-y-2 border border-border p-4 rounded-md">
-                    <TagMultiCheckboxRenderer
-                      tag={tag}
-                      tagKey={tag.id}
-                      value={allowedTagsByTag[tag.id] ?? []}
-                      onChange={(val) => onChangeAllowedTagForTag(tag.id, val)}
-                      className="w-full"
-                    />
-                  </div>
-                ) )}
-                </div>
-              </div>
-            )}
 
-          <div className='pace-y-6 mt-12'>
-            {/* Allowed Groups */}
-            <div className="space-y-2 mb-6">
-              <Label className='mb-4'>Allowed Groups (Optional)</Label>
-              <GroupsRenderer
-                groups={groups}
-                value={allowedGroups}
-                onChange={onChangeAllowedGroups}
-                allowPositions={false}
+        {/* Allowed Tags */}
+        {tags.length > 0 && (
+          <div className="space-y-2 my-12">
+            <Label>Allowed Tags (Optional)</Label>
+            <p className="text-sm text-muted-foreground mb-4">
+              Restrict attendance to members with specific tags
+            </p>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {tags.map((tag: RelationalTagWithItems) => (
+                <div key={tag.id} className="space-y-2 border border-border p-4 rounded-md">
+                  <TagMultiCheckboxRenderer
+                    tag={tag}
+                    tagKey={tag.id}
+                    value={allowedTagsByTag[tag.id] ?? []}
+                    onChange={(val) => onChangeAllowedTagForTag(tag.id, val)}
+                    className="w-full"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className='pace-y-6 mt-12'>
+          {/* Allowed Groups */}
+          <div className="space-y-2 mb-6">
+            <Label className='mb-4'>Allowed Groups (Optional)</Label>
+            <GroupsRenderer
+              groups={groups}
+              value={allowedGroups}
+              onChange={onChangeAllowedGroups}
+              allowPositions={false}
+            />
+          </div>
+
+          {/* Allowed Members */}
+          {organizationId && (
+            <div className="space-y-2">
+              <Label>Allowed Members (Optional)</Label>
+              <MemberSearchTypeahead
+                organizationId={organizationId}
+                multiSelect
+                value={allowedMembers as any}
+                onChange={onChangeAllowedMembers as any}
+                placeholder="Search and select members"
               />
             </div>
+          )}
+        </div>
 
-            {/* Allowed Members */}
-            {organizationId && (
-              <div className="space-y-2">
-                <Label>Allowed Members (Optional)</Label>
-                <MemberSearchTypeahead
-                  organizationId={organizationId}
-                  multiSelect
-                  value={allowedMembers as any}
-                  onChange={onChangeAllowedMembers as any}
-                  placeholder="Search and select members"
-                />
-              </div>
-            )}
-          </div>
-       
 
         {/* Marking Modes */}
         <Card className="space-y-2 my-8">
           <CardHeader>
-          <CardTitle>Marking Modes</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Select how attendance can be marked for this session
-          </p>
-        </CardHeader>
+            <CardTitle>Marking Modes</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Select how attendance can be marked for this session
+            </p>
+          </CardHeader>
           <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {(['manual', 'email', 'phone', 'membership_id'] as (keyof AttendanceMarkingModes)[]).map((mode) => (
-              <label key={mode} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={markingModes[mode]}
-                  onCheckedChange={(checked) => onChangeMarkingModes({ ...markingModes, [mode]: Boolean(checked) })}
-                />
-                <span className="capitalize">{String(mode).replace('_', ' ')}</span>
-              </label>
-            ))}
-          </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {(['manual', 'email', 'phone', 'membership_id'] as (keyof AttendanceMarkingModes)[]).map((mode) => (
+                <label key={mode} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={markingModes[mode]}
+                    onCheckedChange={(checked) => onChangeMarkingModes({ ...markingModes, [mode]: Boolean(checked) })}
+                  />
+                  <span className="capitalize">{String(mode).replace('_', ' ')}</span>
+                </label>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -232,26 +251,26 @@ export function GlobalSettingsStep({
               <Switch checked={allowPublicMarking} onCheckedChange={onChangeAllowPublicMarking} />
             </div>
 
-       
 
-          {/* Proximity */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-2 border rounded-md">
-              <div>
-                <div className="text-sm font-medium">Require Proximity</div>
-                <div className="text-xs text-muted-foreground">Validate location when marking attendance</div>
+
+            {/* Proximity */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-2 border rounded-md">
+                <div>
+                  <div className="text-sm font-medium">Require Proximity</div>
+                  <div className="text-xs text-muted-foreground">Validate location when marking attendance</div>
+                </div>
+                <Switch checked={proximityRequired} onCheckedChange={onChangeProximityRequired} />
               </div>
-              <Switch checked={proximityRequired} onCheckedChange={onChangeProximityRequired} />
+              {proximityRequired && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input type="number" placeholder="Latitude" value={location.lat ?? ''} onChange={(e) => onChangeLocation({ ...location, lat: Number(e.target.value) })} />
+                  <Input type="number" placeholder="Longitude" value={location.lng ?? ''} onChange={(e) => onChangeLocation({ ...location, lng: Number(e.target.value) })} />
+                  <Input type="number" placeholder="Radius (m)" value={location.radius ?? ''} onChange={(e) => onChangeLocation({ ...location, radius: Number(e.target.value) })} />
+                </div>
+              )}
             </div>
-            {proximityRequired && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input type="number" placeholder="Latitude" value={location.lat ?? ''} onChange={(e) => onChangeLocation({ ...location, lat: Number(e.target.value) })} />
-                <Input type="number" placeholder="Longitude" value={location.lng ?? ''} onChange={(e) => onChangeLocation({ ...location, lng: Number(e.target.value) })} />
-                <Input type="number" placeholder="Radius (m)" value={location.radius ?? ''} onChange={(e) => onChangeLocation({ ...location, radius: Number(e.target.value) })} />
-              </div>
-            )}
-          </div>
-         </CardContent>
+          </CardContent>
         </Card>
       </CardContent>
     </Card>

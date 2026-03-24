@@ -19,12 +19,12 @@ import type {
 export const attendanceSessionKeys = {
   all: ['attendance-sessions'] as const,
   lists: () => [...attendanceSessionKeys.all, 'list'] as const,
-  list: (organizationId: string, filters?: AttendanceSessionFilters) => 
+  list: (organizationId: string, filters?: AttendanceSessionFilters) =>
     [...attendanceSessionKeys.lists(), organizationId, filters] as const,
   details: () => [...attendanceSessionKeys.all, 'detail'] as const,
   detail: (id: string) => [...attendanceSessionKeys.details(), id] as const,
   stats: () => [...attendanceSessionKeys.all, 'stats'] as const,
-  organizationStats: (organizationId: string) => 
+  organizationStats: (organizationId: string) =>
     [...attendanceSessionKeys.stats(), organizationId] as const,
 };
 
@@ -97,7 +97,7 @@ export function useAttendanceSessions(
 ) {
   const { currentOrganization } = useOrganization();
   const scope = useBranchScope(currentOrganization?.id);
-  
+
   return useQuery({
     queryKey: [
       ...attendanceSessionKeys.list(currentOrganization?.id || '', filters),
@@ -115,7 +115,8 @@ export function useAttendanceSessions(
           profiles!attendance_sessions_created_by_fkey(
             first_name,
             last_name
-          )
+          ),
+          attendance_records(count)
         `)
         .eq('organization_id', currentOrganization.id)
         .eq('is_deleted', false)
@@ -125,23 +126,23 @@ export function useAttendanceSessions(
       if (filters?.occasion_id) {
         query = query.eq('occasion_id', filters.occasion_id);
       }
-      
+
       if (filters?.is_open !== undefined) {
         query = query.eq('is_open', filters.is_open);
       }
-      
+
       if (filters?.allow_public_marking !== undefined) {
         query = query.eq('allow_public_marking', filters.allow_public_marking);
       }
-      
+
       if (filters?.proximity_required !== undefined) {
         query = query.eq('proximity_required', filters.proximity_required);
       }
-      
+
       if (filters?.search) {
         query = query.or(`name.ilike.%${filters.search}%`);
       }
-      
+
       if (filters?.created_by) {
         query = query.eq('created_by', filters.created_by);
       }
@@ -175,15 +176,19 @@ export function useAttendanceSessions(
       return (data || []).map(session => {
         const status = getSessionStatus(session);
 
+        const recordsCount = Array.isArray(session.attendance_records)
+          ? session.attendance_records[0]?.count || 0
+          : (session.attendance_records as any)?.count || 0;
+
         return {
           ...session,
           occasion_name: session.attendance_occasions?.name || null,
           occasion_description: session.attendance_occasions?.description || null,
-          created_by_name: session.profiles?.first_name && session.profiles?.last_name 
+          created_by_name: session.profiles?.first_name && session.profiles?.last_name
             ? `${session.profiles.first_name} ${session.profiles.last_name}`.trim()
             : null,
-          // These would be calculated from actual attendance records in a real implementation
-          attendance_count: 0,
+          // Calculated from actual attendance records
+          attendance_count: recordsCount,
           total_expected: 0,
           attendance_rate: 0,
           is_past: status === 'past',
@@ -210,7 +215,7 @@ export function useAttendanceSessions(
  */
 export function useAttendanceSession(id: string) {
   const { currentOrganization } = useOrganization();
-  
+
   return useQuery({
     queryKey: attendanceSessionKeys.detail(id),
     queryFn: async (): Promise<AttendanceSessionWithRelations> => {
@@ -224,7 +229,8 @@ export function useAttendanceSession(id: string) {
           profiles!attendance_sessions_created_by_fkey(
             first_name,
             last_name
-          )
+          ),
+          attendance_records(count)
         `)
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
@@ -236,14 +242,18 @@ export function useAttendanceSession(id: string) {
 
       const status = getSessionStatus(data);
 
+      const recordsCount = Array.isArray(data.attendance_records)
+        ? data.attendance_records[0]?.count || 0
+        : (data.attendance_records as any)?.count || 0;
+
       return {
         ...data,
         occasion_name: data.attendance_occasions?.name || null,
         occasion_description: data.attendance_occasions?.description || null,
-        created_by_name: data.profiles?.first_name && data.profiles?.last_name 
+        created_by_name: data.profiles?.first_name && data.profiles?.last_name
           ? `${data.profiles.first_name} ${data.profiles.last_name}`.trim()
           : null,
-        attendance_count: 0,
+        attendance_count: recordsCount,
         total_expected: 0,
         attendance_rate: 0,
         is_past: status === 'past',
@@ -262,7 +272,7 @@ export function useAttendanceSession(id: string) {
  */
 export function useAttendanceSessionStats() {
   const { currentOrganization } = useOrganization();
-  
+
   return useQuery({
     queryKey: attendanceSessionKeys.organizationStats(currentOrganization?.id || ''),
     queryFn: async (): Promise<AttendanceSessionStats> => {
@@ -401,7 +411,7 @@ export function useCreateAttendanceSession() {
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.lists(),
       });
-      
+
       // Invalidate stats
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.stats(),
@@ -530,18 +540,18 @@ export function useUpdateAttendanceSession() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      updates 
-    }: { 
-      id: string; 
-      updates: UpdateAttendanceSessionInput 
+    mutationFn: async ({
+      id,
+      updates
+    }: {
+      id: string;
+      updates: UpdateAttendanceSessionInput
     }): Promise<AttendanceSession> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
       const { data, error } = await supabase
         .from('attendance_sessions')
-        .update({...updates, last_updated_by: user?.id || null })
+        .update({ ...updates, last_updated_by: user?.id || null })
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
         .select()
@@ -555,12 +565,12 @@ export function useUpdateAttendanceSession() {
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.lists(),
       });
-      
+
       // Invalidate specific session detail
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.detail(data.id),
       });
-      
+
       // Invalidate stats
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.stats(),
@@ -589,9 +599,9 @@ export function useDeleteAttendanceSession() {
 
       const { error } = await supabase
         .from('attendance_sessions')
-        .update({ 
-          is_deleted: true, 
-          last_updated_by: user?.id || null 
+        .update({
+          is_deleted: true,
+          last_updated_by: user?.id || null
         })
         .eq('id', id)
         .eq('organization_id', currentOrganization.id);
@@ -603,7 +613,7 @@ export function useDeleteAttendanceSession() {
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.lists(),
       });
-      
+
       // Invalidate stats
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.stats(),
@@ -627,20 +637,20 @@ export function useToggleSessionStatus() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      isOpen 
-    }: { 
-      id: string; 
-      isOpen: boolean 
+    mutationFn: async ({
+      id,
+      isOpen
+    }: {
+      id: string;
+      isOpen: boolean
     }): Promise<AttendanceSession> => {
       if (!currentOrganization?.id) throw new Error('Organization ID is required');
 
       const { data, error } = await supabase
         .from('attendance_sessions')
-        .update({ 
-          is_open: isOpen, 
-          last_updated_by: user?.id || null 
+        .update({
+          is_open: isOpen,
+          last_updated_by: user?.id || null
         })
         .eq('id', id)
         .eq('organization_id', currentOrganization.id)
@@ -655,12 +665,12 @@ export function useToggleSessionStatus() {
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.lists(),
       });
-      
+
       // Invalidate specific session detail
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.detail(data.id),
       });
-      
+
       // Invalidate stats
       queryClient.invalidateQueries({
         queryKey: attendanceSessionKeys.stats(),

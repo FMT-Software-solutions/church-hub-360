@@ -32,12 +32,12 @@ export function Attendance() {
         <TabsList className="grid w-full grid-cols-3 lg:w-fit lg:grid-cols-3 border border-primary/20 h-12">
           <TabsTrigger value="sessions" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Sessions</span>
+            <span className="hidden sm:inline">Attendance Sessions</span>
           </TabsTrigger>
 
           <TabsTrigger value="occasions" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Occasions</span>
+            <span className="hidden sm:inline">Occasions & Services</span>
           </TabsTrigger>
 
           <TabsTrigger value="reports" className="flex items-center gap-2">

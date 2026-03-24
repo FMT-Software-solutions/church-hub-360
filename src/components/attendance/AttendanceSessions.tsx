@@ -84,7 +84,18 @@ export function AttendanceSessions() {
   );
 
   const totalPages = Math.max(1, Math.ceil(sessions.length / pageSize));
-  const paginatedSessions = sessions.slice(
+
+  // Group sessions
+  const currentlyActiveSessions = sessions.filter(session => session.is_current && session.is_open);
+  const upcomingSessions = sessions.filter(session => session.is_future);
+  const activeSessions = [...currentlyActiveSessions, ...upcomingSessions];
+
+  const inactiveSessions = sessions.filter(session => !((session.is_current && session.is_open) || session.is_future));
+
+  // Combine sorted list (Active/Upcoming first, then Inactive) and then paginate
+  const sortedSessions = [...activeSessions, ...inactiveSessions];
+
+  const paginatedSessions = sortedSessions.slice(
     (currentPage - 1) * pageSize,
     (currentPage - 1) * pageSize + pageSize
   );
@@ -236,8 +247,8 @@ export function AttendanceSessions() {
                 ? 'Edit Attendance Session'
                 : 'Create New Attendance Session'
               : viewMode === 'details'
-              ? 'Attendance Session Details'
-              : 'Attendance Sessions'}
+                ? 'Attendance Session Details'
+                : 'Attendance Sessions'}
           </h2>
         </div>
         {viewMode === 'editor' ? (
@@ -340,110 +351,247 @@ export function AttendanceSessions() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {paginatedSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1 space-y-2 sm:space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold">
-                            {session.name ||
-                              session.occasion_name ||
-                              'Unnamed Session'}
-                          </h3>
-                          {getStatusBadge(session)}
-                          {session.allow_public_marking && (
-                            <Badge variant="outline" className="text-xs">
-                              <Link className="w-3 h-3 mr-1" />
-                              Public
-                            </Badge>
-                          )}
-                          {session.proximity_required && (
-                            <Badge variant="outline" className="text-xs">
-                              <MapPin className="w-3 h-3 mr-1" />
-                              Location
-                            </Badge>
-                          )}
-                        </div>
+                <div className="space-y-6">
+                  {(() => {
+                    const activePageSessions = paginatedSessions.filter(s => (s.is_current && s.is_open) || s.is_future);
+                    const inactivePageSessions = paginatedSessions.filter(s => !((s.is_current && s.is_open) || s.is_future));
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {formatDateTime(session.start_time)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatTime(session.start_time)} -{' '}
-                            {formatTime(session.end_time)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {session.attendance_count || 0} attendees
-                          </div>
-                        </div>
+                    return (
+                      <>
+                        {activePageSessions.length > 0 && (
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Active & Upcoming Sessions</h4>
+                            <div className="space-y-4">
+                              {activePageSessions.map((session) => (
+                                <div
+                                  key={session.id}
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex-1 space-y-2 sm:space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h3
+                                        className="font-semibold cursor-pointer hover:underline text-primary"
+                                        onClick={() => handleViewDetails(session)}
+                                      >
+                                        {session.name ||
+                                          session.occasion_name ||
+                                          'Unnamed Session'}
+                                      </h3>
+                                      {getStatusBadge(session)}
+                                      {session.allow_public_marking && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <Link className="w-3 h-3 mr-1" />
+                                          Public
+                                        </Badge>
+                                      )}
+                                      {session.proximity_required && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <MapPin className="w-3 h-3 mr-1" />
+                                          Location
+                                        </Badge>
+                                      )}
+                                    </div>
 
-                        {session.occasion_name &&
-                          session.name !== session.occasion_name && (
-                            <p className="text-xs text-muted-foreground">
-                              From: {session.occasion_name}
-                            </p>
-                          )}
-                      </div>
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {formatDateTime(session.start_time)}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {formatTime(session.start_time)} -{' '}
+                                        {formatTime(session.end_time)}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Users className="w-3 h-3" />
+                                        {session.attendance_count || 0} attendees
+                                      </div>
+                                    </div>
 
-                      <div className="flex items-center gap-2 mt-3 sm:mt-0">
-                        {session.is_current && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleToggleStatus(session.id, session.is_open)
-                            }
-                            disabled={toggleStatusMutation.isPending}
-                          >
-                            {session.is_open ? (
-                              <>
-                                <Pause className="w-3 h-3 sm:mr-1" />
-                                <span className="hidden sm:inline">Close</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3 h-3 sm:mr-1" />
-                                <span className="hidden sm:inline">Open</span>
-                              </>
-                            )}
-                          </Button>
+                                    {session.occasion_name &&
+                                      session.name !== session.occasion_name && (
+                                        <p className="text-xs text-muted-foreground">
+                                          From: {session.occasion_name}
+                                        </p>
+                                      )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 mt-3 sm:mt-0">
+                                    {session.is_current && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleToggleStatus(session.id, session.is_open)
+                                        }
+                                        disabled={toggleStatusMutation.isPending}
+                                      >
+                                        {session.is_open ? (
+                                          <>
+                                            <Pause className="w-3 h-3 sm:mr-1" />
+                                            <span className="hidden sm:inline">Close</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="w-3 h-3 sm:mr-1" />
+                                            <span className="hidden sm:inline">Open</span>
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleViewDetails(session)}
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      View
+                                    </Button>
+                                    {(!((!session.is_open || session.is_past) && (session.attendance_count || 0) > 0)) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEditSession(session)}
+                                      >
+                                        <Edit className="w-3 h-3 sm:mr-1" />
+                                        <span className="hidden sm:inline">Edit</span>
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteSession(session)}
+                                      disabled={deleteSessionMutation.isPending}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="w-3 h-3 sm:mr-1" />
+                                      <span className="hidden sm:inline">Delete</span>
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewDetails(session)}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditSession(session)}
-                        >
-                          <Edit className="w-3 h-3 sm:mr-1" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteSession(session)}
-                          disabled={deleteSessionMutation.isPending}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-3 h-3 sm:mr-1" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+
+                        {inactivePageSessions.length > 0 && (
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Ended / Inactive Sessions</h4>
+                            <div className="space-y-4">
+                              {inactivePageSessions.map((session) => (
+                                <div
+                                  key={session.id}
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex-1 space-y-2 sm:space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h3
+                                        className="font-semibold cursor-pointer hover:underline text-primary"
+                                        onClick={() => handleViewDetails(session)}
+                                      >
+                                        {session.name ||
+                                          session.occasion_name ||
+                                          'Unnamed Session'}
+                                      </h3>
+                                      {getStatusBadge(session)}
+                                      {session.allow_public_marking && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <Link className="w-3 h-3 mr-1" />
+                                          Public
+                                        </Badge>
+                                      )}
+                                      {session.proximity_required && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <MapPin className="w-3 h-3 mr-1" />
+                                          Location
+                                        </Badge>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {formatDateTime(session.start_time)}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {formatTime(session.start_time)} -{' '}
+                                        {formatTime(session.end_time)}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Users className="w-3 h-3" />
+                                        {session.attendance_count || 0} attendees
+                                      </div>
+                                    </div>
+
+                                    {session.occasion_name &&
+                                      session.name !== session.occasion_name && (
+                                        <p className="text-xs text-muted-foreground">
+                                          From: {session.occasion_name}
+                                        </p>
+                                      )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 mt-3 sm:mt-0">
+                                    {session.is_current && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleToggleStatus(session.id, session.is_open)
+                                        }
+                                        disabled={toggleStatusMutation.isPending}
+                                      >
+                                        {session.is_open ? (
+                                          <>
+                                            <Pause className="w-3 h-3 sm:mr-1" />
+                                            <span className="hidden sm:inline">Close</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="w-3 h-3 sm:mr-1" />
+                                            <span className="hidden sm:inline">Open</span>
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleViewDetails(session)}
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      View
+                                    </Button>
+                                    {(!((!session.is_open || session.is_past) && (session.attendance_count || 0) > 0)) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEditSession(session)}
+                                      >
+                                        <Edit className="w-3 h-3 sm:mr-1" />
+                                        <span className="hidden sm:inline">Edit</span>
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteSession(session)}
+                                      disabled={deleteSessionMutation.isPending}
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="w-3 h-3 sm:mr-1" />
+                                      <span className="hidden sm:inline">Delete</span>
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 {sessions.length > 0 && (
                   <div className="px-4 py-3 border-t mt-2">
@@ -478,8 +626,8 @@ export function AttendanceSessions() {
                   </h3>
                   <p className="text-muted-foreground mb-4">
                     {searchTerm ||
-                    statusFilter !== 'all' ||
-                    isOpenFilter !== 'all'
+                      statusFilter !== 'all' ||
+                      isOpenFilter !== 'all'
                       ? 'No sessions match your current filters. Try adjusting your search criteria.'
                       : 'Create your first attendance session to get started'}
                   </p>
@@ -539,9 +687,8 @@ export function AttendanceSessions() {
           });
         }}
         title="Delete Attendance Session"
-        description={`Are you sure you want to delete "${
-          deleteDialog.sessionName || ''
-        }"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${deleteDialog.sessionName || ''
+          }"? This action cannot be undone.`}
         isLoading={deleteSessionMutation.isPending}
       />
     </div>

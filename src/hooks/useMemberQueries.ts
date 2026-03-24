@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
 import { DEFAULT_AGE_GROUPS, formatAgeGroupLabel } from '@/constants/defaultAgeGroups';
 import type {
@@ -10,25 +10,25 @@ import type {
   MemberStatistics,
 } from '../types/members';
 import type { MembershipStatus } from '../types/members';
-  // Import SortConfig type
+// Import SortConfig type
 import type { SortConfig } from '../components/people/members/SortBar';
 import { useBranchScope, applyBranchScope } from '@/hooks/useBranchScope';
 
 // Query Keys
 export const memberKeys = {
   all: ['members'] as const,
-  organizationMembers: (organizationId: string) => 
+  organizationMembers: (organizationId: string) =>
     [...memberKeys.all, 'organization', organizationId] as const,
-  branchMembers: (branchId: string) => 
+  branchMembers: (branchId: string) =>
     [...memberKeys.all, 'branch', branchId] as const,
   member: (id: string) => [...memberKeys.all, 'detail', id] as const,
-  membersSummary: (organizationId: string) => 
+  membersSummary: (organizationId: string) =>
     [...memberKeys.all, 'summary', organizationId] as const,
-  membersStatistics: (organizationId: string) => 
+  membersStatistics: (organizationId: string) =>
     [...memberKeys.all, 'statistics', organizationId] as const,
-  filteredMembers: (organizationId: string, filters: MemberFilters, sortConfig?: SortConfig | null) => 
+  filteredMembers: (organizationId: string, filters: MemberFilters, sortConfig?: SortConfig | null) =>
     [...memberKeys.organizationMembers(organizationId), 'filtered', filters, sortConfig] as const,
-  paginatedMembers: (organizationId: string, filters: MemberFilters, page: number, pageSize: number, sortConfig?: SortConfig | null) => 
+  paginatedMembers: (organizationId: string, filters: MemberFilters, page: number, pageSize: number, sortConfig?: SortConfig | null) =>
     [...memberKeys.organizationMembers(organizationId), 'paginated', filters, page, pageSize, sortConfig] as const,
 };
 
@@ -54,11 +54,11 @@ export function useMembers(
       const hasTagFilter = filters?.tag_items && filters.tag_items.length > 0;
 
       let query;
-      
+
       if (hasTagFilter && filters.tag_items) {
         // Use a more complex query with joins when filtering by tags
         const tagFilterMode = filters.tag_filter_mode || 'any';
-        
+
         if (tagFilterMode === 'all') {
           // For 'all' mode, we need members who have ALL specified tags
           // Try to use RPC function first, fallback to manual filtering
@@ -75,7 +75,7 @@ export function useMembers(
             if (!memberIds || memberIds.length === 0) {
               return { members: [], total: 0 };
             }
-            
+
             query = supabase
               .from('members')
               .select('*', { count: 'exact' })
@@ -180,7 +180,7 @@ export function useMembers(
       // Apply sorting - use sortConfig if provided, otherwise fall back to filters or defaults
       let sortField = 'full_name'; // Default sort field
       let sortOrder: 'asc' | 'desc' = 'asc'; // Default sort order
-      
+
       if (sortConfig) {
         sortField = sortConfig.field;
         sortOrder = sortConfig.direction;
@@ -189,7 +189,7 @@ export function useMembers(
         sortField = filters.sort_field;
         sortOrder = filters.sort_order || 'asc';
       }
-      
+
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       // Apply pagination
@@ -202,11 +202,11 @@ export function useMembers(
       if (error) throw error;
 
       // Clean up the data if we used joins (remove nested objects)
-      const cleanedData = hasTagFilter && filters.tag_filter_mode === 'any' 
+      const cleanedData = hasTagFilter && filters.tag_filter_mode === 'any'
         ? data?.map((member: any) => {
-            const { member_tag_items, ...cleanMember } = member as any;
-            return cleanMember;
-          })
+          const { member_tag_items, ...cleanMember } = member as any;
+          return cleanMember;
+        })
         : data;
 
       return { members: cleanedData || [], total: count || 0 };
@@ -329,10 +329,10 @@ export function useMembersSummaryFiltered(
         if (tagError) throw tagError;
 
         const tagNames = tagItems?.map(item => item.name) || [];
-        
+
         if (tagNames.length > 0) {
           const tagFilterMode = filters.tag_filter_mode || 'any';
-          
+
           if (tagFilterMode === 'any') {
             // OR logic: member must have at least one of the selected tags
             // Using PostgreSQL array overlap operator (&&)
@@ -348,7 +348,7 @@ export function useMembersSummaryFiltered(
       // Apply sorting - use sortConfig if provided, otherwise fall back to filters or defaults
       let sortField = 'full_name'; // Default sort field
       let sortOrder: 'asc' | 'desc' = 'asc'; // Default sort order
-      
+
       if (sortConfig) {
         sortField = sortConfig.field;
         sortOrder = sortConfig.direction;
@@ -357,7 +357,7 @@ export function useMembersSummaryFiltered(
         sortField = filters.sort_field;
         sortOrder = filters.sort_order || 'asc';
       }
-      
+
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       const { data, error } = await query;
@@ -371,13 +371,13 @@ export function useMembersSummaryFiltered(
 }
 
 // Hook to fetch members summary with pagination and filtering
-  export function useMembersSummaryPaginated(
-    organizationId: string | undefined,
-    filters?: MemberFilters,
-    page: number = 1,
-    pageSize: number = 20,
-    sortConfig?: SortConfig | null
-  ) {
+export function useMembersSummaryPaginated(
+  organizationId: string | undefined,
+  filters?: MemberFilters,
+  page: number = 1,
+  pageSize: number = 20,
+  sortConfig?: SortConfig | null
+) {
   const scope = useBranchScope(organizationId);
   return useQuery({
     queryKey: [
@@ -385,11 +385,12 @@ export function useMembersSummaryFiltered(
       'branchScope',
       scope.isScoped ? scope.branchIds : 'all'
     ],
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<{ members: MemberSummary[]; total: number }> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
       // Start with the base query using the enhanced members_summary view
-      let query = supabase
+      let query: any = supabase
         .from('members_summary')
         .select('*', { count: 'exact' })
         .eq('organization_id', organizationId);
@@ -452,10 +453,10 @@ export function useMembersSummaryFiltered(
         if (tagError) throw tagError;
 
         const tagNames = tagItems?.map(item => item.name) || [];
-        
+
         if (tagNames.length > 0) {
           const tagFilterMode = filters.tag_filter_mode || 'any';
-          
+
           if (tagFilterMode === 'any') {
             // OR logic: member must have at least one of the selected tags
             // Using PostgreSQL array overlap operator (&&)
@@ -471,7 +472,7 @@ export function useMembersSummaryFiltered(
       // Apply sorting - use sortConfig if provided, otherwise fall back to filters or defaults
       let sortField = 'full_name'; // Default sort field
       let sortOrder: 'asc' | 'desc' = 'asc'; // Default sort order
-      
+
       if (sortConfig) {
         sortField = sortConfig.field;
         sortOrder = sortConfig.direction;
@@ -480,7 +481,7 @@ export function useMembersSummaryFiltered(
         sortField = filters.sort_field;
         sortOrder = filters.sort_order || 'asc';
       }
-      
+
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       // Apply pagination AFTER all filtering (including tag filtering)
@@ -492,8 +493,8 @@ export function useMembersSummaryFiltered(
 
       if (error) throw error;
 
-      return { 
-        members: data || [], 
+      return {
+        members: data || [],
         total: count || 0
       };
     },
@@ -535,11 +536,11 @@ export function useMemberStatistics(organizationId: string | undefined, branchId
     queryFn: async (): Promise<MemberStatistics> => {
       if (!organizationId) throw new Error('Organization ID is required');
 
-      
-        const { data: members, error: membersError } = await supabase
-          .from('members')
-          .select('membership_status, gender, date_of_birth, date_joined, branch_id')
-          .eq('organization_id', organizationId);
+
+      const { data: members, error: membersError } = await supabase
+        .from('members')
+        .select('membership_status, gender, date_of_birth, date_joined, branch_id')
+        .eq('organization_id', organizationId);
 
       if (membersError) throw membersError;
 
@@ -552,87 +553,87 @@ export function useMemberStatistics(organizationId: string | undefined, branchId
           : [];
       }
 
-        // Fetch age group configuration (fallback to defaults if not present)
-        let configAgeGroups: { name: string; min_age: number; max_age: number }[] = DEFAULT_AGE_GROUPS;
-        const { data: configRow, error: cfgErr } = await supabase
-          .from('people_configurations')
-          .select('age_group')
-          .eq('organization_id', organizationId)
-          .single();
-        if (!cfgErr && configRow?.age_group && Array.isArray(configRow.age_group) && configRow.age_group.length > 0) {
-          configAgeGroups = configRow.age_group as { name: string; min_age: number; max_age: number }[];
+      // Fetch age group configuration (fallback to defaults if not present)
+      let configAgeGroups: { name: string; min_age: number; max_age: number }[] = DEFAULT_AGE_GROUPS;
+      const { data: configRow, error: cfgErr } = await supabase
+        .from('people_configurations')
+        .select('age_group')
+        .eq('organization_id', organizationId)
+        .single();
+      if (!cfgErr && configRow?.age_group && Array.isArray(configRow.age_group) && configRow.age_group.length > 0) {
+        configAgeGroups = configRow.age_group as { name: string; min_age: number; max_age: number }[];
+      }
+
+      // Calculate members by status
+      const membersByStatus: Record<MembershipStatus, number> = {
+        active: scopedMembers.filter(m => m.membership_status === 'active').length || 0,
+        inactive: scopedMembers.filter(m => m.membership_status === 'inactive').length || 0,
+        pending: scopedMembers.filter(m => m.membership_status === 'pending').length || 0,
+        suspended: scopedMembers.filter(m => m.membership_status === 'suspended').length || 0,
+        transferred: scopedMembers.filter(m => m.membership_status === 'transferred').length || 0,
+        deceased: scopedMembers.filter(m => m.membership_status === 'deceased').length || 0,
+      };
+
+      // Calculate members by gender
+      const membersByGender: Record<string, number> = {
+        male: scopedMembers.filter(m => m.gender === 'male').length || 0,
+        female: scopedMembers.filter(m => m.gender === 'female').length || 0,
+        other: scopedMembers.filter(m => m.gender === 'other').length || 0,
+        prefer_not_to_say: scopedMembers.filter(m => m.gender === 'prefer_not_to_say').length || 0,
+      };
+
+      // Calculate members by branch
+      const membersByBranch: Record<string, number> = {};
+      scopedMembers.forEach(member => {
+        if (member.branch_id) {
+          membersByBranch[member.branch_id] = (membersByBranch[member.branch_id] || 0) + 1;
         }
+      });
 
-        // Calculate members by status
-        const membersByStatus: Record<MembershipStatus, number> = {
-          active: scopedMembers.filter(m => m.membership_status === 'active').length || 0,
-          inactive: scopedMembers.filter(m => m.membership_status === 'inactive').length || 0,
-          pending: scopedMembers.filter(m => m.membership_status === 'pending').length || 0,
-          suspended: scopedMembers.filter(m => m.membership_status === 'suspended').length || 0,
-          transferred: scopedMembers.filter(m => m.membership_status === 'transferred').length || 0,
-          deceased: scopedMembers.filter(m => m.membership_status === 'deceased').length || 0,
-        };
-
-        // Calculate members by gender
-        const membersByGender: Record<string, number> = {
-          male: scopedMembers.filter(m => m.gender === 'male').length || 0,
-          female: scopedMembers.filter(m => m.gender === 'female').length || 0,
-          other: scopedMembers.filter(m => m.gender === 'other').length || 0,
-          prefer_not_to_say: scopedMembers.filter(m => m.gender === 'prefer_not_to_say').length || 0,
-        };
-
-        // Calculate members by branch
-        const membersByBranch: Record<string, number> = {};
-        scopedMembers.forEach(member => {
-          if (member.branch_id) {
-            membersByBranch[member.branch_id] = (membersByBranch[member.branch_id] || 0) + 1;
+      // Calculate members by configurable age groups
+      const membersByAgeGroup: Record<string, number> = {};
+      const labels = configAgeGroups.map(formatAgeGroupLabel);
+      for (const label of labels) {
+        membersByAgeGroup[label] = 0;
+      }
+      scopedMembers.forEach(member => {
+        if (!member.date_of_birth) return;
+        const age = new Date().getFullYear() - new Date(member.date_of_birth).getFullYear();
+        for (let i = 0; i < configAgeGroups.length; i++) {
+          const g = configAgeGroups[i];
+          if (age >= g.min_age && age <= g.max_age) {
+            const label = formatAgeGroupLabel(g);
+            membersByAgeGroup[label] = (membersByAgeGroup[label] || 0) + 1;
+            break;
           }
-        });
-
-        // Calculate members by configurable age groups
-        const membersByAgeGroup: Record<string, number> = {};
-        const labels = configAgeGroups.map(formatAgeGroupLabel);
-        for (const label of labels) {
-          membersByAgeGroup[label] = 0;
         }
-        scopedMembers.forEach(member => {
-          if (!member.date_of_birth) return;
-          const age = new Date().getFullYear() - new Date(member.date_of_birth).getFullYear();
-          for (let i = 0; i < configAgeGroups.length; i++) {
-            const g = configAgeGroups[i];
-            if (age >= g.min_age && age <= g.max_age) {
-              const label = formatAgeGroupLabel(g);
-              membersByAgeGroup[label] = (membersByAgeGroup[label] || 0) + 1;
-              break;
-            }
-          }
-        });
+      });
 
-        const now = new Date();
-        const thisYear = now.getFullYear();
-        const thisMonth = now.getMonth();
+      const now = new Date();
+      const thisYear = now.getFullYear();
+      const thisMonth = now.getMonth();
 
-        const stats: MemberStatistics = {
-          total_members: scopedMembers.length || 0,
-          active_members: membersByStatus.active,
-          inactive_members: membersByStatus.inactive,
-          new_members_this_month: scopedMembers.filter(m => {
-            if (!m.date_joined) return false;
-            const joinDate = new Date(m.date_joined);
-            return joinDate.getMonth() === thisMonth && joinDate.getFullYear() === thisYear;
-          }).length || 0,
-          new_members_this_year: scopedMembers.filter(m => {
-            if (!m.date_joined) return false;
-            const joinDate = new Date(m.date_joined);
-            return joinDate.getFullYear() === thisYear;
-          }).length || 0,
-          members_by_status: membersByStatus,
-          members_by_branch: membersByBranch,
-          members_by_age_group: membersByAgeGroup,
-          members_by_gender: membersByGender,
-        };
+      const stats: MemberStatistics = {
+        total_members: scopedMembers.length || 0,
+        active_members: membersByStatus.active,
+        inactive_members: membersByStatus.inactive,
+        new_members_this_month: scopedMembers.filter(m => {
+          if (!m.date_joined) return false;
+          const joinDate = new Date(m.date_joined);
+          return joinDate.getMonth() === thisMonth && joinDate.getFullYear() === thisYear;
+        }).length || 0,
+        new_members_this_year: scopedMembers.filter(m => {
+          if (!m.date_joined) return false;
+          const joinDate = new Date(m.date_joined);
+          return joinDate.getFullYear() === thisYear;
+        }).length || 0,
+        members_by_status: membersByStatus,
+        members_by_branch: membersByBranch,
+        members_by_age_group: membersByAgeGroup,
+        members_by_gender: membersByGender,
+      };
 
-        return stats;
+      return stats;
     },
     enabled: !!organizationId,
   });
@@ -807,10 +808,10 @@ export function useBulkUpdateMembers() {
 // Hook to export members data
 export function useExportMembers() {
   return useMutation({
-    mutationFn: async ({ organizationId, filters, format }: { 
-      organizationId: string; 
-      filters?: MemberFilters; 
-      format: 'csv' | 'excel' | 'pdf' 
+    mutationFn: async ({ organizationId, filters, format }: {
+      organizationId: string;
+      filters?: MemberFilters;
+      format: 'csv' | 'excel' | 'pdf'
     }): Promise<Blob> => {
       // This would typically call a backend endpoint that generates the export
       // For now, we'll create a simple CSV export

@@ -157,7 +157,7 @@ export function OccasionsServices() {
           <h2 className="text-2xl font-bold tracking-tight">
             Occasions & Services
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Manage church services, events, and special occasions
           </p>
         </div>
@@ -210,8 +210,8 @@ export function OccasionsServices() {
             {filters.is_active === true
               ? 'Active'
               : filters.is_active === false
-              ? 'Inactive'
-              : 'All'}{' '}
+                ? 'Inactive'
+                : 'All'}{' '}
             Occasions or Services
           </CardTitle>
         </CardHeader>

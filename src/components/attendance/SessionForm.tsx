@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,10 +25,10 @@ import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead
 import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSearch';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { DateTimePicker } from '@/components/shared/DateTimePicker';
-import { 
-  attendanceSessionSchema, 
+import {
+  attendanceSessionSchema,
   defaultSessionFormValues,
-  type AttendanceSessionFormData 
+  type AttendanceSessionFormData
 } from '@/schemas/attendanceSessionSchema';
 import type { AttendanceSession } from '@/types/attendance';
 import type { RelationalTagWithItems } from '@/hooks/useRelationalTags';
@@ -53,7 +53,7 @@ export function SessionForm({
   const { data: occasions = [], isLoading: occasionsLoading } = useAttendanceOccasions({
     is_active: true,
   });
-  
+
   const { tags = [] } = useRelationalTags();
   const { currentOrganization } = useOrganization();
   const organizationId = currentOrganization?.id;
@@ -67,28 +67,28 @@ export function SessionForm({
   const [tagsInitialized, setTagsInitialized] = useState(false);
 
   const {
-     register,
-     handleSubmit,
-     watch,
-     setValue,
-     formState: { errors },
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
   } = useForm<AttendanceSessionFormData>({
     resolver: zodResolver(attendanceSessionSchema),
     defaultValues: mode === 'edit' && initialData ? {
-       name: initialData.name || '',
-       occasion_id: initialData.occasion_id,
-       branch_id: initialData.branch_id ?? undefined,
-       start_time: new Date(initialData.start_time).toISOString(),
-       end_time: new Date(initialData.end_time).toISOString(),
-       is_open: initialData.is_open,
-       allow_public_marking: initialData.allow_public_marking,
-       proximity_required: initialData.proximity_required,
-       location: initialData.location || undefined,
-       allowed_tags: initialData.allowed_tags || [],
-       allowed_groups: initialData.allowed_groups || [],
-       allowed_members: initialData.allowed_members || [],
-       marking_modes: initialData.marking_modes,
-     } : {
+      name: initialData.name || '',
+      occasion_id: initialData.occasion_id,
+      branch_id: initialData.branch_id ?? undefined,
+      start_time: new Date(initialData.start_time).toISOString(),
+      end_time: new Date(initialData.end_time).toISOString(),
+      is_open: initialData.is_open,
+      allow_public_marking: initialData.allow_public_marking,
+      proximity_required: initialData.proximity_required,
+      location: initialData.location || undefined,
+      allowed_tags: initialData.allowed_tags || [],
+      allowed_groups: initialData.allowed_groups || [],
+      allowed_members: initialData.allowed_members || [],
+      marking_modes: initialData.marking_modes,
+    } : {
       ...defaultSessionFormValues,
       start_time: new Date().toISOString(),
       end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
@@ -102,9 +102,35 @@ export function SessionForm({
   const watchedAllowedGroups = watch('allowed_groups') || [];
   const watchedAllowedMembers = watch('allowed_members') || [];
 
+  const isActiveSession = useMemo(() => {
+    if (mode !== 'edit' || !initialData) return false;
+    const now = new Date();
+    const startTime = new Date(initialData.start_time);
+    const endTime = new Date(initialData.end_time);
+    return now >= startTime && now <= endTime && initialData.is_open;
+  }, [mode, initialData]);
+
+  // Ensure end_time is not before start_time whenever start_time changes
+  useEffect(() => {
+    const startTimeStr = watch('start_time');
+    const endTimeStr = watch('end_time');
+
+    if (startTimeStr && endTimeStr) {
+      const startTime = new Date(startTimeStr);
+      const endTime = new Date(endTimeStr);
+
+      if (endTime < startTime) {
+        // If end time is now before start time, automatically push end time forward
+        // Default to 2 hours after the new start time
+        const newEndTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+        setValue('end_time', newEndTime.toISOString());
+      }
+    }
+  }, [watch('start_time')]);
+
   const handleFormSubmit = (data: AttendanceSessionFormData) => {
-     onSubmit(data);
-   };
+    onSubmit(data);
+  };
 
   useEffect(() => {
     const selectedOccasion = occasions.find((o: any) => o.id === watchedValues.occasion_id);
@@ -294,6 +320,7 @@ export function SessionForm({
                 onChange={(value) => setValue('start_time', value)}
                 datePlaceholder="Select start date"
                 timePlaceholder="Select start time"
+                disabled={isActiveSession}
               />
               {errors.start_time && (
                 <p className="text-sm text-red-500">{errors.start_time.message}</p>
@@ -308,6 +335,7 @@ export function SessionForm({
                 onChange={(value) => setValue('end_time', value)}
                 datePlaceholder="Select end date"
                 timePlaceholder="Select end time"
+                minDate={watch('start_time')}
               />
               {errors.end_time && (
                 <p className="text-sm text-red-500">{errors.end_time.message}</p>
@@ -317,7 +345,7 @@ export function SessionForm({
         </CardContent>
       </Card>
 
-     
+
 
       {/* Allowed Tags */}
       {tags.length > 0 && (
@@ -397,7 +425,7 @@ export function SessionForm({
         </Card>
       )}
 
-        {/* Session Settings */}
+      {/* Session Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -415,6 +443,7 @@ export function SessionForm({
             <Switch
               checked={watchedValues.is_open}
               onCheckedChange={(checked) => setValue('is_open', checked)}
+              disabled={isActiveSession}
             />
           </div>
 
@@ -568,7 +597,7 @@ export function SessionForm({
               </Label>
             </div>
 
-            
+
           </div>
           {errors.marking_modes && (
             <p className="text-sm text-red-500">{errors.marking_modes.message}</p>
