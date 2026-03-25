@@ -71,24 +71,24 @@ const FileRenderer: React.FC<FileRendererProps> = ({
     try {
       // Use file-saver for reliable cross-browser downloads
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const blob = await response.blob();
-      
+
       // Use file-saver's saveAs function which handles all the complexity
       saveAs(blob, extractedFileName || 'download');
     } catch (error) {
       console.error('Download failed:', error);
-      
+
       // Fallback: try to download directly using file-saver with URL
       try {
         saveAs(url, extractedFileName || 'download');
       } catch (fallbackError) {
         console.error('File-saver fallback failed:', fallbackError);
-        
+
         // Final fallback: open in new tab
         window.open(url, '_blank');
       }

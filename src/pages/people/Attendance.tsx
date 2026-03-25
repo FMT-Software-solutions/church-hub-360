@@ -1,8 +1,10 @@
-import { Calendar, TrendingUp, Users } from 'lucide-react';
+import { Calendar, MapPinned, TrendingUp, Users } from 'lucide-react';
 import { useState } from 'react';
+import { ProximitySettingsDrawer } from '../../components/attendance/ProximitySettingsDrawer';
 import { AttendanceSessions } from '../../components/attendance/AttendanceSessions';
 import { OccasionsServices } from '../../components/attendance/OccasionsServices';
 import { ReportsInsights } from '../../components/attendance/ReportsInsights';
+import { Button } from '../../components/ui/button';
 import {
   Tabs,
   TabsContent,
@@ -12,10 +14,10 @@ import {
 
 export function Attendance() {
   const [activeTab, setActiveTab] = useState('sessions');
+  const [isProximityDrawerOpen, setIsProximityDrawerOpen] = useState(false);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between bg-neutral-100 dark:bg-neutral-800/50 px-6 py-4 rounded-lg border">
         <div>
           <h1 className="text-xl md:text-3xl font-bold tracking-tight">
@@ -25,9 +27,17 @@ export function Attendance() {
             Attendance tracking and management
           </p>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setIsProximityDrawerOpen(true)}
+          aria-label="Configure attendance proximity settings"
+        >
+          <MapPinned className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 lg:w-fit lg:grid-cols-3 border border-primary/20 h-12">
           <TabsTrigger value="sessions" className="flex items-center gap-2">
@@ -46,7 +56,6 @@ export function Attendance() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab Content */}
         <div className="mt-6">
           <TabsContent value="occasions" className="space-y-6">
             <OccasionsServices />
@@ -61,6 +70,11 @@ export function Attendance() {
           </TabsContent>
         </div>
       </Tabs>
+
+      <ProximitySettingsDrawer
+        open={isProximityDrawerOpen}
+        onOpenChange={setIsProximityDrawerOpen}
+      />
     </div>
   );
 }

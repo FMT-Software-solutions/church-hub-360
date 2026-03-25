@@ -4,3 +4,4 @@
  */
 
 export * from './useAttendanceOccasions';
+export * from './useAttendanceLocations';

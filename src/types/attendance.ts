@@ -91,10 +91,10 @@ export interface AttendanceOccasionFilters {
 /**
  * Attendance Occasion Sort Options
  */
-export type AttendanceOccasionSortField = 
-  | 'name' 
-  | 'created_at' 
-  | 'updated_at' 
+export type AttendanceOccasionSortField =
+  | 'name'
+  | 'created_at'
+  | 'updated_at'
   | 'default_duration_minutes';
 
 export interface AttendanceOccasionSort {
@@ -127,6 +127,31 @@ export interface AttendanceLocation {
   lat: number;
   lng: number;
   radius?: number; // in meters
+  country?: string | null;
+  city?: string | null;
+  state_region?: string | null;
+  street?: string | null;
+  full_address?: string | null;
+}
+
+export interface AttendanceLocationRecord extends AttendanceLocation {
+  id: string;
+  organization_id: string;
+  branch_id?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  last_updated_by?: string | null;
+}
+
+export interface CreateAttendanceLocationInput extends AttendanceLocation {
+  organization_id: string;
+  branch_id?: string | null;
+}
+
+export interface UpdateAttendanceLocationInput
+  extends Partial<Omit<CreateAttendanceLocationInput, 'organization_id'>> {
+  id: string;
 }
 
 /**
@@ -150,10 +175,10 @@ export interface AttendanceSession {
   branch_id?: string | null;
   name?: string | null;
   start_time: string; // ISO timestamp
-  end_time: string; // ISO timestamp
+  end_time: string;
   is_open: boolean;
-  allow_public_marking: boolean;
-  proximity_required: boolean;
+  allow_self_marking: boolean;
+  location_id?: string | null;
   location?: AttendanceLocation | null;
   allowed_tags?: string[] | null;
   allowed_groups?: string[] | null;
@@ -176,9 +201,9 @@ export interface CreateAttendanceSessionInput {
   start_time: string;
   end_time: string;
   is_open?: boolean;
-  allow_public_marking?: boolean;
-  proximity_required?: boolean;
-  location?: AttendanceLocation;
+  allow_self_marking?: boolean;
+  location_id?: string | null;
+  location?: AttendanceLocation | null;
   allowed_tags?: string[] | null;
   allowed_groups?: string[] | null;
   allowed_members?: string[] | null;
@@ -195,8 +220,8 @@ export interface UpdateAttendanceSessionInput {
   start_time?: string;
   end_time?: string;
   is_open?: boolean;
-  allow_public_marking?: boolean;
-  proximity_required?: boolean;
+  allow_self_marking?: boolean;
+  location_id?: string | null;
   location?: AttendanceLocation | null;
   allowed_tags?: string[] | null;
   allowed_groups?: string[] | null;
@@ -232,8 +257,7 @@ export type AttendanceSessionStatus = 'upcoming' | 'active' | 'closed' | 'past';
 export interface AttendanceSessionFilters {
   occasion_id?: string;
   is_open?: boolean;
-  allow_public_marking?: boolean;
-  proximity_required?: boolean;
+  allow_self_marking?: boolean;
   status?: AttendanceSessionStatus;
   date_from?: string;
   date_to?: string;
@@ -244,11 +268,11 @@ export interface AttendanceSessionFilters {
 /**
  * Attendance Session Sort Options
  */
-export type AttendanceSessionSortField = 
-  | 'name' 
-  | 'start_time' 
+export type AttendanceSessionSortField =
+  | 'name'
+  | 'start_time'
   | 'end_time'
-  | 'created_at' 
+  | 'created_at'
   | 'updated_at'
   | 'attendance_count';
 

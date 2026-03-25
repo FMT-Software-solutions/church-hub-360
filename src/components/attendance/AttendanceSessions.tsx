@@ -22,7 +22,6 @@ import {
   Play,
   Pause,
   MapPin,
-  Link,
   AlertCircle,
   Loader2,
 } from 'lucide-react';
@@ -378,16 +377,10 @@ export function AttendanceSessions() {
                                           'Unnamed Session'}
                                       </h3>
                                       {getStatusBadge(session)}
-                                      {session.allow_public_marking && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <Link className="w-3 h-3 mr-1" />
-                                          Public
-                                        </Badge>
-                                      )}
-                                      {session.proximity_required && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <MapPin className="w-3 h-3 mr-1" />
-                                          Location
+                                      {session.allow_self_marking && (
+                                        <Badge variant="secondary" className="gap-1">
+                                          <MapPin className="h-3 w-3" />
+                                          Self Marking
                                         </Badge>
                                       )}
                                     </div>
@@ -494,16 +487,10 @@ export function AttendanceSessions() {
                                           'Unnamed Session'}
                                       </h3>
                                       {getStatusBadge(session)}
-                                      {session.allow_public_marking && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <Link className="w-3 h-3 mr-1" />
-                                          Public
-                                        </Badge>
-                                      )}
-                                      {session.proximity_required && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <MapPin className="w-3 h-3 mr-1" />
-                                          Location
+                                      {session.allow_self_marking && (
+                                        <Badge variant="secondary" className="gap-1">
+                                          <MapPin className="h-3 w-3" />
+                                          Self Marking
                                         </Badge>
                                       )}
                                     </div>

@@ -161,8 +161,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       start_time: startAligned.toISOString(),
       end_time: endAligned.toISOString(),
       is_open: isOpen,
-      allow_public_marking: allowPublicMarking,
-      proximity_required: proximityRequired,
+      allow_self_marking: allowPublicMarking,
       location: getValidLocation(),
       allowed_tags: flattenAllowedTags(),
       allowed_groups: allowedGroups.length ? allowedGroups.map(g => g.groupId) : undefined,
@@ -192,8 +191,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       start_time: globalStart,
       end_time: globalEnd,
       is_open: isOpen,
-      allow_public_marking: allowPublicMarking,
-      proximity_required: proximityRequired,
+      allow_self_marking: allowPublicMarking,
       location: getValidLocation(),
       allowed_tags: flattenAllowedTags(),
       allowed_groups: allowedGroups.length ? allowedGroups.map(g => g.groupId) : undefined,
@@ -298,8 +296,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
         start_time: d.start_time,
         end_time: d.end_time,
         is_open: d.is_open ?? true,
-        allow_public_marking: d.allow_public_marking ?? false,
-        proximity_required: d.proximity_required ?? false,
+        allow_self_marking: d.allow_self_marking ?? true,
         location: d.location,
         allowed_tags: d.allowed_tags || [],
         allowed_groups: d.allowed_groups || [],
@@ -328,8 +325,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       start_time: d.start_time,
       end_time: d.end_time,
       is_open: d.is_open,
-      allow_public_marking: d.allow_public_marking,
-      proximity_required: d.proximity_required,
+      allow_self_marking: d.allow_self_marking,
       location: d.location,
       allowed_tags: d.allowed_tags,
       allowed_groups: d.allowed_groups,
@@ -456,19 +452,19 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       {/* Actions */}
       {drafts.length !== 0 && (
         <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </Button>
-        
-        <Button onClick={handleCreate} disabled={drafts.length === 0 || isSubmitting}>
-          {isSubmitting ? (
-            <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Creating...</span>
-          ) : (
-            <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Create Sessions</span>
-          )}
-        </Button>
-      </div>
-        )}
+          <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            Cancel
+          </Button>
+
+          <Button onClick={handleCreate} disabled={drafts.length === 0 || isSubmitting}>
+            {isSubmitting ? (
+              <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Creating...</span>
+            ) : (
+              <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Create Sessions</span>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

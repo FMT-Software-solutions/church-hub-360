@@ -51,7 +51,7 @@ function isModeEnabled(marking_modes: AttendanceMarkingModes, mode?: MarkingMode
 
 function isPublicAllowed(session: AttendanceSession, origin: MarkingOrigin): boolean {
   if (origin !== 'public_link') return true;
-  return !!session.allow_public_marking;
+  return !!session.allow_self_marking;
 }
 
 function memberIsExplicitlyAllowed(
@@ -94,7 +94,11 @@ function haversineMeters(a: AttendanceLocation, b: AttendanceLocation): number {
 }
 
 function proximitySatisfied(session: AttendanceSession, userLocation?: AttendanceLocation | null): boolean | 'skipped' {
-  if (!session.proximity_required) return 'skipped';
+  // If the session does not require self marking or location, skip
+  // Note: we still need to load actual location data if inheriting, but for now
+  // we assume proximity check is only needed if allow_self_marking is true and
+  // a location is set.
+  if (!session.allow_self_marking) return 'skipped';
   if (!session.location || !userLocation) return false;
   const distance = haversineMeters(session.location, userLocation);
   const radius = session.location.radius ?? 100; // default radius if not set

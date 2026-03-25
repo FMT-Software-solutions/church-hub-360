@@ -131,12 +131,8 @@ export function useAttendanceSessions(
         query = query.eq('is_open', filters.is_open);
       }
 
-      if (filters?.allow_public_marking !== undefined) {
-        query = query.eq('allow_public_marking', filters.allow_public_marking);
-      }
-
-      if (filters?.proximity_required !== undefined) {
-        query = query.eq('proximity_required', filters.proximity_required);
+      if (filters?.allow_self_marking !== undefined) {
+        query = query.eq('allow_self_marking', filters.allow_self_marking);
       }
 
       if (filters?.search) {

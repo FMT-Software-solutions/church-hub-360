@@ -23,6 +23,8 @@ import { GroupsRenderer, type GroupAssignment } from '@/components/people/groups
 import { useAllGroups } from '@/hooks/useGroups';
 import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead';
 import { useMemberDetails, type MemberSearchResult } from '@/hooks/useMemberSearch';
+import { LocationPicker } from '@/components/shared/LocationPicker';
+import { useAttendanceLocations } from '@/hooks/attendance/useAttendanceLocations';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { DateTimePicker } from '@/components/shared/DateTimePicker';
 import {
@@ -73,7 +75,7 @@ export function SessionForm({
     setValue,
     formState: { errors },
   } = useForm<AttendanceSessionFormData>({
-    resolver: zodResolver(attendanceSessionSchema),
+    resolver: zodResolver(attendanceSessionSchema) as any,
     defaultValues: mode === 'edit' && initialData ? {
       name: initialData.name || '',
       occasion_id: initialData.occasion_id,
@@ -81,8 +83,8 @@ export function SessionForm({
       start_time: new Date(initialData.start_time).toISOString(),
       end_time: new Date(initialData.end_time).toISOString(),
       is_open: initialData.is_open,
-      allow_public_marking: initialData.allow_public_marking,
-      proximity_required: initialData.proximity_required,
+      allow_self_marking: initialData.allow_self_marking ?? true,
+      location_id: initialData.location_id,
       location: initialData.location || undefined,
       allowed_tags: initialData.allowed_tags || [],
       allowed_groups: initialData.allowed_groups || [],
@@ -92,11 +94,12 @@ export function SessionForm({
       ...defaultSessionFormValues,
       start_time: new Date().toISOString(),
       end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+      allow_self_marking: true,
     },
   });
 
   const watchedValues = watch();
-  const proximityRequired = watch('proximity_required');
+  const allowSelfMarking = watch('allow_self_marking');
   const markingModes = watch('marking_modes');
   const watchedAllowedTags = watch('allowed_tags') || [];
   const watchedAllowedGroups = watch('allowed_groups') || [];
@@ -128,8 +131,8 @@ export function SessionForm({
     }
   }, [watch('start_time')]);
 
-  const handleFormSubmit = (data: AttendanceSessionFormData) => {
-    onSubmit(data);
+  const handleFormSubmit = (data: any) => {
+    onSubmit(data as AttendanceSessionFormData);
   };
 
   useEffect(() => {
@@ -147,8 +150,12 @@ export function SessionForm({
     setValue(`marking_modes.${mode}`, checked);
   };
 
-  const handleProximityRequiredChange = (checked: boolean) => {
-    setValue('proximity_required', checked);
+  const handleAllowSelfMarkingChange = (checked: boolean) => {
+    setValue('allow_self_marking', checked);
+    if (!checked) {
+      setValue('location_id', null);
+      setValue('location', undefined);
+    }
   };
 
   // Initialize per-tag values from flattened allowed_tags once tags load
@@ -178,12 +185,13 @@ export function SessionForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedAllowedGroups, mode]);
 
-  // Removed form writes in effects to avoid update loops; members are synced via onChange and details seeding
 
   // Fetch member details to seed typeahead value in edit mode
   const { data: memberDetails = [] } = useMemberDetails(
     Array.isArray(watchedAllowedMembers) ? watchedAllowedMembers : []
   );
+
+  const { data: attendanceLocations = [] } = useAttendanceLocations();
 
   useEffect(() => {
     if (mode === 'edit' && selectedMembers.length === 0 && memberDetails.length > 0) {
@@ -352,7 +360,7 @@ export function SessionForm({
         <Card>
           <CardHeader>
             <CardTitle>Allowed Tags (Optional)</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Restrict attendance to members with specific tags
             </p>
           </CardHeader>
@@ -379,7 +387,7 @@ export function SessionForm({
         <Card>
           <CardHeader>
             <CardTitle>Allowed Groups (Optional)</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Restrict attendance to members in selected groups
             </p>
           </CardHeader>
@@ -405,7 +413,7 @@ export function SessionForm({
         <Card>
           <CardHeader>
             <CardTitle>Allowed Members (Optional)</CardTitle>
-            <p className="text-sm text-muted-foreground">Select members permitted to mark attendance</p>
+            <p className="text-xs text-muted-foreground">Select members permitted to mark attendance</p>
           </CardHeader>
           <CardContent className="space-y-2">
             <MemberSearchTypeahead
@@ -436,7 +444,7 @@ export function SessionForm({
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Session Status</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Whether the session is currently open for attendance marking
               </p>
             </div>
@@ -451,91 +459,101 @@ export function SessionForm({
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Allow Public Marking</Label>
-              <p className="text-sm text-muted-foreground">
-                Members can self check-in via link
+              <Label>Allow Self Marking</Label>
+              <p className="text-xs text-muted-foreground">
+                Members can self check-in via personal link or QR code
               </p>
             </div>
             <Switch
-              checked={watchedValues.allow_public_marking}
-              onCheckedChange={(checked) => setValue('allow_public_marking', checked)}
-            />
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Proximity Required</Label>
-              <p className="text-sm text-muted-foreground">
-                Require users to be within a specific location to mark attendance
-              </p>
-            </div>
-            <Switch
-              checked={proximityRequired}
-              onCheckedChange={handleProximityRequiredChange}
+              checked={allowSelfMarking}
+              onCheckedChange={handleAllowSelfMarkingChange}
             />
           </div>
         </CardContent>
       </Card>
 
       {/* Location Settings */}
-      {proximityRequired && (
+      {allowSelfMarking && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              Location Settings
+              Proximity & Location Settings
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="lat">Latitude *</Label>
-                <Input
-                  id="lat"
-                  type="number"
-                  step="any"
-                  placeholder="e.g., 40.7128"
-                  {...register('location.lat', { valueAsNumber: true })}
-                  className={errors.location?.lat ? 'border-red-500' : ''}
-                />
-                {errors.location?.lat && (
-                  <p className="text-sm text-red-500">{errors.location.lat.message}</p>
-                )}
+            <div className="flex items-center justify-between rounded-md border p-4">
+              <div className="space-y-0.5">
+                <Label>Inherit Location</Label>
+                <p className="text-xs text-muted-foreground">
+                  Use the organization or branch default location settings
+                </p>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lng">Longitude *</Label>
-                <Input
-                  id="lng"
-                  type="number"
-                  step="any"
-                  placeholder="e.g., -74.0060"
-                  {...register('location.lng', { valueAsNumber: true })}
-                  className={errors.location?.lng ? 'border-red-500' : ''}
-                />
-                {errors.location?.lng && (
-                  <p className="text-sm text-red-500">{errors.location.lng.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="radius">Radius (meters) *</Label>
-                <Input
-                  id="radius"
-                  type="number"
-                  min="1"
-                  max="10000"
-                  placeholder="e.g., 100"
-                  {...register('location.radius', { valueAsNumber: true })}
-                  className={errors.location?.radius ? 'border-red-500' : ''}
-                />
-                {errors.location?.radius && (
-                  <p className="text-sm text-red-500">{errors.location.radius.message}</p>
-                )}
-              </div>
+              <Switch
+                checked={!!watchedValues.location_id || (!watchedValues.location && !watchedValues.location_id)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setValue('location', undefined);
+                    // Default to the first available location if we have one, otherwise just clear custom location
+                    if (attendanceLocations.length > 0 && !watchedValues.location_id) {
+                      setValue('location_id', attendanceLocations[0].id);
+                    }
+                  } else {
+                    setValue('location_id', null);
+                    // Initialize empty location object so it stops matching the "inherit" condition
+                    if (!watchedValues.location) {
+                      setValue('location', { lat: 0, lng: 0, radius: 100 });
+                    }
+                  }
+                }}
+              />
             </div>
+
+            {(!watchedValues.location_id && watchedValues.location !== undefined) ? (
+              <div className="mt-4">
+                <LocationPicker
+                  value={watchedValues.location || { lat: 0, lng: 0, radius: 100 }}
+                  onChange={(loc) => setValue('location', loc)}
+                />
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                <Label>Select Location to Inherit</Label>
+                <Select
+                  value={watchedValues.location_id || ''}
+                  onValueChange={(val) => {
+                    setValue('location_id', val);
+                    setValue('location', undefined);
+                  }}
+                >
+                  <SelectTrigger className={errors.location_id ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Select a configured location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attendanceLocations.length === 0 && (
+                      <SelectItem value="none" disabled>
+                        No locations configured
+                      </SelectItem>
+                    )}
+                    {attendanceLocations.map((loc) => {
+                      const isBranch = !!loc.branch_id;
+                      const label = isBranch
+                        ? `Branch Location`
+                        : 'Organization Default';
+                      return (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {label} ({loc.radius}m)
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                {errors.location_id && (
+                  <p className="text-sm text-red-500">{errors.location_id.message}</p>
+                )}
+              </div>
+            )}
+
             {errors.location && (
               <p className="text-sm text-red-500">{errors.location.message}</p>
             )}
@@ -547,9 +565,6 @@ export function SessionForm({
       <Card>
         <CardHeader>
           <CardTitle>Marking Modes</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Select how attendance can be marked for this session
-          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
