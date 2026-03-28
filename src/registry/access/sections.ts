@@ -2,6 +2,7 @@ export type SectionKey =
   | 'branches'
   | 'people'
   | 'finance'
+  | 'communication'
   | 'events'
   | 'announcements'
   | 'assets'

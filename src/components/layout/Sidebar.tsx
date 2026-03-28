@@ -29,6 +29,7 @@ import {
   Tag,
   IdCard,
   Bell,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -77,6 +78,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   TrendingDown,
   Heart,
   Target,
+  MessageSquare,
   CalendarDays,
   BarChart3,
   FormInput,

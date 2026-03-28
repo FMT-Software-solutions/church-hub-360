@@ -2,6 +2,7 @@ export type SectionKey =
   | 'branches'
   | 'people'
   | 'finance'
+  | 'communication'
   | 'events'
   | 'announcements'
   | 'assets'
@@ -35,6 +36,7 @@ export interface VisibilityOverrides {
       pledges?: boolean;
       activity_logs?: boolean;
     };
+    communication?: boolean;
     events?: boolean;
     announcements?: boolean;
     assets?: boolean;

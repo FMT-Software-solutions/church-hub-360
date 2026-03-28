@@ -1,261 +1,94 @@
 import { useState } from 'react';
-import { 
-  MessageSquare, 
-  Mail, 
-  Phone, 
-  Users, 
-  User, 
-  Send, 
-  History, 
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Eye,
-  Edit,
-  Trash2
+import {
+  MessageSquare,
+  Mail,
+  Phone,
+  History,
+  Send,
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Checkbox } from '../components/ui/checkbox';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
 
-interface Template {
-  id: string;
-  name: string;
-  type: 'email' | 'sms';
-  subject?: string;
-  content: string;
-}
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useCommunicationTargets } from '@/hooks/useCommunicationTargets';
+import { useTagsQuery } from '@/hooks/useRelationalTags';
+import { useAllGroups } from '@/hooks/useGroups';
+import type { MemberSearchResult } from '@/hooks/useMemberSearch';
 
-// Mock data for templates
-const messageTemplates: { email: Template[], sms: Template[] } = {
-  email: [
-    {
-      id: 'blank-email',
-      name: 'Blank Template',
-      type: 'email' as const,
-      subject: '',
-      content: ''
-    },
-    {
-      id: 'welcome-email',
-      name: 'Welcome New Member',
-      type: 'email' as const,
-      subject: 'Welcome to Our Church Family!',
-      content: `Dear [Name],
+import { MessageTypeSelector } from './communication/components/MessageTypeSelector';
+import { RecipientSelector } from './communication/components/RecipientSelector';
+import { MessageComposer } from './communication/components/MessageComposer';
+import { BestPractices } from './communication/components/BestPractices';
+import { useCommunicationTemplates, useDeleteTemplate } from '@/hooks/useCommunicationTemplates';
+import { useCommunicationHistory, useCreateCommunicationHistory } from '@/hooks/useCommunicationHistory';
 
-Welcome to our church family! We are thrilled to have you join us on this spiritual journey.
-
-Our church community is built on love, faith, and fellowship. We believe that every person has a unique purpose and we're here to support you in discovering and fulfilling that purpose.
-
-What to expect:
-• Weekly worship services on Sundays at 10:00 AM
-• Bible study groups throughout the week
-• Community outreach programs
-• Fellowship events and activities
-
-If you have any questions or need assistance, please don't hesitate to reach out to us.
-
-Blessings,
-[Church Name] Team`
-    },
-    {
-      id: 'event-reminder',
-      name: 'Event Reminder',
-      type: 'email' as const,
-      subject: 'Reminder: [Event Name] - [Date]',
-      content: `Dear [Name],
-
-This is a friendly reminder about our upcoming event:
-
-Event: [Event Name]
-Date: [Date]
-Time: [Time]
-Location: [Location]
-
-We're looking forward to seeing you there! This will be a wonderful opportunity for fellowship and spiritual growth.
-
-Please let us know if you have any questions.
-
-God bless,
-[Church Name] Team`
-    },
-    {
-      id: 'prayer-request',
-      name: 'Prayer Request Response',
-      type: 'email' as const,
-      subject: 'We\'re Praying for You',
-      content: `Dear [Name],
-
-Thank you for sharing your prayer request with us. Please know that our entire church family is lifting you up in prayer.
-
-"And the prayer of faith will save the sick, and the Lord will raise him up." - James 5:15
-
-We believe in the power of prayer and trust that God will work in your situation according to His perfect will.
-
-You are loved and supported,
-[Church Name] Prayer Team`
-    }
-  ],
-  sms: [
-    {
-      id: 'blank-sms',
-      name: 'Blank Template',
-      type: 'sms' as const,
-      content: ''
-    },
-    {
-      id: 'service-reminder',
-      name: 'Service Reminder',
-      type: 'sms' as const,
-      content: 'Hi [Name]! Reminder: Service tomorrow at 10 AM. See you there! - [Church Name]'
-    },
-    {
-      id: 'event-update',
-      name: 'Event Update',
-      type: 'sms' as const,
-      content: 'Hi [Name]! Quick update about [Event]: [Details]. Questions? Reply or call us. Blessings! - [Church Name]'
-    },
-    {
-      id: 'prayer-support',
-      name: 'Prayer Support',
-      type: 'sms' as const,
-      content: 'Hi [Name], our church family is praying for you today. You are loved and not alone. God bless! - [Church Name]'
-    }
-  ]
-};
-
-// Mock data for members
-const mockMembers = [
-  { id: '1', name: 'John Smith', email: 'john.smith@email.com', phone: '+1 (555) 123-4567', avatar: '/avatars/AV1.png', status: 'active' },
-  { id: '2', name: 'Sarah Johnson', email: 'sarah.j@email.com', phone: '+1 (555) 234-5678', avatar: '/avatars/AV2.png', status: 'active' },
-  { id: '3', name: 'Michael Brown', email: 'mike.brown@email.com', phone: '+1 (555) 345-6789', avatar: '/avatars/AV3.png', status: 'active' },
-  { id: '4', name: 'Emily Davis', email: 'emily.davis@email.com', phone: '+1 (555) 456-7890', avatar: '/avatars/AV4.png', status: 'active' },
-  { id: '5', name: 'David Wilson', email: 'david.w@email.com', phone: '+1 (555) 567-8901', avatar: '/avatars/AV5.png', status: 'active' },
-  { id: '6', name: 'Lisa Anderson', email: 'lisa.anderson@email.com', phone: '+1 (555) 678-9012', avatar: '/avatars/AV6.png', status: 'active' },
-];
-
-// Mock data for member groups
-const memberGroups = [
-  { id: 'all', name: 'All Members', count: 156, description: 'All active church members' },
-  { id: 'youth', name: 'Youth Group', count: 24, description: 'Members aged 13-25' },
-  { id: 'seniors', name: 'Senior Members', count: 45, description: 'Members aged 65+' },
-  { id: 'new-members', name: 'New Members', count: 12, description: 'Members joined in last 6 months' },
-  { id: 'volunteers', name: 'Volunteers', count: 67, description: 'Active ministry volunteers' },
-  { id: 'leadership', name: 'Leadership Team', count: 15, description: 'Church leadership and staff' },
-];
-
-// Mock data for sent messages
-const sentMessages = [
-  {
-    id: '1',
-    type: 'email',
-    subject: 'Welcome to Our Church Family!',
-    recipients: 'New Members (12)',
-    sentAt: '2024-01-15T10:30:00Z',
-    status: 'delivered',
-    openRate: '85%',
-    clickRate: '23%'
-  },
-  {
-    id: '2',
-    type: 'sms',
-    subject: 'Sunday Service Reminder',
-    recipients: 'All Members (156)',
-    sentAt: '2024-01-14T18:00:00Z',
-    status: 'delivered',
-    deliveryRate: '98%'
-  },
-  {
-    id: '3',
-    type: 'email',
-    subject: 'Youth Event This Friday',
-    recipients: 'Youth Group (24)',
-    sentAt: '2024-01-13T14:15:00Z',
-    status: 'delivered',
-    openRate: '92%',
-    clickRate: '45%'
-  },
-  {
-    id: '4',
-    type: 'sms',
-    subject: 'Prayer Meeting Tonight',
-    recipients: 'Leadership Team (15)',
-    sentAt: '2024-01-12T16:45:00Z',
-    status: 'delivered',
-    deliveryRate: '100%'
-  }
-];
+// Mock data removed in favor of real db values
 
 export function Communication() {
+  const { currentOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState('compose');
-  const [messageType, setMessageType] = useState<'email' | 'sms'>('email');
+  const [messageType, setMessageType] = useState<'email' | 'sms'>('sms');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [recipientType, setRecipientType] = useState<'individual' | 'group'>('group');
-  const [selectedGroup, setSelectedGroup] = useState<string>('');
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+
+  // Recipient selection state
+  const [selectAllMembers, setSelectAllMembers] = useState(false);
+  const [selectedTagItemIds, setSelectedTagItemIds] = useState<string[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<MemberSearchResult[]>([]);
+
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Filter members based on search term
-  const filteredMembers = mockMembers.filter(member =>
-    member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Queries for selectors
+  const { data: relationalTags = [] } = useTagsQuery(currentOrganization?.id);
+  const { data: allGroups = [] } = useAllGroups();
+
+  const { data: dbTemplates = [] } = useCommunicationTemplates();
+  const { data: dbHistory = [] } = useCommunicationHistory();
+  const createHistoryMutation = useCreateCommunicationHistory();
+  const deleteTemplateMutation = useDeleteTemplate();
+
+  // Fetch targets using RPC hook
+  const { data: targetMembers = [], isLoading: isLoadingTargets } = useCommunicationTargets({
+    selectAll: selectAllMembers,
+    groupIds: selectedGroupIds,
+    tagItemIds: selectedTagItemIds,
+    individualIds: selectedMembers.map(m => m.id)
+  });
 
   // Handle template selection
   const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    
-    // Handle blank template
-    if (templateId === 'blank') {
-      setSubject('');
-      setMessage('');
-      return;
-    }
-    
-    const templates = messageTemplates[messageType];
-    const template = templates.find(t => t.id === templateId);
+    const template = dbTemplates.find(t => t.id === templateId);
     if (template) {
-      if (messageType === 'email' && 'subject' in template) {
-        setSubject(template.subject || '');
-      }
+      setSubject(template.subject || '');
       setMessage(template.content);
+      setSelectedTemplate(templateId);
     }
   };
 
-  // Handle member selection
-  const handleMemberToggle = (memberId: string) => {
-    setSelectedMembers(prev =>
-      prev.includes(memberId)
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
-    );
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    if (messageType === 'sms' && val.length > 150) {
+      return; // Force limit
+    }
+    setMessage(val);
   };
 
-  // Handle send message
-  const handleSendMessage = () => {
+
+  // Handle sending the message
+  const handleSendMessage = async () => {
     if (!message.trim()) {
       toast.error('Please enter a message');
       return;
     }
 
-    if (recipientType === 'group' && !selectedGroup) {
-      toast.error('Please select a recipient group');
-      return;
-    }
-
-    if (recipientType === 'individual' && selectedMembers.length === 0) {
+    if (targetMembers.length === 0) {
       toast.error('Please select at least one recipient');
       return;
     }
@@ -265,29 +98,33 @@ export function Communication() {
       return;
     }
 
-    // Simulate sending
-    toast.success(`${messageType.toUpperCase()} sent successfully!`);
-    
-    // Reset form
-    setSelectedTemplate('');
-    setSubject('');
-    setMessage('');
-    setSelectedGroup('');
-    setSelectedMembers([]);
-  };
+    try {
+      await createHistoryMutation.mutateAsync({
+        type: messageType,
+        subject: messageType === 'email' ? subject : undefined,
+        content: message,
+        recipient_type: selectAllMembers ? 'all' : 'custom',
+        recipient_ids: targetMembers.map(m => m.id), // Storing the final unique member IDs resolved
+        recipient_count: targetMembers.length,
+        status: 'sent', // Optimistically marking as sent
+      });
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'delivered':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+      toast.success(`${messageType.toUpperCase()} sent successfully to ${targetMembers.length} recipients`);
+
+      // Reset form
+      setPreviewOpen(false);
+      setSelectedTemplate('');
+      setSubject('');
+      setMessage('');
+      setSelectedTagItemIds([]);
+      setSelectedGroupIds([]);
+      setSelectedMembers([]);
+    } catch (error) {
+      toast.error('Failed to send message');
+      console.error(error);
     }
   };
+
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -310,308 +147,207 @@ export function Communication() {
 
         <TabsContent value="compose" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Message Composition */}
+            {/* Main Composition Area */}
             <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Edit className="h-5 w-5" />
-                    Compose Message
-                  </CardTitle>
-                  <CardDescription>
-                    Create and send messages to your church members
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Message Type Selection */}
-                  <div className="space-y-2">
-                    <Label>Message Type</Label>
-                    <div className="flex gap-4">
-                      <Button
-                        variant={messageType === 'email' ? 'default' : 'outline'}
-                        onClick={() => setMessageType('email')}
-                        className="flex items-center gap-2"
-                      >
-                        <Mail className="h-4 w-4" />
-                        Email
-                      </Button>
-                      <Button
-                        variant={messageType === 'sms' ? 'default' : 'outline'}
-                        onClick={() => setMessageType('sms')}
-                        className="flex items-center gap-2"
-                      >
-                        <Phone className="h-4 w-4" />
-                        SMS
-                      </Button>
-                    </div>
-                  </div>
+              <MessageTypeSelector messageType={messageType} onChange={setMessageType} />
 
-                  {/* Template Selection */}
-                  <div className="space-y-2">
-                    <Label>Choose Template (Optional)</Label>
-                    <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a template or start blank" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="blank">Blank Template</SelectItem>
-                        {messageTemplates[messageType].map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <RecipientSelector
+                organizationId={currentOrganization?.id}
+                selectAllMembers={selectAllMembers}
+                setSelectAllMembers={setSelectAllMembers}
+                selectedGroupIds={selectedGroupIds}
+                setSelectedGroupIds={setSelectedGroupIds}
+                selectedTagItemIds={selectedTagItemIds}
+                setSelectedTagItemIds={setSelectedTagItemIds}
+                selectedMembers={selectedMembers}
+                setSelectedMembers={setSelectedMembers}
+                groups={allGroups}
+                tags={relationalTags}
+                targetCount={targetMembers.length}
+                isLoadingTargets={isLoadingTargets}
+              />
 
-                  {/* Subject (Email only) */}
-                  {messageType === 'email' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="subject">Subject</Label>
-                      <Input
-                        id="subject"
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                        placeholder="Enter email subject"
-                      />
-                    </div>
-                  )}
-
-                  {/* Message Content */}
-                  <div className="space-y-2">
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea
-                      id="message"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder={messageType === 'email' 
-                        ? "Enter your email message here..." 
-                        : "Enter your SMS message here (160 characters recommended)"}
-                      rows={messageType === 'email' ? 10 : 4}
-                      className="resize-none"
-                    />
-                    {messageType === 'sms' && (
-                      <p className="text-sm text-muted-foreground">
-                        {message.length}/160 characters
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="flex items-center gap-2">
-                          <Eye className="h-4 w-4" />
-                          Preview
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Message Preview</DialogTitle>
-                          <DialogDescription>
-                            Preview how your {messageType} will appear to recipients
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          {messageType === 'email' && subject && (
-                            <div>
-                              <Label className="text-sm font-medium">Subject:</Label>
-                              <p className="text-sm bg-muted p-2 rounded">{subject}</p>
-                            </div>
-                          )}
-                          <div>
-                            <Label className="text-sm font-medium">Message:</Label>
-                            <div className="text-sm bg-muted p-4 rounded whitespace-pre-wrap">
-                              {message}
-                            </div>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setPreviewOpen(false)}>
-                            Close
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    <Button onClick={handleSendMessage} className="flex items-center gap-2">
-                      <Send className="h-4 w-4" />
-                      Send Message
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <MessageComposer
+                messageType={messageType}
+                templates={dbTemplates.filter(t => t.type === messageType)}
+                selectedTemplate={selectedTemplate}
+                onTemplateSelect={handleTemplateSelect}
+                subject={subject}
+                setSubject={setSubject}
+                message={message}
+                handleMessageChange={handleMessageChange}
+                previewOpen={previewOpen}
+                setPreviewOpen={setPreviewOpen}
+                handleSend={handleSendMessage}
+                targetMembers={targetMembers}
+              />
             </div>
 
-            {/* Recipients Selection */}
+            {/* Sidebar / Guidelines */}
             <div className="space-y-6">
+              <BestPractices />
+
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Recipients
-                  </CardTitle>
-                  <CardDescription>
-                    Choose who will receive your message
-                  </CardDescription>
+                  <CardTitle className="text-base">Recent Activity</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Recipient Type */}
-                  <div className="space-y-2">
-                    <Label>Send To</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={recipientType === 'group' ? 'default' : 'outline'}
-                        onClick={() => setRecipientType('group')}
-                        className="flex items-center gap-1"
-                      >
-                        <Users className="h-3 w-3" />
-                        Groups
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={recipientType === 'individual' ? 'default' : 'outline'}
-                        onClick={() => setRecipientType('individual')}
-                        className="flex items-center gap-1"
-                      >
-                        <User className="h-3 w-3" />
-                        Individuals
-                      </Button>
-                    </div>
-                  </div>
-
-                  {recipientType === 'group' ? (
-                    /* Group Selection */
-                    <div className="space-y-3">
-                      <Label>Select Group</Label>
-                      {memberGroups.map((group) => (
-                        <div
-                          key={group.id}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            selectedGroup === group.id
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => setSelectedGroup(group.id)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{group.name}</p>
-                              <p className="text-xs text-muted-foreground">{group.description}</p>
-                            </div>
-                            <Badge variant="secondary">{group.count}</Badge>
-                          </div>
+                <CardContent>
+                  <div className="space-y-4">
+                    {dbHistory.slice(0, 3).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          {item.type === 'email' ? (
+                            <Mail className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <span className="truncate max-w-[120px]" title={item.subject || item.content}>
+                            {item.subject || item.content.substring(0, 20) + '...'}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    /* Individual Selection */
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Search Members</Label>
-                        <Input
-                          placeholder="Search by name or email..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                        <span className="text-muted-foreground">
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </span>
                       </div>
-                      
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        <Label>Select Members ({selectedMembers.length} selected)</Label>
-                        {filteredMembers.map((member) => (
-                          <div
-                            key={member.id}
-                            className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50"
-                          >
-                            <Checkbox
-                              checked={selectedMembers.includes(member.id)}
-                              onCheckedChange={() => handleMemberToggle(member.id)}
-                            />
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={member.avatar} />
-                              <AvatarFallback>
-                                {member.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{member.name}</p>
-                              <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                    {dbHistory.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+                    )}
+                  </div>
+                  <Button variant="link" className="w-full mt-4" onClick={() => setActiveTab('history')}>
+                    View All History
+                  </Button>
                 </CardContent>
               </Card>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-6">
+        <TabsContent value="history">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Message History
-              </CardTitle>
-              <CardDescription>
-                View and manage your sent messages
-              </CardDescription>
+              <CardTitle>Message History</CardTitle>
+              <CardDescription>View previously sent messages</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {sentMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-4">
+                {dbHistory.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        {msg.type === 'email' ? (
+                        {item.type === 'email' ? (
                           <Mail className="h-4 w-4 text-blue-500" />
                         ) : (
                           <Phone className="h-4 w-4 text-green-500" />
                         )}
-                        {getStatusIcon(msg.status)}
+                        <span className="font-medium">{item.subject || item.content.substring(0, 50) + '...'}</span>
                       </div>
-                      
-                      <div className="space-y-1">
-                        <p className="font-medium">{msg.subject}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>To: {msg.recipients}</span>
-                          <span>•</span>
-                          <span>{new Date(msg.sentAt).toLocaleDateString()} at {new Date(msg.sentAt).toLocaleTimeString()}</span>
-                        </div>
-                        {msg.type === 'email' && (
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Open Rate: {msg.openRate}</span>
-                            <span>Click Rate: {msg.clickRate}</span>
-                          </div>
-                        )}
-                        {msg.type === 'sms' && (
-                          <div className="text-xs text-muted-foreground">
-                            Delivery Rate: {msg.deliveryRate}
-                          </div>
-                        )}
+                      <div className="text-sm text-muted-foreground">
+                        Sent to {item.recipient_count} {item.recipient_type} • {new Date(item.created_at).toLocaleDateString()}
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Badge variant={['delivered', 'sent'].includes(item.status) ? 'default' : 'secondary'} className={['delivered', 'sent'].includes(item.status) ? 'bg-green-500' : ''}>
+                      {item.status}
+                    </Badge>
                   </div>
                 ))}
+                {dbHistory.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <History className="mx-auto h-12 w-12 opacity-20 mb-4" />
+                    <p>No messages sent yet</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Message Templates</CardTitle>
+                <CardDescription>Manage your reusable message templates</CardDescription>
+              </div>
+              <Button onClick={() => {
+                setMessageType('sms');
+                setActiveTab('compose');
+                setSelectedTemplate('new');
+              }}>
+                <Edit className="mr-2 h-4 w-4" />
+                New Template
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {dbTemplates.map((template) => (
+                  <div key={template.id} className="border rounded-lg p-4 space-y-3 flex flex-col">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {template.type === 'email' ? (
+                            <Mail className="h-4 w-4 text-blue-500" />
+                          ) : (
+                            <Phone className="h-4 w-4 text-green-500" />
+                          )}
+                          <span className="font-medium">{template.name}</span>
+                        </div>
+                        {template.subject && (
+                          <div className="text-sm text-muted-foreground">{template.subject}</div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setMessageType(template.type);
+                            setActiveTab('compose');
+                            handleTemplateSelect(template.id);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this template?')) {
+                              deleteTemplateMutation.mutate(template.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-sm bg-muted p-3 rounded-md line-clamp-3 flex-1">
+                      {template.content}
+                    </div>
+                    <Button variant="secondary" className="w-full mt-auto" onClick={() => {
+                      setMessageType(template.type);
+                      setActiveTab('compose');
+                      handleTemplateSelect(template.id);
+                    }}>
+                      Use Template
+                    </Button>
+                  </div>
+                ))}
+                {dbTemplates.length === 0 && (
+                  <div className="col-span-1 md:col-span-2 text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+                    <MessageSquare className="mx-auto h-12 w-12 opacity-20 mb-4" />
+                    <p>No templates found</p>
+                    <Button variant="link" onClick={() => {
+                      setMessageType('sms');
+                      setActiveTab('compose');
+                      setSelectedTemplate('new');
+                    }}>
+                      Create your first template
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

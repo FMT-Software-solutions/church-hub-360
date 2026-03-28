@@ -209,7 +209,14 @@ function AppRoutes() {
         </Route>
 
         {/* Other main pages */}
-        <Route path="communication" element={<Communication />} />
+        <Route
+          path="communication"
+          element={
+            <AccessGuard fallback={<Navigate to="/dashboard" replace />}>
+              <Communication />
+            </AccessGuard>
+          }
+        />
         <Route
           path="events"
           element={

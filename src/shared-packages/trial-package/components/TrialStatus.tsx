@@ -1,4 +1,4 @@
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -21,7 +21,7 @@ export function TrialStatus({ trialEndDate, hasPurchased, className }: TrialStat
 
   const today = new Date();
   const end = parseISO(trialEndDate);
-  const daysLeft = differenceInDays(end, today);
+  const daysLeft = differenceInCalendarDays(end, today);
 
   let colorClass = 'text-zinc-500 dark:text-zinc-400'; // Default (> 7 days)
 

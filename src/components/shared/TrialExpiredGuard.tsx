@@ -20,7 +20,7 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
   };
 
   const handleSwitchOrganization = () => {
-    navigate('/organizations');
+    navigate('/select-organization');
   };
 
   return (

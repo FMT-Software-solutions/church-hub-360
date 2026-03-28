@@ -78,10 +78,11 @@ export const NAV_ITEMS: NavItem[] = [
       { type: 'link', path: '/finance/activity-logs', label: 'Activity Logs', icon: 'Activity' },
     ],
   },
+  { type: 'link', path: '/communication', label: 'Communication', icon: 'MessageSquare' },
   { type: 'link', path: '/events', label: 'Events and Activities', icon: 'CalendarDays' },
   { type: 'link', path: '/announcements', label: 'Announcements', icon: 'Megaphone' },
   { type: 'link', path: '/assets', label: 'Assets', icon: 'Package' },
   { type: 'link', path: '/user-management', label: 'Users', icon: 'Users' },
   { type: 'link', path: '/settings', label: 'Settings', icon: 'Settings' },
-  
+
 ];

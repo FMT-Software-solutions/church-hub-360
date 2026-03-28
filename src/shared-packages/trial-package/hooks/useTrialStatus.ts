@@ -1,4 +1,4 @@
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 export interface TrialInfo {
     isExpired: boolean;
@@ -43,7 +43,7 @@ export function useTrialStatus(organization?: OrganizationLike | null): TrialInf
         };
     }
 
-    const daysRemaining = differenceInDays(
+    const daysRemaining = differenceInCalendarDays(
         parseISO(organization.trial_end_date),
         new Date()
     );
@@ -52,7 +52,7 @@ export function useTrialStatus(organization?: OrganizationLike | null): TrialInf
 
     return {
         isExpired,
-        daysRemaining,
+        daysRemaining: Math.max(0, daysRemaining),
         hasPurchased: false,
         isActiveTrial: !isExpired,
     };

@@ -6,6 +6,7 @@ export interface RoleDefaultSections {
   people?: { enabled?: boolean; attendance?: boolean; tags_groups?: boolean; membership?: boolean; form_builder?: boolean };
   finance?: { enabled?: boolean; insights?: boolean; income?: boolean; expenses?: boolean; contributions?: boolean; pledges?: boolean };
   branches?: boolean;
+  communication?: boolean;
   events?: boolean;
   announcements?: boolean;
   assets?: boolean;
@@ -23,6 +24,7 @@ export function getRoleDefaultSections(role: UserRole): RoleDefaultSections {
       people: { enabled: true, attendance: true, tags_groups: true, membership: true, form_builder: true },
       finance: { enabled: true, insights: true, income: true, expenses: true, contributions: true, pledges: true },
       branches: true,
+      communication: true,
       events: true,
       announcements: true,
       assets: true,
@@ -36,6 +38,7 @@ export function getRoleDefaultSections(role: UserRole): RoleDefaultSections {
       people: { enabled: true },
       finance: { enabled: false },
       branches: role === 'branch_admin' ? false : true,
+      communication: true,
       events: true,
       announcements: true,
       assets: true,
@@ -49,6 +52,7 @@ export function getRoleDefaultSections(role: UserRole): RoleDefaultSections {
       finance: { enabled: true },
       people: { enabled: false },
       branches: false,
+      communication: false,
       events: false,
       announcements: false,
       assets: false,
@@ -62,6 +66,7 @@ export function getRoleDefaultSections(role: UserRole): RoleDefaultSections {
       people: { enabled: true, attendance: true },
       finance: { enabled: false },
       branches: false,
+      communication: false,
       events: false,
       announcements: false,
       assets: false,
@@ -75,6 +80,7 @@ export function getRoleDefaultSections(role: UserRole): RoleDefaultSections {
       people: { attendance: true },
       finance: { enabled: false },
       branches: false,
+      communication: false,
       events: false,
       announcements: false,
       assets: false,
@@ -87,6 +93,7 @@ export function getRoleDefaultSections(role: UserRole): RoleDefaultSections {
     people: { enabled: false },
     finance: { enabled: false },
     branches: false,
+    communication: false,
     events: false,
     announcements: false,
     assets: false,
@@ -117,7 +124,7 @@ function isFinanceOnly(overrides?: VisibilityOverrides | null): boolean {
   const ppl = s.people as any;
   const pplParent = !!ppl?.enabled;
   const pplChildren = !!(ppl?.attendance || ppl?.membership || ppl?.tags_groups || ppl?.form_builder || ppl?.birthdays);
-  const others = !!(s.branches || s.events || s.announcements || s.assets || s.user_management || s.settings);
+  const others = !!(s.branches || s.communication || s.events || s.announcements || s.assets || s.user_management || s.settings);
   return fin && !pplParent && !pplChildren && !others;
 }
 
@@ -128,7 +135,7 @@ function isAttendanceOnly(overrides?: VisibilityOverrides | null): boolean {
   const att = !!ppl?.attendance;
   const otherChildren = !!(ppl?.membership || ppl?.tags_groups || ppl?.form_builder || ppl?.birthdays);
   const fin = !!(s.finance as any)?.enabled;
-  const others = !!(s.branches || s.events || s.announcements || s.assets || s.user_management || s.settings);
+  const others = !!(s.branches || s.communication || s.events || s.announcements || s.assets || s.user_management || s.settings);
   return !fin && !others && !pplParent && att && !otherChildren;
 }
 
@@ -148,12 +155,13 @@ export function chooseRestrictedLayout(role: UserRole, overrides?: VisibilityOve
 // Toggle disables for UserForm, by role. Keys map to checkbox ids used in the form.
 export function getToggleDisablesForRole(role: UserRole): Record<string, boolean> {
   if (role === 'branch_admin') {
-    return {branches: true};
+    return { branches: true };
   }
   if (role === 'attendance_manager') {
     return {
       branches: true,
       finance: true,
+      communication: true,
       events: true,
       announcements: true,
       assets: true,
@@ -167,6 +175,7 @@ export function getToggleDisablesForRole(role: UserRole): Record<string, boolean
     return {
       branches: true,
       finance: true,
+      communication: true,
       events: true,
       announcements: true,
       assets: true,
@@ -179,6 +188,7 @@ export function getToggleDisablesForRole(role: UserRole): Record<string, boolean
   if (role === 'finance_admin') {
     return {
       branches: true,
+      communication: true,
       user_management: true,
       settings: true,
       finance: true,
