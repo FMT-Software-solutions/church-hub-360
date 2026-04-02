@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateTemplate, useUpdateTemplate, type CommunicationTemplate } from '@/hooks/useCommunicationTemplates';
+import { PersonalizationTags } from './PersonalizationTags';
 import { toast } from 'sonner';
 
 interface TemplateFormDrawerProps {
@@ -21,6 +22,31 @@ export function TemplateFormDrawer({ open, onOpenChange, messageType, templateTo
 
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleInsertTag = (tag: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = content;
+
+    const newText = currentText.substring(0, start) + tag + currentText.substring(end);
+
+    if (messageType === 'sms' && newText.length > 150) {
+      toast.error('Inserting this variable would exceed the 150 character limit for SMS.');
+      return;
+    }
+
+    setContent(newText);
+
+    // Focus and move cursor after tag
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + tag.length, start + tag.length);
+    }, 0);
+  };
 
   useEffect(() => {
     if (open) {
@@ -114,16 +140,20 @@ export function TemplateFormDrawer({ open, onOpenChange, messageType, templateTo
           )}
 
           <div className="space-y-2">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <Label htmlFor="template-content">Message Content</Label>
-              {messageType === 'sms' && (
-                <span className={`text-xs ${content.length > 150 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
-                  {content.length} / 150 characters
-                </span>
-              )}
+              <div className="flex items-center gap-4">
+                <PersonalizationTags onInsertTag={handleInsertTag} />
+                {messageType === 'sms' && (
+                  <span className={`text-xs ${content.length > 150 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                    {content.length} / 150 characters
+                  </span>
+                )}
+              </div>
             </div>
             <Textarea
               id="template-content"
+              ref={textareaRef}
               placeholder="Type your template message here..."
               className="min-h-[200px]"
               value={content}
@@ -132,9 +162,6 @@ export function TemplateFormDrawer({ open, onOpenChange, messageType, templateTo
                 setContent(e.target.value);
               }}
             />
-            <p className="text-xs text-muted-foreground">
-              Tip: You can use personalization tags like {'{name}'} in your message.
-            </p>
           </div>
         </form>
 

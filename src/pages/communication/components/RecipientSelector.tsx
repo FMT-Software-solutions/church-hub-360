@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import type { Group } from '@/hooks/useGroups';
 import type { RelationalTagWithItems } from '@/hooks/useRelationalTags';
 
+import { Textarea } from '@/components/ui/textarea';
+
 interface RecipientSelectorProps {
   organizationId: string | undefined;
   selectAllMembers: boolean;
@@ -23,6 +25,8 @@ interface RecipientSelectorProps {
   setSelectedTagItemIds: (ids: string[]) => void;
   selectedMembers: MemberSearchResult[];
   setSelectedMembers: (members: MemberSearchResult[]) => void;
+  additionalRecipients: string;
+  setAdditionalRecipients: (val: string) => void;
   groups: Group[];
   tags: RelationalTagWithItems[];
   targetCount: number;
@@ -39,6 +43,8 @@ export function RecipientSelector({
   setSelectedTagItemIds,
   selectedMembers,
   setSelectedMembers,
+  additionalRecipients,
+  setAdditionalRecipients,
   groups,
   tags,
   targetCount,
@@ -305,12 +311,28 @@ export function RecipientSelector({
           </div>
         )}
 
+
+
+        <div className="pt-4 border-t space-y-2">
+          <Label htmlFor="additional-recipients">Additional Recipients (Manual)</Label>
+          <Textarea
+            id="additional-recipients"
+            placeholder="Enter phone numbers separated by commas (e.g. 0244123456, +233541234567)"
+            value={additionalRecipients}
+            onChange={(e) => setAdditionalRecipients(e.target.value)}
+            className="resize-none h-20"
+          />
+          <p className="text-xs text-muted-foreground">
+            Use this to send to non-members or specific numbers.
+          </p>
+        </div>
+
         {/* Summary of target selection */}
         {!isLoadingTargets && targetCount > 0 && (
           <div className="bg-green-500/10 p-3 rounded-md flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium">
               <Users className="h-4 w-4" />
-              {targetCount} Recipient{targetCount === 1 ? '' : 's'} Selected
+              {targetCount} Recipient{targetCount === 1 ? '' : 's'}
             </span>
           </div>
         )}

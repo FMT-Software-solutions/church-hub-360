@@ -52,7 +52,8 @@ export function useUserOrganizations(userId: string | undefined) {
             notification_settings,
             is_active,
             trial_end_date,
-            has_purchased
+            has_purchased,
+            sms_sender_id
           )
         `)
         .eq('user_id', userId)

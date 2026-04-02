@@ -6,7 +6,8 @@ import {
   History,
   Send,
   Trash2,
-  Edit
+  Edit,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -24,8 +25,10 @@ import { MessageTypeSelector } from './communication/components/MessageTypeSelec
 import { RecipientSelector } from './communication/components/RecipientSelector';
 import { MessageComposer } from './communication/components/MessageComposer';
 import { BestPractices } from './communication/components/BestPractices';
+import { SenderIdManager } from './communication/components/SenderIdManager';
 import { useCommunicationTemplates, useDeleteTemplate } from '@/hooks/useCommunicationTemplates';
 import { useCommunicationHistory, useCreateCommunicationHistory } from '@/hooks/useCommunicationHistory';
+import { sendSmsMessage } from '@/services/sms.service';
 
 // Mock data removed in favor of real db values
 
@@ -40,6 +43,7 @@ export function Communication() {
   const [selectedTagItemIds, setSelectedTagItemIds] = useState<string[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<MemberSearchResult[]>([]);
+  const [additionalRecipients, setAdditionalRecipients] = useState<string>('');
 
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -88,8 +92,13 @@ export function Communication() {
       return;
     }
 
-    if (targetMembers.length === 0) {
-      toast.error('Please select at least one recipient');
+    const manualPhones = additionalRecipients
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    if (targetMembers.length === 0 && manualPhones.length === 0) {
+      toast.error('Please select at least one recipient or enter a manual phone number');
       return;
     }
 
@@ -99,6 +108,46 @@ export function Communication() {
     }
 
     try {
+      if (messageType === 'sms') {
+        const recipients = [
+          ...targetMembers.map(m => {
+            const nameParts = m.name.split(' ');
+            const first_name = nameParts[0] || '';
+            const last_name = nameParts.slice(1).join(' ') || '';
+
+            // Spread the entire member object so any dynamic field works automatically
+            return {
+              ...m,
+              phone: m.phone || '',
+              first_name,
+              last_name,
+            };
+          }),
+          ...manualPhones.map(phone => ({ phone }))
+        ].filter(r => Boolean(r.phone && r.phone.trim().length > 0));
+
+        if (recipients.length === 0) {
+          toast.error('None of the selected members or manually entered numbers have a valid phone number');
+          return;
+        }
+
+        // Use the organization's specific sender ID if configured, otherwise fallback to the global default
+        // Ensure it doesn't exceed the 11 character limit enforced by Arkesel
+        const orgSenderId = currentOrganization?.sms_sender_id;
+        let senderId = orgSenderId || import.meta.env.VITE_DEFAULT_SMS_SENDER_ID || currentOrganization?.name || 'ChurchHub';
+        senderId = senderId.substring(0, 11);
+
+        // For development, we'll use sandbox mode. In production, change isSandbox to false.
+        const isSandbox = import.meta.env.DEV;
+
+        await sendSmsMessage({
+          sender: senderId,
+          message,
+          recipients,
+          sandbox: isSandbox
+        });
+      }
+
       await createHistoryMutation.mutateAsync({
         type: messageType,
         subject: messageType === 'email' ? subject : undefined,
@@ -128,9 +177,18 @@ export function Communication() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <MessageSquare className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold text-foreground">Communication & Engagement</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <MessageSquare className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold text-foreground">Communication & Engagement</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <SenderIdManager />
+          <Button variant="outline" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            SMS Credit Usage
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -161,9 +219,11 @@ export function Communication() {
                 setSelectedTagItemIds={setSelectedTagItemIds}
                 selectedMembers={selectedMembers}
                 setSelectedMembers={setSelectedMembers}
+                additionalRecipients={additionalRecipients}
+                setAdditionalRecipients={setAdditionalRecipients}
                 groups={allGroups}
                 tags={relationalTags}
-                targetCount={targetMembers.length}
+                targetCount={targetMembers.length + additionalRecipients.split(',').filter(p => p.trim().length > 0).length}
                 isLoadingTargets={isLoadingTargets}
               />
 
@@ -180,6 +240,7 @@ export function Communication() {
                 setPreviewOpen={setPreviewOpen}
                 handleSend={handleSendMessage}
                 targetMembers={targetMembers}
+                additionalRecipients={additionalRecipients}
               />
             </div>
 
@@ -199,10 +260,10 @@ export function Communication() {
                           {item.type === 'email' ? (
                             <Mail className="h-3 w-3 text-muted-foreground" />
                           ) : (
-                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <MessageSquare className="h-3 w-3 text-muted-foreground" />
                           )}
-                          <span className="truncate max-w-[120px]" title={item.subject || item.content}>
-                            {item.subject || item.content.substring(0, 20) + '...'}
+                          <span className="truncate max-w-[230px]" title={item.subject || item.content}>
+                            {item.subject || item.content}
                           </span>
                         </div>
                         <span className="text-muted-foreground">
@@ -243,7 +304,7 @@ export function Communication() {
                         <span className="font-medium">{item.subject || item.content.substring(0, 50) + '...'}</span>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Sent to {item.recipient_count} {item.recipient_type} • {new Date(item.created_at).toLocaleDateString()}
+                        Sent to {item.recipient_count} members • {new Date(item.created_at).toLocaleDateString()}
                       </div>
                     </div>
                     <Badge variant={['delivered', 'sent'].includes(item.status) ? 'default' : 'secondary'} className={['delivered', 'sent'].includes(item.status) ? 'bg-green-500' : ''}>

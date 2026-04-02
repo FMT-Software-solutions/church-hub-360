@@ -49,6 +49,7 @@ export interface Organization {
   is_active: boolean;
   trial_end_date?: string | null;
   has_purchased?: boolean;
+  sms_sender_id?: string | null;
 }
 
 // User organization relationship interface
@@ -86,6 +87,7 @@ export interface CreateOrganizationData {
   notification_settings?: NotificationSettings;
   theme_name?: string | null;
   is_active: boolean;
+  sms_sender_id?: string | null;
 }
 
 export interface UpdateOrganizationData extends Partial<CreateOrganizationData> {
