@@ -43,7 +43,10 @@ export default defineConfig({
             minify: false,
             outDir: 'electron-app/dist',
             rollupOptions: {
-              external: ['electron']
+              external: ['electron'],
+              output: {
+                format: 'cjs'
+              }
             }
           }
         }
@@ -55,10 +58,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'stream': 'stream-browserify',
     },
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react', 'xlsx-js-style', 'xlsx'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      }
+    }
   },
   clearScreen: false,
 })

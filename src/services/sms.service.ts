@@ -1,4 +1,4 @@
-import { API_ENDPOINTS } from '@/config/endpoints';
+import { API_ENDPOINTS, APP_ID } from '@/config/endpoints';
 
 export interface SmsRecipient {
   phone: string;
@@ -11,16 +11,19 @@ export interface SendSmsPayload {
   recipients: SmsRecipient[];
   scheduledDate?: string;
   sandbox?: boolean;
+  organizationId?: string;
+  appId?: string;
 }
 
 export const sendSmsMessage = async (payload: SendSmsPayload) => {
   try {
+    const finalPayload = { ...payload, appId: APP_ID };
     const response = await fetch(API_ENDPOINTS.SMS.SEND_STANDARD, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(finalPayload),
     });
 
     const data = await response.json();

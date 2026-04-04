@@ -1,4 +1,4 @@
-import { Send, Plus, Edit, Loader2 } from 'lucide-react';
+import { Send, Plus, Edit, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,8 @@ import type { CommunicationTarget } from '@/hooks/useCommunicationTargets';
 import { TemplateFormDrawer } from './TemplateFormDrawer';
 import { PersonalizationTags } from './PersonalizationTags';
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSmsBalance } from '@/components/shared/sms-credits';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export interface Template {
   id: string;
@@ -50,6 +52,10 @@ export function MessageComposer({
   targetMembers,
   additionalRecipients = ''
 }: MessageComposerProps) {
+  const { currentOrganization } = useOrganization();
+  const { data: smsBalanceData } = useSmsBalance(currentOrganization?.id);
+  const smsBalance = smsBalanceData?.credit_balance || 0;
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
@@ -113,7 +119,9 @@ export function MessageComposer({
     return templates.find(t => t.id === editingTemplateId) as any;
   }, [editingTemplateId, templates]);
 
-  const hasRecipients = targetMembers.length > 0 || (additionalRecipients && additionalRecipients.trim().length > 0);
+  const totalRecipients = targetMembers.length + additionalRecipients.split(',').filter(p => p.trim().length > 0).length;
+  const hasRecipients = totalRecipients > 0;
+  const isInsufficientSmsCredits = messageType === 'sms' && totalRecipients > smsBalance;
 
   return (
     <Card>
@@ -121,7 +129,7 @@ export function MessageComposer({
         <div>
           <CardTitle>Message Content</CardTitle>
         </div>
-        <div className="flex items-center gap-2 w-1/2 md:w-1/3">
+        <div className="flex items-center gap-2 ">
           <div className="flex-1">
             <Select value={selectedTemplate} onValueChange={onTemplateSelect}>
               <SelectTrigger className='w-full'>
@@ -191,9 +199,18 @@ export function MessageComposer({
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 my-4">
+                {isInsufficientSmsCredits && (
+                  <div className="bg-destructive/10 p-4 rounded-lg flex items-start gap-3 mb-4 text-destructive">
+                    <AlertTriangle className="h-5 w-5 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">Insufficient SMS Credits</p>
+                      <p className="text-sm">You are trying to send to {totalRecipients} recipients but only have {smsBalance} credits. Please purchase more credits to send this message.</p>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-muted p-4 rounded-lg space-y-3">
                   <div className="flex justify-between text-sm text-muted-foreground border-b pb-2">
-                    <span><strong>To:</strong> {targetMembers.length + additionalRecipients.split(',').filter(p => p.trim().length > 0).length} recipient(s)</span>
+                    <span><strong>To:</strong> {totalRecipients} recipient(s)</span>
                     <span><strong>Type:</strong> {messageType.toUpperCase()}</span>
                   </div>
                   {messageType === 'email' && (
@@ -210,7 +227,7 @@ export function MessageComposer({
                 <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={isSending}>
                   Edit Message
                 </Button>
-                <Button onClick={handleSendClick} disabled={isSending}>
+                <Button onClick={handleSendClick} disabled={isSending || isInsufficientSmsCredits}>
                   {isSending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -222,10 +239,21 @@ export function MessageComposer({
             </DialogContent>
           </Dialog>
 
-          <Button onClick={() => setPreviewOpen(true)} disabled={!message || !hasRecipients}>
-            <Send className="mr-2 h-4 w-4" />
-            Review & Send
-          </Button>
+          <div className="flex flex-col items-end gap-2">
+            {isInsufficientSmsCredits && (
+              <span className="text-xs text-destructive font-medium flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Insufficient SMS credits ({smsBalance} available)
+              </span>
+            )}
+            <Button
+              onClick={() => setPreviewOpen(true)}
+              disabled={!message || !hasRecipients || isInsufficientSmsCredits}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Review & Send
+            </Button>
+          </div>
         </div>
       </CardContent>
 

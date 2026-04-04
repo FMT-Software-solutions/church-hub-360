@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   MessageSquare,
   Mail,
@@ -26,15 +27,76 @@ import { RecipientSelector } from './communication/components/RecipientSelector'
 import { MessageComposer } from './communication/components/MessageComposer';
 import { BestPractices } from './communication/components/BestPractices';
 import { SenderIdManager } from './communication/components/SenderIdManager';
+import { SmsCreditWidget, TransactionHistory, useVerifySmsPurchase } from '@/components/shared/sms-credits';
 import { useCommunicationTemplates, useDeleteTemplate } from '@/hooks/useCommunicationTemplates';
 import { useCommunicationHistory, useCreateCommunicationHistory } from '@/hooks/useCommunicationHistory';
 import { sendSmsMessage } from '@/services/sms.service';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Mock data removed in favor of real db values
 
 export function Communication() {
   const { currentOrganization } = useOrganization();
-  const [activeTab, setActiveTab] = useState('compose');
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'compose');
+  const verifyPurchaseMutation = useVerifySmsPurchase();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+
+    const fullUrl = new URL(window.location.href);
+    const urlParams = new URLSearchParams(fullUrl.search || window.location.search);
+
+    const verifyPayment = urlParams.get('verify_payment') || searchParams.get('verify_payment');
+    const reference = urlParams.get('reference') || urlParams.get('trxref') || searchParams.get('reference') || searchParams.get('trxref');
+    const amountGhs = urlParams.get('amount') || searchParams.get('amount');
+    const creditsPurchased = urlParams.get('credits') || searchParams.get('credits');
+    const orgName = urlParams.get('org_name') || searchParams.get('org_name');
+    const appName = urlParams.get('app_name') || searchParams.get('app_name');
+
+    // Wait for auth & org contexts to be ready
+    if (!currentOrganization?.id || !user?.id) return;
+
+    if (verifyPayment === 'true' && reference && amountGhs && creditsPurchased) {
+      const verify = async () => {
+        try {
+          // Immediately remove the query params so React Strict Mode doesn't fire this twice
+
+          // Clear router params if they exist there
+          const newParams = new URLSearchParams(searchParams);
+          newParams.delete('verify_payment');
+          newParams.delete('reference');
+          newParams.delete('trxref');
+          newParams.delete('amount');
+          newParams.delete('credits');
+          newParams.delete('org_name');
+          newParams.delete('app_name');
+          setSearchParams(newParams, { replace: true });
+
+          // Also clear window.location.search cleanly without reloading
+          const url = new URL(window.location.href);
+          url.search = '';
+          window.history.replaceState({}, document.title, url.toString());
+
+          await verifyPurchaseMutation.mutateAsync({
+            organizationId: currentOrganization.id,
+            organizationName: orgName || currentOrganization.name,
+            userId: user.id,
+            reference,
+            amountGhs: Number(amountGhs),
+            creditsPurchased: Number(creditsPurchased),
+            appName: appName || 'ChurchHub360',
+          });
+          toast.success(`Successfully verified and added ${creditsPurchased} SMS credits!`);
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to verify payment. Please contact support.');
+        }
+      };
+      verify();
+    }
+  }, [searchParams, currentOrganization?.id, user?.id]); // Dep array checks .id to prevent infinite loops on object reference changes
   const [messageType, setMessageType] = useState<'email' | 'sms'>('sms');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
@@ -109,22 +171,62 @@ export function Communication() {
 
     try {
       if (messageType === 'sms') {
+        // Extract required variables from the message template
+        const expectedVariables = [...message.matchAll(/\{([^}]+)\}/g)].map(match => match[1]);
+
         const recipients = [
           ...targetMembers.map(m => {
             const nameParts = m.name.split(' ');
             const first_name = nameParts[0] || '';
             const last_name = nameParts.slice(1).join(' ') || '';
 
-            // Spread the entire member object so any dynamic field works automatically
-            return {
+            const addressObj = currentOrganization?.address as any;
+            const orgAddressString = addressObj ? `${addressObj.street || ''}, ${addressObj.city || ''}, ${addressObj.state || ''}`.replace(/^, | ,|, $/g, '').trim() : '';
+
+            // Build a full object with all possible properties first
+            const fullMemberData: Record<string, any> = {
               ...m,
               phone: m.phone || '',
               first_name,
               last_name,
+              full_name: m.name || '', // Map name to full_name so {full_name} variable works
+              organization_name: currentOrganization?.name || '',
+              organization_email: currentOrganization?.email || '',
+              organization_phone: currentOrganization?.phone || '',
+              organization_address: orgAddressString,
             };
+
+            // Then ONLY pick out the 'phone' and properties that were actually requested as variables
+            const filteredMemberData: Record<string, any> = { phone: fullMemberData.phone };
+            expectedVariables.forEach(variable => {
+              filteredMemberData[variable] = fullMemberData[variable];
+            });
+
+            return filteredMemberData;
           }),
-          ...manualPhones.map(phone => ({ phone }))
-        ].filter(r => Boolean(r.phone && r.phone.trim().length > 0));
+          ...manualPhones.map(phone => {
+            const addressObj = currentOrganization?.address as any;
+            const orgAddressString = addressObj ? `${addressObj.street || ''}, ${addressObj.city || ''}, ${addressObj.state || ''}`.replace(/^, | ,|, $/g, '').trim() : '';
+
+            // For manual phones, provide phone and empty strings for expected member variables, but keep org variables
+            const manualData: Record<string, any> = { phone };
+            const orgVars: Record<string, string> = {
+              organization_name: currentOrganization?.name || '',
+              organization_email: currentOrganization?.email || '',
+              organization_phone: currentOrganization?.phone || '',
+              organization_address: orgAddressString,
+            };
+
+            expectedVariables.forEach(variable => {
+              if (orgVars[variable] !== undefined) {
+                manualData[variable] = orgVars[variable];
+              } else {
+                manualData[variable] = '';
+              }
+            });
+            return manualData;
+          })
+        ].filter(r => Boolean(r.phone && String(r.phone).trim().length > 0));
 
         if (recipients.length === 0) {
           toast.error('None of the selected members or manually entered numbers have a valid phone number');
@@ -138,15 +240,21 @@ export function Communication() {
         senderId = senderId.substring(0, 11);
 
         // For development, we'll use sandbox mode. In production, change isSandbox to false.
-        const isSandbox = import.meta.env.DEV;
+        const isSandbox = false //import.meta.env.DEV;
 
         await sendSmsMessage({
           sender: senderId,
           message,
-          recipients,
-          sandbox: isSandbox
+          recipients: recipients as any, // Bypass strict type check for dynamic template variables
+          sandbox: isSandbox,
+          organizationId: currentOrganization?.id
         });
+
+        // Invalidate the SMS balance query to immediately refetch and update the UI
+        queryClient.invalidateQueries({ queryKey: ['sms_balance', currentOrganization?.id] });
       }
+
+      const totalRecipientsCount = targetMembers.length + manualPhones.length;
 
       await createHistoryMutation.mutateAsync({
         type: messageType,
@@ -154,11 +262,11 @@ export function Communication() {
         content: message,
         recipient_type: selectAllMembers ? 'all' : 'custom',
         recipient_ids: targetMembers.map(m => m.id), // Storing the final unique member IDs resolved
-        recipient_count: targetMembers.length,
+        recipient_count: totalRecipientsCount,
         status: 'sent', // Optimistically marking as sent
       });
 
-      toast.success(`${messageType.toUpperCase()} sent successfully to ${targetMembers.length} recipients`);
+      toast.success(`${messageType.toUpperCase()} sent successfully to ${totalRecipientsCount} recipients`);
 
       // Reset form
       setPreviewOpen(false);
@@ -184,15 +292,18 @@ export function Communication() {
         </div>
         <div className="flex items-center gap-2">
           <SenderIdManager />
-          <Button variant="outline" className="gap-2">
-            <CreditCard className="h-4 w-4" />
-            SMS Credit Usage
-          </Button>
+          <SmsCreditWidget
+            organizationId={currentOrganization?.id}
+            organizationName={currentOrganization?.name || undefined}
+            organizationEmail={currentOrganization?.email || undefined}
+            organizationPhone={currentOrganization?.phone || undefined}
+            userId={user?.id}
+          />
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+        <TabsList className="grid w-full h-[100px] md:h-fit md:grid-cols-3 lg:w-[600px]">
           <TabsTrigger value="compose" className="flex items-center gap-2">
             <Send className="h-4 w-4" />
             Compose Message
@@ -200,6 +311,10 @@ export function Communication() {
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
             Message History
+          </TabsTrigger>
+          <TabsTrigger value="billing" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            SMS Billing & Usage
           </TabsTrigger>
         </TabsList>
 
@@ -254,7 +369,7 @@ export function Communication() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {dbHistory.slice(0, 3).map((item) => (
+                    {dbHistory.slice(0, 5).map((item) => (
                       <div key={item.id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           {item.type === 'email' ? (
@@ -410,6 +525,18 @@ export function Communication() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <Card>
+            <CardHeader>
+              <CardTitle>SMS Billing & Transactions</CardTitle>
+              <CardDescription>View your SMS credit purchase history and usage ledger</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TransactionHistory organizationId={currentOrganization?.id} />
             </CardContent>
           </Card>
         </TabsContent>

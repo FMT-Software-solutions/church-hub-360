@@ -3,7 +3,7 @@
     "outDir": "electron-app/dist",
     "lib": ["ES2022"],
     "target": "ES2022",
-    "module": "CommonJS",
+    "module": "ES2022",
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

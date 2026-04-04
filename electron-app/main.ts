@@ -4,8 +4,13 @@ import fs from 'fs';
 import https from 'https';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { generateUpdateFileName, getPlatformInfo, getVisibleInstallerArgsWithRestart } from './platformUtils';
 import updateConfigManager from './updateConfigManager';
+
+// Polyfill __dirname and __filename for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Disable sandbox for AppImage to avoid SUID errors
 app.commandLine.appendSwitch('no-sandbox');
@@ -28,15 +33,15 @@ if (process.env.NODE_ENV === "development" || isDev) {
   const projectRoot = path.join(__dirname, '../..');
   const envPath = path.join(projectRoot, '.env');
   const envLocalPath = path.join(projectRoot, '.env.local');
-  
+
   config({ path: envPath }); // loads .env
   config({ path: envLocalPath }); // loads .env.local (overrides .env)
-  
+
   supabaseConfig = {
     SUPABASE_URL: process.env.VITE_SUPABASE_URL,
     SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY,
   };
-  
+
   // Log environment status for development monitoring
   console.log('📦 Environment loaded:', {
     SUPABASE_URL: supabaseConfig.SUPABASE_URL ? '✅' : '❌',
@@ -57,11 +62,11 @@ if (process.env.NODE_ENV === "development" || isDev) {
 // │ ├── main.js
 // │ └── preload.js
 // │
-const DIST_PATH = app.isPackaged 
+const DIST_PATH = app.isPackaged
   ? path.join(__dirname, '../dist')
   : path.join(__dirname, '../../dist')
-const PUBLIC_PATH = app.isPackaged 
-  ? path.join((process as any).resourcesPath , 'app', 'public')
+const PUBLIC_PATH = app.isPackaged
+  ? path.join((process as any).resourcesPath, 'app', 'public')
   : path.join(__dirname, '../../public')
 
 // Set environment variables
@@ -86,15 +91,15 @@ let downloadProgress: any = null
 
 // Helper function to get temporary download directory
 function getTempDownloadPath(): string {
-  const tempDir = app.isPackaged 
+  const tempDir = app.isPackaged
     ? path.join(os.tmpdir(), 'church-hub-360-updates')
     : path.join(__dirname, '../../temp-updates')
-  
+
   // Ensure directory exists
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true })
   }
-  
+
   return tempDir
 }
 
@@ -109,7 +114,7 @@ function cleanupFileAndDirectory(filePath: string): void {
       const directory = path.dirname(filePath);
       fs.unlinkSync(filePath);
       console.log('Cleaned up file:', filePath);
-      
+
       // Try to remove directory if it's empty
       try {
         const files = fs.readdirSync(directory);
@@ -132,7 +137,7 @@ function downloadFileWithProgress(url: string, filePath: string): Promise<any> {
     const file = fs.createWriteStream(filePath)
     let lastProgressUpdate = 0
     const PROGRESS_THROTTLE_MS = 100 // Throttle progress updates to every 100ms
-    
+
     const request = https.get(url, (response: any) => {
       // Handle redirects
       if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 307 || response.statusCode === 308) {
@@ -144,29 +149,29 @@ function downloadFileWithProgress(url: string, filePath: string): Promise<any> {
           return
         }
       }
-      
+
       if (response.statusCode !== 200) {
         reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`))
         return
       }
-      
+
       const totalBytes = parseInt(response.headers['content-length'] || '0', 10)
       let receivedBytes = 0
       const startTime = Date.now()
-      
+
       downloadProgress = {
         percent: 0,
         bytesReceived: 0,
         totalBytes,
         speed: 0
       }
-      
+
       response.on('data', (chunk: any) => {
         receivedBytes += chunk.length
         const now = Date.now()
         const elapsed = (now - startTime) / 1000
         const speed = elapsed > 0 ? receivedBytes / elapsed : 0
-        
+
         // Throttle progress updates to prevent UI freezing
         if (now - lastProgressUpdate >= PROGRESS_THROTTLE_MS || receivedBytes === totalBytes) {
           downloadProgress = {
@@ -175,36 +180,36 @@ function downloadFileWithProgress(url: string, filePath: string): Promise<any> {
             totalBytes,
             speed
           }
-          
+
           // Send progress to renderer if window exists
           if (win && !win.isDestroyed()) {
             win.webContents.send('download-progress', downloadProgress)
           }
-          
+
           lastProgressUpdate = now
         }
       })
-      
+
       response.pipe(file)
-      
+
       file.on('finish', () => {
         file.close()
         downloadProgress = null
         resolve({ success: true, downloadPath: filePath })
       })
-      
+
       file.on('error', (err: any) => {
-        fs.unlink(filePath, () => {}) // Delete partial file
+        fs.unlink(filePath, () => { }) // Delete partial file
         downloadProgress = null
         reject(err)
       })
     })
-    
+
     request.on('error', (err: any) => {
       downloadProgress = null
       reject(err)
     })
-    
+
     currentDownload = request
   })
 }
@@ -215,26 +220,26 @@ function registerIPCHandlers() {
   ipcMain.handle('check-for-updates', async () => {
     try {
       const currentVersion = app.getVersion();
-      
+
       const supabaseKey = (supabaseConfig as any).SUPABASE_ANON_KEY;
       const supabaseUrl = (supabaseConfig as any).SUPABASE_URL;
-      
+
       if (!supabaseKey) {
         console.error('❌ Supabase API key not configured');
         return { success: false, error: 'Supabase API key not configured' };
       }
-      
+
       if (!supabaseUrl) {
         console.error('❌ Supabase URL not configured');
         return { success: false, error: 'Supabase URL not configured' };
       }
-      
+
       console.log('Checking for updates with version:', currentVersion);
-      
+
       // Update current version in config
       updateConfigManager.setCurrentVersion(currentVersion);
       updateConfigManager.setLastChecked();
-      
+
       const response = await fetch(`${supabaseUrl}/functions/v1/check-updates`, {
         method: 'POST',
         headers: {
@@ -254,7 +259,7 @@ function registerIPCHandlers() {
 
       const result = await response.json() as any;
       console.log('Update check result:', result);
-      
+
       // If update is available, store it in config
       if (result.success && result.updateAvailable && result.downloadUrl) {
         updateConfigManager.setAvailableUpdate({
@@ -265,10 +270,10 @@ function registerIPCHandlers() {
           checksum: result.checksum,
           releaseNotes: result.releaseNotes
         });
-        
+
         // Check if we already have this version downloaded
         const isAlreadyDownloaded = await updateConfigManager.validateDownloadedFile();
-        
+
         return {
           ...result,
           alreadyDownloaded: isAlreadyDownloaded
@@ -277,7 +282,7 @@ function registerIPCHandlers() {
         // Clear any existing update info if no update is available
         updateConfigManager.clearAvailableUpdate();
       }
-      
+
       return result;
     } catch (error) {
       console.error('Update check failed:', error);
@@ -307,36 +312,36 @@ function registerIPCHandlers() {
       if (currentDownload) {
         return { success: false, error: 'Download already in progress' };
       }
-      
+
       const config = updateConfigManager.getConfig();
-      
+
       // Use config values if not provided
       const actualDownloadUrl = downloadUrl || config.availableUpdate.downloadUrl;
       const actualFileName = fileName || config.availableUpdate.fileName;
-      
+
       if (!actualDownloadUrl || !actualFileName) {
         return { success: false, error: 'No download information available' };
       }
-      
+
       // Check if we already have this version downloaded and validated
       const isAlreadyDownloaded = await updateConfigManager.validateDownloadedFile();
       if (isAlreadyDownloaded && config.downloadState.downloadPath) {
         console.log('Update already downloaded and validated:', config.downloadState.downloadPath);
         if (win && !win.isDestroyed()) {
-          win.webContents.send('download-complete', { 
-            success: true, 
+          win.webContents.send('download-complete', {
+            success: true,
             downloadPath: config.downloadState.downloadPath,
-            alreadyDownloaded: true 
+            alreadyDownloaded: true
           });
         }
         return { success: true, message: 'Update already downloaded', alreadyDownloaded: true };
       }
-      
+
       const tempDir = getTempDownloadPath();
       const filePath = path.join(tempDir, actualFileName);
-      
+
       console.log('Starting download to:', filePath);
-      
+
       // Start download asynchronously without blocking
       downloadFileWithProgress(actualDownloadUrl, filePath)
         .then((result) => {
@@ -344,12 +349,12 @@ function registerIPCHandlers() {
             // Update config with download completion
             updateConfigManager.setDownloadCompleted(filePath);
             console.log('Download completed:', filePath);
-            
+
             // Validate the downloaded file
             updateConfigManager.validateDownloadedFile().then((isValid) => {
               if (win && !win.isDestroyed()) {
-                win.webContents.send('download-complete', { 
-                  success: true, 
+                win.webContents.send('download-complete', {
+                  success: true,
                   downloadPath: filePath,
                   verified: isValid
                 });
@@ -372,7 +377,7 @@ function registerIPCHandlers() {
             win.webContents.send('download-complete', { success: false, error: errorMessage });
           }
         });
-      
+
       // Return immediately to indicate download started
       return { success: true, message: 'Download started in background' };
     } catch (error) {
@@ -392,7 +397,7 @@ function registerIPCHandlers() {
         currentDownload.destroy();
         currentDownload = null;
         downloadProgress = null;
-        
+
         // Clear download state in config
         updateConfigManager.clearDownloadState();
       }
@@ -407,43 +412,43 @@ function registerIPCHandlers() {
     try {
       const config = updateConfigManager.getConfig();
       const actualDownloadPath = downloadPath || config.downloadState.downloadPath;
-      
+
       if (!actualDownloadPath || !fs.existsSync(actualDownloadPath)) {
         return { success: false, error: 'Downloaded file not found' };
       }
-      
+
       console.log('Installing update from:', actualDownloadPath);
-      
+
       // Mark for cleanup after installation
       updateConfigManager.addToCleanupList(actualDownloadPath);
-      
+
       // Use visible installation for all platforms
       if (process.platform === 'win32') {
         const { spawn } = require('child_process');
-        
+
         // Use visible installer arguments with restart functionality
         const platformInfo = getPlatformInfo();
         const finalArgs = getVisibleInstallerArgsWithRestart(platformInfo.platform, process.execPath);
-        
+
         // Run the installer with visible UI and restart functionality
         const installer = spawn(actualDownloadPath, finalArgs, {
           detached: true,
           stdio: 'ignore'
         });
-        
+
         installer.unref();
-        
+
         // Clear update state after starting installation
         setTimeout(() => {
           updateConfigManager.clearAvailableUpdate();
           updateConfigManager.clearDownloadState();
         }, 1000);
-        
+
         // Give the installer a moment to start, then quit the app
         setTimeout(() => {
           app.quit();
         }, 1500);
-        
+
         return { success: true };
       } else if (process.platform === "linux") {
         // actualDownloadPath is the downloaded AppImage
@@ -473,11 +478,11 @@ function registerIPCHandlers() {
       } else {
         // For non-Windows platforms, open the installer
         await shell.openPath(actualDownloadPath);
-        
+
         // Clear update state
         updateConfigManager.clearAvailableUpdate();
         updateConfigManager.clearDownloadState();
-        
+
         app.quit();
         return { success: true };
       }
@@ -518,7 +523,7 @@ function registerIPCHandlers() {
 
 function createWindow() {
   // Determine icon path based on platform
-  const iconPath = path.join(app.isPackaged ? PUBLIC_PATH : path.join(__dirname, '../../public'), 
+  const iconPath = path.join(app.isPackaged ? PUBLIC_PATH : path.join(__dirname, '../../public'),
     process.platform === 'win32' ? 'favicon.ico' : 'icon.png')
 
   win = new BrowserWindow({
@@ -529,7 +534,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      devTools:  !app.isPackaged, // Enable devTools only in development
+      devTools: !app.isPackaged, // Enable devTools only in development
     },
   })
 
@@ -576,7 +581,7 @@ function createWindow() {
     // Ensure menu is hidden for all new windows
     childWindow.setMenuBarVisibility(false)
     childWindow.setMenu(null)
-    
+
     // Disable context menu for new windows
     childWindow.webContents.on('context-menu', (event) => {
       event.preventDefault()
@@ -584,8 +589,8 @@ function createWindow() {
   })
 
   // Open DevTools in detached mode for debugging
-  if(!app.isPackaged) {
-    win?.webContents.openDevTools({mode: "detach"})
+  if (!app.isPackaged) {
+    win?.webContents.openDevTools({ mode: "detach" })
   }
 
   if (VITE_DEV_SERVER_URL) {
@@ -595,7 +600,7 @@ function createWindow() {
     try {
       const indexPath = path.join(DIST_PATH, 'index.html')
       console.log('Loading index.html from:', indexPath)
-      
+
       // Check if the file exists before loading
       if (fs.existsSync(indexPath)) {
         console.log('index.html exists, loading file...')
@@ -603,7 +608,7 @@ function createWindow() {
       } else {
         console.error('index.html does not exist at path:', indexPath)
         console.log('Directory contents:', fs.readdirSync(DIST_PATH))
-        
+
         // Try to load from a different location as fallback
         const fallbackPath = path.join(__dirname, '../../dist/index.html')
         if (fs.existsSync(fallbackPath)) {
@@ -630,7 +635,7 @@ app.on('window-all-closed', () => {
 // Clean up temporary files when app is quitting
 app.on('before-quit', async () => {
   console.log('App is quitting, performing cleanup...');
-  
+
   // Perform cleanup if needed
   if (updateConfigManager.needsCleanup()) {
     const filesToCleanup = updateConfigManager.getFilesToCleanup();
@@ -656,7 +661,7 @@ app.whenReady().then(async () => {
       console.log('Existing download is invalid, will need to redownload');
     }
   }
-  
+
   // Perform cleanup if needed
   if (updateConfigManager.needsCleanup()) {
     console.log('Performing startup cleanup...');
@@ -672,7 +677,7 @@ app.whenReady().then(async () => {
     }
     updateConfigManager.markCleanupCompleted();
   }
-  
+
   // Register IPC handlers
   registerIPCHandlers()
   createWindow()

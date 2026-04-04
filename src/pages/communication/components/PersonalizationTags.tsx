@@ -1,7 +1,6 @@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export const PERSONALIZATION_TAGS = [
@@ -10,6 +9,10 @@ export const PERSONALIZATION_TAGS = [
   { tag: '{full_name}', label: 'Full Name', description: "Recipient's complete name" },
   { tag: '{email}', label: 'Email', description: "Recipient's email address" },
   { tag: '{phone}', label: 'Phone', description: "Recipient's phone number" },
+  { tag: '{organization_name}', label: 'Organization Name', description: "Your church/organization's name" },
+  { tag: '{organization_email}', label: 'Organization Email', description: "Your church/organization's email" },
+  { tag: '{organization_phone}', label: 'Organization Phone', description: "Your church/organization's phone number" },
+  { tag: '{organization_address}', label: 'Organization Address', description: "Your church/organization's address" },
 ];
 
 interface PersonalizationTagsProps {
@@ -31,7 +34,7 @@ export function PersonalizationTags({ onInsertTag, disabled }: PersonalizationTa
                 disabled={disabled}
                 type="button"
               >
-                <Sparkles className="h-3 w-3 text-primary" />
+                {'{ } '}
                 Insert Variable
               </Button>
             </PopoverTrigger>

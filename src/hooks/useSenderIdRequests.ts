@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { toast } from 'sonner';
-import { API_ENDPOINTS } from '@/config/endpoints';
+import { API_ENDPOINTS, APP_ID } from '@/config/endpoints';
 
 export interface SenderIdRequest {
   id: string;
@@ -88,6 +88,8 @@ export function useCreateSenderIdRequest() {
             senderId,
             reason,
             action: 'created',
+            appId: APP_ID,
+            appName: 'ChurchHub360',
           }),
         });
       } catch (err) {
@@ -153,6 +155,8 @@ export function useUpdateSenderIdRequest() {
             senderId,
             reason,
             action: 'resubmitted',
+            appId: APP_ID,
+            appName: 'ChurchHub360',
           }),
         });
       } catch (err) {
