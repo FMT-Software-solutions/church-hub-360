@@ -24,6 +24,7 @@ import {
   CreditCard,
   Eye,
   FileText,
+  Link,
   Mail,
   MoreVertical,
   Phone,
@@ -44,6 +45,7 @@ interface MemberTableProps {
   onView?: (member: MemberSummary) => void;
   onToggleStatus?: (member: MemberSummary) => void;
   onPrint?: (member: MemberSummary) => void;
+  onGenerateLink?: (member: MemberSummary) => void;
   onClick?: (memberId: string) => void;
   onSort?: (field: string) => void;
   sortField?: string;
@@ -70,6 +72,7 @@ export function MemberTable({
   onView,
   onToggleStatus,
   onPrint,
+  onGenerateLink,
   onClick,
   onSort,
   className,
@@ -391,6 +394,18 @@ export function MemberTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
+                      {onGenerateLink && (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAction(member.id, () => onGenerateLink(member));
+                          }}
+                        >
+                          <Link className="mr-2 h-4 w-4" />
+                          Member Access
+                        </DropdownMenuItem>
+                      )}
+
                       {onView && (
                         <DropdownMenuItem
                           onClick={(e) => {

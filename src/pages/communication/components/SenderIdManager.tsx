@@ -156,7 +156,7 @@ export function SenderIdManager() {
             <div>
               <p className="text-sm text-muted-foreground font-medium">Active Sender ID</p>
               <p className="text-xl font-bold text-primary">
-                {currentOrganization?.sms_sender_id || import.meta.env.VITE_DEFAULT_SMS_SENDER_ID || 'ChurchHub'}
+                {currentOrganization?.sms_sender_id || import.meta.env.VITE_DEFAULT_SMS_SENDER_ID || 'CHURCHUB360'}
               </p>
             </div>
             {!currentOrganization?.sms_sender_id && (

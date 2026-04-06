@@ -12,6 +12,7 @@ export * from './members';
 export * from './attendance';
 export * from './events';
 export * from './announcements';
+export * from './member-portal';
 
 // Add other type exports here as the application grows
 // export * from './user-types';

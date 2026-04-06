@@ -67,9 +67,20 @@ import { PeopleAccessGuard } from '@/components/auth/PeopleAccessGuard';
 import { TrialExpiredGuard } from '@/components/shared/TrialExpiredGuard';
 import { TrialNotification } from '@/components/shared/TrialNotification';
 
+import { UrlRedirector } from '@/modules/url-shortener';
+
+// Public Member Portal pages
+import VerifyToken from '@/pages/member-portal/VerifyToken';
+import VerifyOtp from '@/pages/member-portal/VerifyOtp';
+import SetupPin from '@/pages/member-portal/SetupPin';
+import MemberLogin from '@/pages/member-portal/MemberLogin';
+import MemberProfile from '@/pages/member-portal/MemberProfile';
+
 function AppRoutes() {
   return (
     <Routes>
+      {/* Short URL Redirect Route */}
+      <Route path="/s/:code" element={<UrlRedirector />} />
       {/* Public/Auth routes */}
       <Route
         path="/login"
@@ -95,6 +106,13 @@ function AppRoutes() {
           </AuthRoute>
         }
       />
+
+      {/* Public Member Portal Routes */}
+      <Route path="/m/verify" element={<VerifyToken />} />
+      <Route path="/m/otp" element={<VerifyOtp />} />
+      <Route path="/m/setup-pin" element={<SetupPin />} />
+      <Route path="/m/login" element={<MemberLogin />} />
+      <Route path="/m/profile" element={<MemberProfile />} />
 
       {/* Organization selection route */}
       <Route
@@ -277,15 +295,17 @@ function AppRoutes() {
         />
       </Route>
 
-      {/* Public presentation route */}
+      {/* Public presentation routes */}
       <Route
         path="/present/announcements/:announcementId"
         element={<AnnouncementPresent />}
       />
       <Route path="/present/birthday/:memberId" element={<BirthdayWish />} />
 
-      {/* Dev route for slide designer testing */}
       <Route path="/dev/slide-designer" element={<SlideDesignerDev />} />
+
+      {/* Short URL Redirect Route */}
+      <Route path="/s/:code" element={<UrlRedirector />} />
       <Route
         path="/dev/announcement-slide-editor"
         element={<TestAnnouncementEditorLayout />}

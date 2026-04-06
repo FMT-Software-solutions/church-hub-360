@@ -6,13 +6,16 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MemberSummary } from '@/types/members'
-import * as htmlToImage from 'html-to-image'
+import { toPng } from 'html-to-image'
 import confetti from 'canvas-confetti'
 import { Label } from '@/components/ui/label'
 import { SingleBranchSelector } from '@/components/shared/BranchSelector'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRoleCheck } from '@/registry/access/RoleGuard'
 import { useUserBranches } from '@/hooks/useBranchQueries'
+import { useUrlShortener } from '@/modules/url-shortener'
+import { QuickSmsDialog } from '@/components/shared/sms/QuickSmsDialog'
+import { Copy, MessageSquare, Loader2 } from 'lucide-react'
 
 function daysUntilBirthday(dobIso: string) {
   const now = new Date()
@@ -31,43 +34,155 @@ function computeAge(dobIso: string) {
   return age
 }
 
-function ShareButton({ memberId }: { memberId: string }) {
-  const url = `${window.location.origin}${window.location.pathname}#/present/birthday/${memberId}`
+function BirthdayActions({ member }: { member: MemberSummary }) {
+  const [isShortening, setIsShortening] = useState(false);
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
+  const [isSmsOpen, setIsSmsOpen] = useState(false);
+  const [smsMessage, setSmsMessage] = useState('');
+  const { currentOrganization } = useOrganization();
+  const shortenUrlMutation = useUrlShortener();
+
+  const getOrGenerateShortUrl = async () => {
+    if (shortUrl) return shortUrl;
+
+    setIsShortening(true);
+    try {
+      const longUrl = `${window.location.origin}${window.location.pathname}#/present/birthday/${member.id}`;
+      const result = await shortenUrlMutation.mutateAsync({
+        longUrl,
+        organizationId: currentOrganization!.id,
+      });
+      setShortUrl(result.shortUrl);
+      return result.shortUrl;
+    } catch (error) {
+      toast.error('Failed to generate short link');
+      console.error(error);
+      return null;
+    } finally {
+      setIsShortening(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const url = await getOrGenerateShortUrl();
+    if (url) {
+      await navigator.clipboard.writeText(url);
+      toast.success('Wish link copied to clipboard');
+    }
+  };
+
+  const handleSendSms = async () => {
+    if (!member.phone) {
+      toast.error('This member does not have a phone number saved');
+      return;
+    }
+    const url = await getOrGenerateShortUrl();
+    if (url) {
+      const firstName = member.full_name.split(' ')[0] || member.full_name;
+      const orgName = currentOrganization?.name || 'our church';
+      setSmsMessage(`Happy Birthday ${firstName}! We celebrate you today and pray for God's blessings over your life from all of us at ${orgName}. View your special card here: ${url}`);
+      setIsSmsOpen(true);
+    }
+  };
+
   return (
-    <Button variant="outline" size="sm" onClick={async () => { await navigator.clipboard.writeText(url); toast.success('Share link copied') }}>
-      Share Wish Link
-    </Button>
-  )
+    <>
+      <Button variant="outline" size="sm" onClick={handleCopyLink} disabled={isShortening}>
+        {isShortening ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-4 w-4 mr-2" />}
+        Copy Link
+      </Button>
+      <Button variant="default" size="sm" onClick={handleSendSms} disabled={isShortening || !member.phone}>
+        {isShortening ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+        Send SMS
+      </Button>
+
+      {isSmsOpen && (
+        <QuickSmsDialog
+          isOpen={isSmsOpen}
+          onOpenChange={setIsSmsOpen}
+          recipientName={member.full_name}
+          recipientPhone={member.phone as string}
+          memberId={member.id}
+          defaultMessage={smsMessage}
+        />
+      )}
+    </>
+  );
 }
 
-function DownloadCardButton({ nodeRef, name }: { nodeRef: React.RefObject<HTMLDivElement | null>, name: string }) {
-  return (
-    <Button variant="outline" size="sm" onClick={async () => {
-      if (!nodeRef.current) return
-      const dataUrl = await htmlToImage.toPng(nodeRef.current, { cacheBust: true, pixelRatio: 2 })
-      const link = document.createElement('a')
-      link.download = `${name}-birthday-card.png`
-      link.href = dataUrl
-      link.click()
-      const isDark = document.documentElement.classList.contains('dark')
-      const colors = isDark ? ['#fde68a', '#fecaca', '#6ee7b7', '#93c5fd', '#d8b4fe'] : ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#a855f7']
-      confetti({ particleCount: 80, spread: 70, startVelocity: 40, colors })
-    }}>
-      Download Card
-    </Button>
-  )
-}
+// DownloadCardButton logic has been moved directly into BirthdayCelebrantCard
 
 function BirthdayCelebrantCard({ member }: { member: MemberSummary }) {
-  const ref = useRef<HTMLDivElement>(null)
   const age = member.date_of_birth ? computeAge(member.date_of_birth as string) : undefined
+  const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Pre-fetch the image and convert it to a base64 string so html-to-image doesn't face CORS issues
+  useEffect(() => {
+    if (member.profile_image_url) {
+      fetch(member.profile_image_url)
+        .then((response) => response.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setProfileImageSrc(reader.result as string);
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch((err) => {
+          console.error("Failed to prefetch image for canvas:", err);
+          // Fallback to original URL if fetch fails
+          setProfileImageSrc(member.profile_image_url);
+        });
+    }
+  }, [member.profile_image_url]);
+
+  const handleDownload = async () => {
+    if (!cardRef.current) return;
+
+    setIsDownloading(true);
+    try {
+      // Use raw html-to-image with solid background override
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        style: {
+          backgroundColor: document.documentElement.classList.contains('dark') ? '#1e1e2e' : '#ffffff'
+        },
+        filter: () => {
+          // Ignore unsupported classes or elements if needed
+          return true;
+        }
+      });
+
+      // Native browser download implementation (like product-photo-studio)
+      const link = document.createElement('a');
+      link.download = `${member.full_name.replace(/\s+/g, '-').toLowerCase()}-birthday-card.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      const isDark = document.documentElement.classList.contains('dark');
+      const colors = isDark ? ['#fde68a', '#fecaca', '#6ee7b7', '#93c5fd', '#d8b4fe'] : ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#a855f7'];
+      confetti({ particleCount: 80, spread: 70, startVelocity: 40, colors });
+    } catch (err) {
+      console.error('Failed to download image:', err);
+      toast.error('Failed to generate image');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
-      <div ref={ref} className="bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-indigo-500/20 p-6">
+      <div ref={cardRef} className="bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-indigo-500/20 p-6">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-full overflow-hidden bg-muted">
-            {member.profile_image_url ? (
-              <img src={member.profile_image_url} alt={member.full_name} className="h-full w-full object-cover" />
+            {profileImageSrc ? (
+              <img src={profileImageSrc} alt={member.full_name} className="h-full w-full object-cover" />
+
             ) : (
               <div className="h-full w-full flex items-center justify-center text-xl">🎉</div>
             )}
@@ -80,8 +195,11 @@ function BirthdayCelebrantCard({ member }: { member: MemberSummary }) {
         <div className="mt-4 text-sm text-muted-foreground">Wishing you joy, blessings, and a wonderful year ahead.</div>
       </div>
       <CardContent className="flex items-center gap-2 pt-4">
-        <DownloadCardButton nodeRef={ref} name={member.full_name} />
-        <ShareButton memberId={member.id} />
+        <Button variant="outline" size="sm" disabled={isDownloading} onClick={handleDownload}>
+          {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+          Download Card
+        </Button>
+        <BirthdayActions member={member} />
       </CardContent>
     </Card>
   )
@@ -148,11 +266,11 @@ export default function Birthdays() {
       const isDark = document.documentElement.classList.contains('dark')
       const colors = isDark ? ['#fde68a', '#fecaca', '#6ee7b7', '#93c5fd', '#d8b4fe'] : ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#a855f7']
       const end = Date.now() + 1200
-      ;(function frame() {
-        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors })
-        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors })
-        if (Date.now() < end) requestAnimationFrame(frame)
-      })()
+        ; (function frame() {
+          confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors })
+          confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors })
+          if (Date.now() < end) requestAnimationFrame(frame)
+        })()
     }
   }, [isLoading, today.length])
 

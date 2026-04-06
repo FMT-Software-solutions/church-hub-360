@@ -8,6 +8,7 @@
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
+        "@hcorta/react-to-image": "^1.0.0",
         "@hookform/resolvers": "^5.2.1",
         "@origin-space/image-cropper": "^0.1.9",
         "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -266,6 +267,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
 
     "@gar/promisify": ["@gar/promisify@1.1.3", "", {}, "sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw=="],
+
+    "@hcorta/react-to-image": ["@hcorta/react-to-image@1.0.0", "", { "peerDependencies": { "html-to-image": "^1.9.0", "react": ">=15.0.0" } }, "sha512-Flp/zLXMTZWmjRwVGLeTtI0c7a6AwzWFysnILFPro0maTW+DIurue2FhmdcZW2dMmpOYay/u5IQHCpVEPkmTjA=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@5.2.1", "", { "dependencies": { "@standard-schema/utils": "^0.3.0" }, "peerDependencies": { "react-hook-form": "^7.55.0" } }, "sha512-u0+6X58gkjMcxur1wRWokA7XsiiBJ6aK17aPZxhkoYiK5J+HcTx0Vhu9ovXe6H+dVpO6cjrn2FkJTryXEMlryQ=="],
 

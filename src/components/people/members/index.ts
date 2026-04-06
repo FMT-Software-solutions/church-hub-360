@@ -6,3 +6,4 @@ export { MemberTable } from './MemberTable';
 export { MemberExportButtons } from './MemberExportButtons';
 export { MemberExportModal } from './MemberExportModal';
 export { MemberExportService } from './MemberExportService';
+export * from './MemberAccessModal';

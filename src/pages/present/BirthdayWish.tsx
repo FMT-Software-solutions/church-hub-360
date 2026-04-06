@@ -47,7 +47,7 @@ export default function BirthdayWish() {
     staleTime: 60 * 1000,
   });
 
-  
+
 
   useEffect(() => {
     const isActive = !!(data && data.date_of_birth && isWishActive(data.date_of_birth as string));

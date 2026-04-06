@@ -5,6 +5,7 @@ import {
   MemberPagination,
   MemberStatistics,
   MemberTable,
+  MemberAccessModal,
 } from '@/components/people/members';
 import type { SortConfig } from '@/components/people/members/SortBar';
 import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
@@ -61,6 +62,14 @@ export default function MembershipList() {
     isOpen: false,
     memberId: null,
     memberName: '',
+  });
+
+  const [memberAccessModal, setMemberAccessModal] = useState<{
+    isOpen: boolean;
+    member: MemberSummary | null;
+  }>({
+    isOpen: false,
+    member: null,
   });
 
   // Hooks
@@ -145,6 +154,10 @@ export default function MembershipList() {
 
   const handlePrintMember = (_member: MemberSummary) => {
     // Default to printing details when using the single print handler
+  };
+
+  const handleGenerateLink = (member: MemberSummary) => {
+    setMemberAccessModal({ isOpen: true, member });
   };
 
   const totalPages = Math.ceil(
@@ -263,6 +276,7 @@ export default function MembershipList() {
                   onView={handleViewMember}
                   onDelete={handleDeleteMember}
                   onPrint={handlePrintMember}
+                  onGenerateLink={handleGenerateLink}
                   onClick={handleMemberClick}
                   isLoading={isLoadingMembers}
                 />
@@ -275,6 +289,7 @@ export default function MembershipList() {
                       onView={handleViewMember}
                       onDelete={handleDeleteMember}
                       onPrint={handlePrintMember}
+                      onGenerateLink={handleGenerateLink}
                       onClick={handleMemberClick}
                     />
                   ))}
@@ -306,6 +321,13 @@ export default function MembershipList() {
         description={`Are you sure you want to delete ${deleteConfirmation.memberName}? This action cannot be undone.`}
         confirmButtonText="Delete Member"
         isLoading={deleteMemberMutation.isPending}
+      />
+
+      {/* Member Access Modal */}
+      <MemberAccessModal
+        isOpen={memberAccessModal.isOpen}
+        onClose={() => setMemberAccessModal({ isOpen: false, member: null })}
+        member={memberAccessModal.member}
       />
     </div>
   );

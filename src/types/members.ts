@@ -5,7 +5,7 @@ export interface Member {
   id: string;
   organization_id: string;
   branch_id: string | null;
-  
+
   // Basic member information
   membership_id: string;
   first_name: string;
@@ -16,7 +16,7 @@ export interface Member {
   date_of_birth: string | null; // ISO date string
   gender: string | null;
   marital_status: string | null;
-  
+
   // Address information
   address_line_1: string | null;
   address_line_2: string | null;
@@ -24,27 +24,32 @@ export interface Member {
   state: string | null;
   postal_code: string | null;
   country: string | null;
-  
+
   // Membership details
   membership_status: MembershipStatus;
   membership_type: MembershipType | null;
   date_joined: string | null; // ISO date string
   baptism_date: string | null; // ISO date string
   confirmation_date: string | null; // ISO date string
-  
+
   // Emergency contact
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   emergency_contact_relationship: string | null;
-  
+
   // Additional form data from membership form schema
   custom_form_data: Record<string, any>;
-  
+
   // Profile and preferences
   profile_image_url: string | null;
   notes: string | null;
   is_active: boolean;
-  
+
+  // Member portal access (PIN authentication)
+  pin_hash?: string | null;
+  pin_setup_at?: string | null;
+  is_pin_active?: boolean;
+
   // Audit fields
   created_at: string;
   updated_at: string;
@@ -75,7 +80,7 @@ export interface MemberSummary {
   updated_at: string;
   age: number | null;
   membership_years: number | null;
-  
+
   // Address fields (added in enhanced view)
   address_line_1: string | null;
   address_line_2: string | null;
@@ -83,11 +88,11 @@ export interface MemberSummary {
   state: string | null;
   postal_code: string | null;
   country: string | null;
-  
+
   // Branch information (added via JOIN)
   branch_name: string | null;
   branch_location: string | null;
-  
+
   // Tag information (added in enhanced members_summary view)
   assigned_tags: string;
   tag_count: number;
@@ -96,10 +101,11 @@ export interface MemberSummary {
 
   // Member groups (from members_summary view)
   member_groups: string[]; // Array of 'Group Name - Position'
+  pin_setup_at?: string | null;
 }
 
 // Membership status enum
-export type MembershipStatus = 
+export type MembershipStatus =
   | 'active'
   | 'inactive'
   | 'pending'
@@ -108,21 +114,21 @@ export type MembershipStatus =
   | 'deceased';
 
 // Membership type enum
-export type MembershipType = 
+export type MembershipType =
   | 'Regular'
   | 'Associate'
   | 'New Convert'
   | 'Visitor';
 
 // Gender options
-export type Gender = 
+export type Gender =
   | 'male'
   | 'female'
   | 'other'
   | 'prefer_not_to_say';
 
 // Marital status options
-export type MaritalStatus = 
+export type MaritalStatus =
   | 'single'
   | 'married'
   | 'divorced'
@@ -143,7 +149,7 @@ export interface CreateMemberData {
   date_of_birth?: string;
   gender?: string;
   marital_status?: string;
-  
+
   // Address information
   address_line_1?: string;
   address_line_2?: string;
@@ -151,22 +157,22 @@ export interface CreateMemberData {
   state?: string;
   postal_code?: string;
   country?: string;
-  
+
   // Membership details
   membership_status?: MembershipStatus;
   membership_type?: MembershipType;
   date_joined?: string;
   baptism_date?: string;
   confirmation_date?: string;
-  
+
   // Emergency contact
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   emergency_contact_relationship?: string;
-  
+
   // Additional form data
   custom_form_data?: Record<string, any>;
-  
+
   // Profile and preferences
   profile_image_url?: string;
   notes?: string;
@@ -274,7 +280,7 @@ export interface MemberRelationship {
   updated_at: string;
 }
 
-export type RelationshipType = 
+export type RelationshipType =
   | 'spouse'
   | 'child'
   | 'parent'

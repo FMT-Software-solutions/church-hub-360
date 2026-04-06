@@ -1,4 +1,5 @@
 import { EditMemberView } from '@/components/people/members/EditMemberView';
+import { MemberAccessModal } from '@/components/people/members/MemberAccessModal';
 import { CopyToClipboard } from '@/components/shared/CopyToClipboard';
 import { MemberSearchTypeahead } from '@/components/shared/MemberSearchTypeahead';
 import { MembershipCardModal } from '@/components/shared/MembershipCardModal';
@@ -36,7 +37,8 @@ import {
   Printer,
   Tags,
   Users,
-  User
+  User,
+  Link as LinkIcon
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -50,11 +52,12 @@ export function MemberDetail() {
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isTemplateDrawerOpen, setIsTemplateDrawerOpen] = useState(false);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
 
   // Fetch member data
   const { data: member, isLoading, error } = useMember(memberId!);
   const { currentOrganization } = useOrganization();
-  
+
   // Fetch tag assignments and related data
   const { assignments } = useMemberTagAssignments(memberId!);
   const { tags } = useRelationalTags();
@@ -85,7 +88,7 @@ export function MemberDetail() {
     setIsCardModalOpen(true);
   };
 
-  
+
 
   // Loading state
   if (isLoading) {
@@ -98,7 +101,7 @@ export function MemberDetail() {
             <Skeleton className="h-4 w-32" />
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card>
@@ -112,7 +115,7 @@ export function MemberDetail() {
               </CardContent>
             </Card>
           </div>
-          
+
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -145,7 +148,7 @@ export function MemberDetail() {
               <ArrowLeft className="h-4 w-4" />
               Back to Members
             </Button>
-            
+
             {/* Member Search */}
             <div className="w-full max-w-md">
               <MemberSearchTypeahead
@@ -158,7 +161,7 @@ export function MemberDetail() {
             </div>
           </div>
         </div>
-        
+
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -197,7 +200,7 @@ export function MemberDetail() {
             <ArrowLeft className="h-4 w-4" />
             Back to Members
           </Button>
-          
+
           {/* Member Search */}
           <div className="w-full max-w-md">
             <MemberSearchTypeahead
@@ -225,16 +228,16 @@ export function MemberDetail() {
               </Avatar>
               <div className="text-left">
                 <h1 className="text-3xl font-bold mb-2">
-                   {member.first_name} {member.last_name}
-                 </h1>
-                 <div className='flex justify-between items-center'>
+                  {member.first_name} {member.last_name}
+                </h1>
+                <div className='flex justify-between items-center'>
                   <div className="flex items-center gap-2">
                     <p className="text-muted-foreground">
                       Member ID: {member.membership_id}
                     </p>
-                    <CopyToClipboard 
-                      text={member.membership_id} 
-                      label="Member ID" 
+                    <CopyToClipboard
+                      text={member.membership_id}
+                      label="Member ID"
                       size="sm"
                     />
                   </div>
@@ -245,40 +248,40 @@ export function MemberDetail() {
 
             {/* Quick Info Grid */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-4">
-                 <div className="flex items-center gap-3">
-                   <Phone className="h-5 w-5 text-muted-foreground" />
-                   <div className="flex-1">
-                     <p className="text-sm font-medium text-muted-foreground">Mobile</p>
-                     <div className="flex items-center gap-2">
-                       <p className="text-lg">{member.phone || 'Not provided'}</p>
-                       {member.phone && (
-                         <CopyToClipboard 
-                           text={member.phone} 
-                           label="Phone number" 
-                           size="sm"
-                         />
-                       )}
-                     </div>
-                   </div>
-                 </div>
-                 <div className="flex items-center gap-3">
-                   <MailIcon className="h-5 w-5 text-muted-foreground" />
-                   <div className="flex-1">
-                     <p className="text-sm font-medium text-muted-foreground">Email</p>
-                     <div className="flex items-center gap-2">
-                       <p className="text-lg truncate max-w-[140px]" title={member.email || 'Not provided'}>{member.email || 'Not provided'}</p>
-                       {member.email && (
-                         <CopyToClipboard 
-                           text={member.email} 
-                           label="Email" 
-                           size="sm"
-                         />
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Mobile</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg">{member.phone || 'Not provided'}</p>
+                      {member.phone && (
+                        <CopyToClipboard
+                          text={member.phone}
+                          label="Phone number"
+                          size="sm"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <MailIcon className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Email</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg truncate max-w-[140px]" title={member.email || 'Not provided'}>{member.email || 'Not provided'}</p>
+                      {member.email && (
+                        <CopyToClipboard
+                          text={member.email}
+                          label="Email"
+                          size="sm"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-muted-foreground" />
@@ -318,25 +321,34 @@ export function MemberDetail() {
                 Print Details
               </Button>
               <div className='flex items-center gap-[2px]'>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrintCard}
-                className="flex items-center gap-2 flex-1"
-              >
-                <CreditCard className="h-4 w-4" />
-                Print Card
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsTemplateDrawerOpen(true)}
-                className="flex items-center gap-2"
-                title="Open card templates"
-              >
-                <IdCard className="h-4 w-4" />
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintCard}
+                  className="flex items-center gap-2 flex-1"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Print Card
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTemplateDrawerOpen(true)}
+                  className="flex items-center gap-2"
+                  title="Open card templates"
+                >
+                  <IdCard className="h-4 w-4" />
+                </Button>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAccessModalOpen(true)}
+                className="flex items-center gap-2 mt-2 border-primary/20 hover:bg-primary/5"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Member Access
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -361,9 +373,9 @@ export function MemberDetail() {
                   <label className="text-sm font-medium text-muted-foreground">First Name</label>
                   <div className="flex items-center gap-2">
                     <p className="text-sm">{member.first_name}</p>
-                    <CopyToClipboard 
-                      text={member.first_name} 
-                      label="First name" 
+                    <CopyToClipboard
+                      text={member.first_name}
+                      label="First name"
                       size="sm"
                     />
                   </div>
@@ -376,9 +388,9 @@ export function MemberDetail() {
                   <label className="text-sm font-medium text-muted-foreground">Last Name</label>
                   <div className="flex items-center gap-2">
                     <p className="text-sm">{member.last_name}</p>
-                    <CopyToClipboard 
-                      text={member.last_name} 
-                      label="Last name" 
+                    <CopyToClipboard
+                      text={member.last_name}
+                      label="Last name"
                       size="sm"
                     />
                   </div>
@@ -422,9 +434,9 @@ export function MemberDetail() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm">{member.phone || 'Not provided'}</p>
                     {member.phone && (
-                      <CopyToClipboard 
-                        text={member.phone} 
-                        label="Phone number" 
+                      <CopyToClipboard
+                        text={member.phone}
+                        label="Phone number"
                         size="sm"
                       />
                     )}
@@ -435,27 +447,27 @@ export function MemberDetail() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm">{member.email || 'Not provided'}</p>
                     {member.email && (
-                      <CopyToClipboard 
-                        text={member.email} 
-                        label="Email" 
+                      <CopyToClipboard
+                        text={member.email}
+                        label="Email"
                         size="sm"
                       />
                     )}
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Address</label>
                 <div className="text-sm mt-1 space-y-1">
                   {member.address_line_1 && (
                     <div className="flex items-center gap-2">
                       <p>{member.address_line_1}</p>
-                      <CopyToClipboard 
-                        text={member.address_line_1} 
-                        label="Address" 
+                      <CopyToClipboard
+                        text={member.address_line_1}
+                        label="Address"
                         size="sm"
                         className="h-4 w-4 p-0"
                       />
@@ -490,9 +502,9 @@ export function MemberDetail() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm">{member.emergency_contact_name || 'Not provided'}</p>
                       {member.emergency_contact_name && (
-                        <CopyToClipboard 
-                          text={member.emergency_contact_name} 
-                          label="Emergency contact name" 
+                        <CopyToClipboard
+                          text={member.emergency_contact_name}
+                          label="Emergency contact name"
                           size="sm"
                         />
                       )}
@@ -503,9 +515,9 @@ export function MemberDetail() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm">{member.emergency_contact_phone || 'Not provided'}</p>
                       {member.emergency_contact_phone && (
-                        <CopyToClipboard 
-                          text={member.emergency_contact_phone} 
-                          label="Emergency contact phone" 
+                        <CopyToClipboard
+                          text={member.emergency_contact_phone}
+                          label="Emergency contact phone"
                           size="sm"
                         />
                       )}
@@ -542,9 +554,9 @@ export function MemberDetail() {
                   <label className="text-sm font-medium text-muted-foreground">Membership ID</label>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-mono">{member.membership_id}</p>
-                    <CopyToClipboard 
-                      text={member.membership_id} 
-                      label="Membership ID" 
+                    <CopyToClipboard
+                      text={member.membership_id}
+                      label="Membership ID"
                       size="sm"
                     />
                   </div>
@@ -599,8 +611,8 @@ export function MemberDetail() {
             </Card>
           )}
 
-          
-          
+
+
           {/* Groups Section */}
           <Card>
             <CardHeader>
@@ -687,7 +699,7 @@ export function MemberDetail() {
 
           {/* Custom Fields */}
           {member.custom_form_data && (
-            <CustomFieldRenderer 
+            <CustomFieldRenderer
               formData={member.custom_form_data}
               className="w-full"
             />
@@ -733,6 +745,14 @@ export function MemberDetail() {
             selectTemplate(templateId);
             setIsTemplateDrawerOpen(false);
           }}
+        />
+      )}
+      {/* Member Access Modal */}
+      {member && (
+        <MemberAccessModal
+          isOpen={isAccessModalOpen}
+          onClose={() => setIsAccessModalOpen(false)}
+          member={member as any}
         />
       )}
     </div>
