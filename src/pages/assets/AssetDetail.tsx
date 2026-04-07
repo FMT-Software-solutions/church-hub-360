@@ -81,9 +81,9 @@ export default function AssetDetail() {
                 <TableCell className="font-medium">Assigned To</TableCell>
                 <TableCell>
                   {data.assigned_to_type === 'member' &&
-                  data.assigned_to_member_id &&
-                  memberDetails &&
-                  memberDetails[0] ? (
+                    data.assigned_to_member_id &&
+                    memberDetails &&
+                    memberDetails[0] ? (
                     <span className="flex items-center gap-2">
                       <Avatar className="w-6 h-6">
                         <AvatarImage
@@ -138,7 +138,7 @@ export default function AssetDetail() {
         </Card>
 
         {/* Financial Summary Card */}
-        <Card className="p-4 h-fit">
+        <Card className="p-4 pb-0 h-fit">
           <div className="space-y-6">
             <h3 className="font-semibold flex items-center gap-2">
               Financial Summary
@@ -152,9 +152,9 @@ export default function AssetDetail() {
                 <span className="text-2xl font-bold">
                   {data.purchase_cost
                     ? new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: 'GHS',
-                      }).format(data.purchase_cost)
+                      style: 'currency',
+                      currency: 'GHS',
+                    }).format(data.purchase_cost)
                     : '-'}
                 </span>
               </div>
@@ -173,7 +173,7 @@ export default function AssetDetail() {
                         currency: 'GHS',
                       }).format(
                         (data.purchase_cost * data.depreciation_percentage) /
-                          100
+                        100
                       )}
                     </span>
                   </div>
@@ -190,9 +190,9 @@ export default function AssetDetail() {
                         Math.max(
                           0,
                           data.purchase_cost -
-                            (data.purchase_cost *
-                              data.depreciation_percentage) /
-                              100
+                          (data.purchase_cost *
+                            data.depreciation_percentage) /
+                          100
                         )
                       )}
                     </span>
@@ -242,11 +242,11 @@ export default function AssetDetail() {
             asset={data}
             memberName={
               data.assigned_to_type === 'member' &&
-              data.assigned_to_member_id &&
-              memberDetails &&
-              memberDetails[0]
+                data.assigned_to_member_id &&
+                memberDetails &&
+                memberDetails[0]
                 ? memberDetails[0].full_name ||
-                  `${memberDetails[0].first_name} ${memberDetails[0].last_name}`.trim()
+                `${memberDetails[0].first_name} ${memberDetails[0].last_name}`.trim()
                 : null
             }
             groupName={

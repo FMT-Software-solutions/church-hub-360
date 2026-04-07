@@ -102,6 +102,7 @@ export interface MemberSummary {
   // Member groups (from members_summary view)
   member_groups: string[]; // Array of 'Group Name - Position'
   pin_setup_at?: string | null;
+  is_pin_active?: boolean;
 }
 
 // Membership status enum

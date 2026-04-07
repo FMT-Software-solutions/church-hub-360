@@ -16,10 +16,12 @@ import {
   CreditCard,
   Eye,
   FileText,
+  KeyRound,
   Link,
   Mail,
   MoreVertical,
   Phone,
+  ShieldAlert,
   Trash2,
   User,
   UserCheck,
@@ -280,22 +282,31 @@ export function MemberCard({
               </div>
             </div>
 
-            {/* Membership Type */}
-            {member.membership_type && (
-              <div className="pt-2 border-t flex items-center gap-2">
-                <Badge
-                  className={cn(
-                    'text-xs',
-                    statusColors[member.membership_status]
-                  )}
-                >
-                  {member.membership_status}
-                </Badge>
+            {/* Membership Type and Status */}
+            <div className="pt-2 border-t flex flex-wrap items-center gap-2">
+              <Badge
+                className={cn(
+                  'text-xs',
+                  statusColors[member.membership_status]
+                )}
+              >
+                {member.membership_status}
+              </Badge>
+              {member.membership_type && (
                 <Badge variant="outline" className="text-xs">
                   {member.membership_type}
                 </Badge>
-              </div>
-            )}
+              )}
+              {member.pin_setup_at ? (
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50 flex items-center gap-1 w-fit">
+                  <KeyRound className="w-3 h-3" /> Setup
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-400 dark:border-yellow-900/50 flex items-center gap-1 w-fit">
+                  <ShieldAlert className="w-3 h-3" /> Pending
+                </Badge>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

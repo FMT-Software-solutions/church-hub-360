@@ -14,6 +14,7 @@ export interface CommunicationHistory {
   status: 'pending' | 'sent' | 'failed';
   sent_by?: string;
   sent_at?: string;
+  metadata?: Record<string, any>;
   created_at: string;
 }
 

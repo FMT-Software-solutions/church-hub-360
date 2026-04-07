@@ -24,10 +24,12 @@ import {
   CreditCard,
   Eye,
   FileText,
+  KeyRound,
   Link,
   Mail,
   MoreVertical,
   Phone,
+  ShieldAlert,
   Trash2,
   UserCheck,
   UserX,
@@ -229,6 +231,7 @@ export function MemberTable({
                 <SortableHeader field="membership_status">
                   Status
                 </SortableHeader>
+                <TableHead>PIN</TableHead>
                 <SortableHeader field="membership_type">Type</SortableHeader>
                 <SortableHeader field="age">Age</SortableHeader>
                 <SortableHeader field="date_joined">Joined</SortableHeader>
@@ -243,6 +246,7 @@ export function MemberTable({
                 <TableHead>Member</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>PIN</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Age</TableHead>
                 <TableHead>Joined</TableHead>
@@ -323,6 +327,17 @@ export function MemberTable({
                   >
                     {member.membership_status}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {member.pin_setup_at ? (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50 flex items-center gap-1 w-fit">
+                      <KeyRound className="w-3 h-3" /> Setup
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-400 dark:border-yellow-900/50 flex items-center gap-1 w-fit">
+                      <ShieldAlert className="w-3 h-3" /> Pending
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {member.membership_type ? (

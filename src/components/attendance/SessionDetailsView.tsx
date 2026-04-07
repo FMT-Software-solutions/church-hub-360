@@ -18,7 +18,6 @@ import { useDebounceValue } from '@/hooks/useDebounce';
 import {
   LinksQrCard,
   ManualMarkingCard,
-  SessionDetailsHeader,
   SessionInfoCard,
 } from './session-details';
 
@@ -29,7 +28,6 @@ interface SessionDetailsViewProps {
 
 export function SessionDetailsView({
   session,
-  onBack,
 }: SessionDetailsViewProps) {
   const { currentOrganization } = useOrganization();
   const [search, setSearch] = useState('');
@@ -191,8 +189,7 @@ export function SessionDetailsView({
 
   return (
     <div className="space-y-6">
-      {/* Header / Back */}
-      <SessionDetailsHeader session={session} onBack={onBack} />
+
 
       {/* Details + Actions Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

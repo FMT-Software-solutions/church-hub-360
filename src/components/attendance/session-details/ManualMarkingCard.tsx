@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Pagination } from '@/components/shared/Pagination';
 import { AlertCircle, CheckCircle, XCircle, Filter } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -99,6 +101,7 @@ export function ManualMarkingCard({
   const [recordSearch, setRecordSearch] = useState('');
   const [recordPage, setRecordPage] = useState(1);
   const [recordPageSize, setRecordPageSize] = useState(10);
+  const [hideMarked, setHideMarked] = useState(true);
   const manualEnabled = !!session.marking_modes?.manual;
   const modes = useMemo(
     () =>
@@ -243,6 +246,16 @@ export function ManualMarkingCard({
                     />
                   </div>
                   <div className="flex gap-2 items-center">
+                    <div className="flex items-center gap-2 mr-2">
+                      <Switch
+                        id="hide-marked"
+                        checked={hideMarked}
+                        onCheckedChange={setHideMarked}
+                      />
+                      <Label htmlFor="hide-marked" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                        Hide Marked
+                      </Label>
+                    </div>
                     <TooltipProvider>
                       <Tooltip>
                         <DropdownMenu>
@@ -323,74 +336,76 @@ export function ManualMarkingCard({
                 {/* List */}
                 <div className="space-y-3">
                   {((hasAllowedList && !loadingAllowed) || !loadingAll) &&
-                    filteredMembers.map((member) => {
-                      const present = !!presentMap.get(member.id);
-                      return (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage
-                                src={member.profile_image_url || undefined}
-                              />
-                              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                                {`${member.first_name.charAt(
-                                  0
-                                )}${member.last_name.charAt(0)}`.toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">
-                                {member.full_name ||
-                                  `${member.first_name} ${member.last_name}`}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {[
-                                  member.membership_id,
-                                  member.email,
-                                  member.phone,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' • ')}
+                    filteredMembers
+                      .filter(member => !hideMarked || !presentMap.get(member.id))
+                      .map((member) => {
+                        const present = !!presentMap.get(member.id);
+                        return (
+                          <div
+                            key={member.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage
+                                  src={member.profile_image_url || undefined}
+                                />
+                                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                                  {`${member.first_name.charAt(
+                                    0
+                                  )}${member.last_name.charAt(0)}`.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium">
+                                  {member.full_name ||
+                                    `${member.first_name} ${member.last_name}`}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {[
+                                    member.membership_id,
+                                    member.email,
+                                    member.phone,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' • ')}
+                                </div>
                               </div>
                             </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant={'outline'}
+                                disabled={
+                                  !manualEnabled || markPending || present
+                                }
+                                onClick={() => onPresent(member.id)}
+                                className={cn(
+                                  'bg-green-50/30 dark:bg-green-900/5 hover:bg-green-100/50 dark:hover:bg-green-900/15 hover:text-green-950 dark:hover:text-green-200',
+                                  present
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : ''
+                                )}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1 text-green-600" />
+                                {present ? 'Marked' : 'Present'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!manualEnabled || unmarkPending}
+                                onClick={() => onAbsent(member.id)}
+                                className={cn(
+                                  'bg-red-50/30 dark:bg-red-900/5 hover:bg-red-100/50 dark:hover:bg-red-900/15 hover:text-red-950 dark:hover:text-red-200'
+                                )}
+                              >
+                                <XCircle className="w-4 h-4 mr-1 text-red-600" />
+                                Absent
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant={'outline'}
-                              disabled={
-                                !manualEnabled || markPending || present
-                              }
-                              onClick={() => onPresent(member.id)}
-                              className={cn(
-                                'bg-green-50/30 dark:bg-green-900/5 hover:bg-green-100/50 dark:hover:bg-green-900/15 hover:text-green-950 dark:hover:text-green-200',
-                                present
-                                  ? 'text-green-600 dark:text-green-400'
-                                  : ''
-                              )}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1 text-green-600" />
-                              {present ? 'Marked' : 'Present'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!manualEnabled || unmarkPending}
-                              onClick={() => onAbsent(member.id)}
-                              className={cn(
-                                'bg-red-50/30 dark:bg-red-900/5 hover:bg-red-100/50 dark:hover:bg-red-900/15 hover:text-red-950 dark:hover:text-red-200'
-                              )}
-                            >
-                              <XCircle className="w-4 h-4 mr-1 text-red-600" />
-                              Absent
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
 
                   {filteredMembers.length === 0 && !(hasAllowedList ? loadingAllowed : loadingAll) && (
                     <div className="text-sm text-muted-foreground py-6 text-center">
@@ -410,7 +425,7 @@ export function ManualMarkingCard({
                       )}
                       pageSize={pageSize}
                       totalItems={paginatedTotal}
-                      itemName="members"
+                      itemName={`members ${hideMarked ? '(including hidden)' : ''}`}
                       onPageChange={onPageChange}
                       onPageSizeChange={(newSize) => {
                         onPageSizeChange(newSize);

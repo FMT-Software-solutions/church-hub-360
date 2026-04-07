@@ -37,6 +37,7 @@ interface QuickSmsDialogProps {
     memberId?: string;
     recipients?: { phone: string, name?: string, id?: string }[];
     defaultMessage: string;
+    metadata?: Record<string, any>;
 }
 
 export function QuickSmsDialog({
@@ -47,6 +48,7 @@ export function QuickSmsDialog({
     memberId,
     recipients = [],
     defaultMessage,
+    metadata,
 }: QuickSmsDialogProps) {
     const [message, setMessage] = useState(defaultMessage);
     const [isSending, setIsSending] = useState(false);
@@ -116,11 +118,19 @@ export function QuickSmsDialog({
                     recipient_ids: memberIds,
                     recipient_count: validRecipients.length,
                     status: 'sent',
+                    metadata: {
+                        ...metadata,
+                        actualRecipients: validRecipients,
+                        delivered_count: validRecipients.length,
+                    }
                 });
             }
 
-            // Immediately invalidate balance
+            // Immediately invalidate balance and session history if applicable
             queryClient.invalidateQueries({ queryKey: ['sms_balance', currentOrganization?.id] });
+            if (metadata?.session_id) {
+                queryClient.invalidateQueries({ queryKey: ['session-sms-history', metadata.session_id] });
+            }
 
             toast.success('SMS sent successfully');
             onOpenChange(false);
