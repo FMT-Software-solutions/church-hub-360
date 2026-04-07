@@ -11,12 +11,31 @@ import { useCreateCommunicationHistory } from '@/hooks/useCommunicationHistory';
 import { Loader2, MessageSquare, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Utility to check if a phone number is a valid Ghana number
+const isGhanaPhoneNumber = (phone: string | undefined): boolean => {
+    if (!phone) return false;
+    // Remove all non-numeric characters (except leading +)
+    const cleaned = phone.replace(/[^\d+]/g, '');
+
+    // Check for +233 followed by 9 digits
+    if (/^\+233\d{9}$/.test(cleaned)) return true;
+
+    // Check for 233 followed by 9 digits (no plus)
+    if (/^233\d{9}$/.test(cleaned)) return true;
+
+    // Check for local format starting with 0 followed by 9 digits (e.g. 024, 054, 055, etc.)
+    if (/^0\d{9}$/.test(cleaned)) return true;
+
+    return false;
+};
+
 interface QuickSmsDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    recipientName: string;
-    recipientPhone: string;
+    recipientName?: string;
+    recipientPhone?: string;
     memberId?: string;
+    recipients?: { phone: string, name?: string, id?: string }[];
     defaultMessage: string;
 }
 
@@ -26,6 +45,7 @@ export function QuickSmsDialog({
     recipientName,
     recipientPhone,
     memberId,
+    recipients = [],
     defaultMessage,
 }: QuickSmsDialogProps) {
     const [message, setMessage] = useState(defaultMessage);
@@ -35,8 +55,17 @@ export function QuickSmsDialog({
     const queryClient = useQueryClient();
     const createHistoryMutation = useCreateCommunicationHistory();
 
-    // Basic calculation: 1 credit per 160 characters (GSM-7 assumed)
-    const requiredCredits = Math.ceil((message.length || 1) / 160);
+    const rawRecipients = recipients.length > 0 ? recipients : (recipientPhone ? [{ phone: recipientPhone, name: recipientName, id: memberId }] : []);
+
+    // Filter out non-Ghana numbers immediately
+    const actualRecipients = rawRecipients.filter(r => isGhanaPhoneNumber(r.phone));
+    const originalCount = rawRecipients.length;
+    const recipientCount = actualRecipients.length;
+    const skippedCount = originalCount - recipientCount;
+
+    // Basic calculation: 1 credit per 160 characters (GSM-7 assumed) multiplied by number of recipients
+    const creditsPerMessage = Math.ceil((message.length || 1) / 160);
+    const requiredCredits = creditsPerMessage * recipientCount;
     const hasEnoughCredits = (balanceData?.credit_balance || 0) >= requiredCredits;
 
     const handleSend = async () => {
@@ -45,7 +74,7 @@ export function QuickSmsDialog({
             return;
         }
 
-        if (!recipientPhone) {
+        if (actualRecipients.length === 0) {
             toast.error('Recipient phone number is missing');
             return;
         }
@@ -60,22 +89,32 @@ export function QuickSmsDialog({
             const senderId = currentOrganization?.sms_sender_id || import.meta.env.VITE_DEFAULT_SMS_SENDER_ID || 'ChurchHub';
             const isSandbox = false; // Set to false in production
 
+            const validRecipients = actualRecipients
+                .filter(r => r.phone && r.phone.trim() !== '')
+                .map(r => ({ phone: r.phone.trim() }));
+
+            if (validRecipients.length === 0) {
+                toast.error('No valid phone numbers to send to');
+                return;
+            }
+
             await sendSmsMessage({
                 sender: senderId,
                 message,
-                recipients: [{ phone: recipientPhone }],
+                recipients: validRecipients,
                 sandbox: isSandbox,
                 organizationId: currentOrganization?.id
             });
 
             // Log to history
             if (createHistoryMutation) {
+                const memberIds = actualRecipients.map(r => r.id).filter(Boolean) as string[];
                 await createHistoryMutation.mutateAsync({
                     type: 'sms',
                     content: message,
                     recipient_type: 'custom',
-                    recipient_ids: memberId ? [memberId] : [],
-                    recipient_count: 1,
+                    recipient_ids: memberIds,
+                    recipient_count: validRecipients.length,
                     status: 'sent',
                 });
             }
@@ -99,7 +138,7 @@ export function QuickSmsDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <MessageSquare className="h-5 w-5 text-primary" />
-                        Send SMS to {recipientName}
+                        Send SMS {recipientCount === 1 ? `to ${actualRecipients[0]?.name || actualRecipients[0]?.phone}` : `to ${recipientCount} members`}
                     </DialogTitle>
                     <DialogDescription className='text-xs'>
                         You can customize your message before sending.
@@ -107,10 +146,21 @@ export function QuickSmsDialog({
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
+                    {skippedCount > 0 && (
+                        <Alert variant="destructive" className="py-2 bg-destructive/10 border-destructive/20 text-destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription className="text-xs">
+                                {skippedCount} {skippedCount === 1 ? 'recipient was' : 'recipients were'} removed because they do not have a valid Ghana phone number.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
                     <div className="flex justify-between items-center text-sm">
-                        <span className="font-medium text-muted-foreground">To: {recipientPhone}</span>
+                        <span className="font-medium text-muted-foreground">
+                            {recipientCount === 1 ? `To: ${actualRecipients[0]?.phone}` : `Recipients: ${recipientCount}`}
+                        </span>
                         <span className="text-muted-foreground">
-                            {message.length} chars ({requiredCredits} credit{requiredCredits !== 1 ? 's' : ''})
+                            {message.length} chars ({creditsPerMessage} cr/msg) • Total: {requiredCredits} cr
                         </span>
                     </div>
 

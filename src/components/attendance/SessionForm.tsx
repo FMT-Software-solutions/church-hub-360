@@ -176,7 +176,7 @@ export function SessionForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tags]);
 
-  // Seed group assignments from allowed_groups in edit mode (no form writes here to avoid loops)
+  // Seed group assignments from allowed_groups in edit mode 
   useEffect(() => {
     if (mode === 'edit' && groupAssignments.length === 0 && watchedAllowedGroups.length > 0) {
       const seeded = watchedAllowedGroups.map((gid: string) => ({ groupId: gid }));

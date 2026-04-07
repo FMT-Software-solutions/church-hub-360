@@ -307,6 +307,8 @@ BEGIN
         -- We join with members_summary to get aggregated tags and groups
         SELECT json_build_object(
             'id', ms.id,
+            'organization_id', ms.organization_id,
+            'branch_id', ms.branch_id,
             'first_name', ms.first_name,
             'last_name', ms.last_name,
             'middle_name', ms.middle_name,

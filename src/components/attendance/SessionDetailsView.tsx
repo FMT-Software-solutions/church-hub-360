@@ -69,6 +69,15 @@ export function SessionDetailsView({
   );
 
   // Fallback to all members when no allowed list
+  // For LinksQrCard we need the unpaginated full list if allowedMembers is empty
+  const { data: allMembersData } = useMembersSummaryPaginated(
+    currentOrganization?.id,
+    { branch_id: session.branch_id ?? undefined },
+    1,
+    10000, // Fetch a large enough number to cover all active members for SMS
+    null
+  );
+
   const { data: paginated, isLoading: loadingAll, isFetching } = useMembersSummaryPaginated(
     currentOrganization?.id,
     { search: debouncedSearch, branch_id: session.branch_id ?? undefined },
@@ -92,11 +101,17 @@ export function SessionDetailsView({
     return (session.allowed_tags || []).map((id) => byId.get(id) || id);
   }, [orgTags, session.allowed_tags]);
 
-  // Resolve the list to display
+  // Resolve the list to display in manual marking
   const baseMembers: MemberSummary[] = useMemo(() => {
     if (allowedMembers.length > 0) return allowedMembers;
     return paginated?.members || [];
   }, [allowedMembers, paginated]);
+
+  // Resolve the unpaginated list
+  const unpaginatedMembers: MemberSummary[] = useMemo(() => {
+    if (allowedMembers.length > 0) return allowedMembers;
+    return allMembersData?.members || [];
+  }, [allowedMembers, allMembersData]);
 
   // Client-side filtering by search term and fields
   const filteredMembers = useMemo(() => {
@@ -219,7 +234,7 @@ export function SessionDetailsView({
 
         {/* Right: Link/QR placeholders */}
         <div className="space-y-6">
-          <LinksQrCard />
+          <LinksQrCard session={session} eligibleMembers={unpaginatedMembers} />
         </div>
       </div>
     </div>

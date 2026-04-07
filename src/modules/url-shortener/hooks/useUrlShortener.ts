@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { generateShortCode } from '../utils/generateCode';
+import { baseUrl } from '@/constants/urls';
 
 interface ShortenUrlOptions {
   longUrl: string;
@@ -32,14 +33,11 @@ export function useUrlShortener() {
         throw new Error(error.message);
       }
 
-      // Build the final shortened URL using the current origin
-      // Example: https://churchhub360.com/#/s/abc123 (if using hash router)
-      // or https://churchhub360.com/s/abc123 (if using browser router)
-      const baseUrl = window.location.origin;
+
       const isHashRouter = window.location.hash.includes('#/');
-      
-      const shortUrl = isHashRouter 
-        ? `${baseUrl}/#/s/${code}` 
+
+      const shortUrl = isHashRouter
+        ? `${baseUrl}/#/s/${code}`
         : `${baseUrl}/s/${code}`;
 
       return {

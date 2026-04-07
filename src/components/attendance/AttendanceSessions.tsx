@@ -68,6 +68,11 @@ export function AttendanceSessions() {
     sessionId: string | null;
     sessionName: string | null;
   }>({ isOpen: false, sessionId: null, sessionName: null });
+  const [closeDialog, setCloseDialog] = useState<{
+    isOpen: boolean;
+    sessionId: string | null;
+    sessionName: string | null;
+  }>({ isOpen: false, sessionId: null, sessionName: null });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -117,11 +122,19 @@ export function AttendanceSessions() {
     });
   };
 
-  const handleToggleStatus = (sessionId: string, currentStatus: boolean) => {
-    toggleStatusMutation.mutate({
-      id: sessionId,
-      isOpen: !currentStatus,
-    });
+  const handleToggleStatus = (session: AttendanceSessionWithRelations) => {
+    if (session.is_open) {
+      setCloseDialog({
+        isOpen: true,
+        sessionId: session.id,
+        sessionName: session.name || session.occasion_name || 'Unnamed Session',
+      });
+    } else {
+      toggleStatusMutation.mutate({
+        id: session.id,
+        isOpen: true,
+      });
+    }
   };
 
   const handleEditSession = (session: AttendanceSessionWithRelations) => {
@@ -410,13 +423,11 @@ export function AttendanceSessions() {
                                   </div>
 
                                   <div className="flex items-center gap-2 mt-3 sm:mt-0">
-                                    {session.is_current && (
+                                    {(session.is_current || session.is_future) && (
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() =>
-                                          handleToggleStatus(session.id, session.is_open)
-                                        }
+                                        onClick={() => handleToggleStatus(session)}
                                         disabled={toggleStatusMutation.isPending}
                                       >
                                         {session.is_open ? (
@@ -440,7 +451,7 @@ export function AttendanceSessions() {
                                       <Eye className="w-3 h-3 mr-1" />
                                       View
                                     </Button>
-                                    {(!((!session.is_open || session.is_past) && (session.attendance_count || 0) > 0)) && (
+                                    {(!session.is_past) && (
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -520,13 +531,11 @@ export function AttendanceSessions() {
                                   </div>
 
                                   <div className="flex items-center gap-2 mt-3 sm:mt-0">
-                                    {session.is_current && (
+                                    {(session.is_current || session.is_future) && (
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() =>
-                                          handleToggleStatus(session.id, session.is_open)
-                                        }
+                                        onClick={() => handleToggleStatus(session)}
                                         disabled={toggleStatusMutation.isPending}
                                       >
                                         {session.is_open ? (
@@ -550,7 +559,7 @@ export function AttendanceSessions() {
                                       <Eye className="w-3 h-3 mr-1" />
                                       View
                                     </Button>
-                                    {(!((!session.is_open || session.is_past) && (session.attendance_count || 0) > 0)) && (
+                                    {(!session.is_past) && (
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -677,6 +686,31 @@ export function AttendanceSessions() {
         description={`Are you sure you want to delete "${deleteDialog.sessionName || ''
           }"? This action cannot be undone.`}
         isLoading={deleteSessionMutation.isPending}
+      />
+
+      {/* Close Confirmation */}
+      <DeleteConfirmationDialog
+        isOpen={closeDialog.isOpen}
+        onClose={() =>
+          setCloseDialog({ isOpen: false, sessionId: null, sessionName: null })
+        }
+        onConfirm={() => {
+          if (!closeDialog.sessionId) return;
+          toggleStatusMutation.mutate({
+            id: closeDialog.sessionId,
+            isOpen: false,
+          });
+          setCloseDialog({
+            isOpen: false,
+            sessionId: null,
+            sessionName: null,
+          });
+        }}
+        title="Close Attendance Session"
+        description={`Are you sure you want to close "${closeDialog.sessionName || ''
+          }"?`}
+        confirmButtonText="Close Session"
+        isLoading={toggleStatusMutation.isPending}
       />
     </div>
   );

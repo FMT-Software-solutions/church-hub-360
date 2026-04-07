@@ -73,6 +73,7 @@ import { UrlRedirector } from '@/modules/url-shortener';
 import VerifyToken from '@/pages/member-portal/VerifyToken';
 import VerifyOtp from '@/pages/member-portal/VerifyOtp';
 import SetupPin from '@/pages/member-portal/SetupPin';
+import { PublicAttendanceMarking } from '../pages/public/PublicAttendanceMarking';
 import MemberLogin from '@/pages/member-portal/MemberLogin';
 import MemberProfile from '@/pages/member-portal/MemberProfile';
 
@@ -113,6 +114,9 @@ function AppRoutes() {
       <Route path="/m/setup-pin" element={<SetupPin />} />
       <Route path="/m/login" element={<MemberLogin />} />
       <Route path="/m/profile" element={<MemberProfile />} />
+
+      {/* Public Attendance Routes */}
+      <Route path="/p/attendance/:sessionId" element={<PublicAttendanceMarking />} />
 
       {/* Organization selection route */}
       <Route

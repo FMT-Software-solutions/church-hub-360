@@ -1,6 +1,7 @@
 import { supabase } from '@/utils/supabase';
 import { sendSmsMessage } from './sms.service';
 import type { Member } from '@/types/members';
+import { baseUrl } from '@/constants/urls';
 
 export interface TokenValidationResult {
   valid: boolean;
@@ -85,7 +86,7 @@ export const memberPortalService = {
 
       // 2. Send SMS using the existing sms service
       const message = `Your ${organizationName} portal verification code is: ${otp_code}. It expires in 10 minutes.`;
-      
+
       await sendSmsMessage({
         sender: smsSenderId || import.meta.env.VITE_DEFAULT_SMS_SENDER_ID || 'CHURCHUB360',
         message,
@@ -177,7 +178,7 @@ export const memberPortalService = {
   async generateAccessLink(memberId: string, organizationId: string, purpose: 'PIN_SETUP' | 'PIN_RESET' | 'VIEW_PROFILE'): Promise<string> {
     // Generate a secure random token
     const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').substring(0, 16);
-    
+
     // Calculate expiration (Setup: 7 days, Reset: 1 hour, View: 24 hours)
     const expiresAt = new Date();
     if (purpose === 'PIN_SETUP') expiresAt.setDate(expiresAt.getDate() + 7);
@@ -198,8 +199,6 @@ export const memberPortalService = {
 
     // Generate short URL code (simple 8 char alphanumeric)
     const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-    
-    const baseUrl = import.meta.env.VITE_BASE_URL || window.location.origin || 'https://thechurchhub360.com';
 
     // Insert into short_urls
     const { error: shortUrlError } = await supabase.from('short_urls').insert({

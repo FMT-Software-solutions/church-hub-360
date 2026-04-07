@@ -9,7 +9,7 @@ import type { MemberSearchResult } from '@/hooks/useMemberSearch';
 import type { RelationalTagWithItems } from '@/hooks/useRelationalTags';
 import { useRelationalTags } from '@/hooks/useRelationalTags';
 import { attendanceSessionSchema } from '@/schemas/attendanceSessionSchema';
-import type { AttendanceMarkingModes, AttendanceOccasionWithRelations, CreateAttendanceSessionInput } from '@/types/attendance';
+import type { AttendanceMarkingModes, AttendanceOccasionWithRelations, CreateAttendanceSessionInput, AttendanceLocation } from '@/types/attendance';
 import type { DraftSession } from '@/types/attendanceWizard';
 import { doesDateMatch, generateNextOccurrences, generateOccurrences, getRangeForOption, type BulkDurationOption } from '@/utils/recurrence';
 import { format } from 'date-fns';
@@ -84,13 +84,13 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
   const [globalStart, setGlobalStart] = useState<string>(new Date().toISOString());
   const [globalEnd, setGlobalEnd] = useState<string>(new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString());
   const [isOpen, setIsOpen] = useState<boolean>(true);
-  const [allowPublicMarking, setAllowPublicMarking] = useState<boolean>(false);
-  const [proximityRequired, setProximityRequired] = useState<boolean>(false);
-  const [location, setLocation] = useState<{ lat?: number; lng?: number; radius?: number }>({});
+  const [allowPublicMarking, setAllowPublicMarking] = useState<boolean>(true);
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const [location, setLocation] = useState<AttendanceLocation | undefined>(undefined);
   const getValidLocation = () => {
-    if (!proximityRequired) return undefined;
-    if (typeof location.lat === 'number' && typeof location.lng === 'number') {
-      return { lat: location.lat, lng: location.lng, radius: location.radius };
+    if (locationId) return undefined; // using inherited location
+    if (location && typeof location.lat === 'number' && typeof location.lng === 'number') {
+      return location;
     }
     return undefined;
   };
@@ -162,6 +162,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       end_time: endAligned.toISOString(),
       is_open: isOpen,
       allow_self_marking: allowPublicMarking,
+      location_id: locationId,
       location: getValidLocation(),
       allowed_tags: flattenAllowedTags(),
       allowed_groups: allowedGroups.length ? allowedGroups.map(g => g.groupId) : undefined,
@@ -192,6 +193,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       end_time: globalEnd,
       is_open: isOpen,
       allow_self_marking: allowPublicMarking,
+      location_id: locationId,
       location: getValidLocation(),
       allowed_tags: flattenAllowedTags(),
       allowed_groups: allowedGroups.length ? allowedGroups.map(g => g.groupId) : undefined,
@@ -297,6 +299,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
         end_time: d.end_time,
         is_open: d.is_open ?? true,
         allow_self_marking: d.allow_self_marking ?? true,
+        location_id: d.location_id,
         location: d.location,
         allowed_tags: d.allowed_tags || [],
         allowed_groups: d.allowed_groups || [],
@@ -326,6 +329,7 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
       end_time: d.end_time,
       is_open: d.is_open,
       allow_self_marking: d.allow_self_marking,
+      location_id: d.location_id,
       location: d.location,
       allowed_tags: d.allowed_tags,
       allowed_groups: d.allowed_groups,
@@ -417,8 +421,8 @@ export function SessionCreationWizard({ onCancel }: SessionCreationWizardProps) 
         onChangeMarkingModes={(v) => setMarkingModes(v)}
         allowPublicMarking={allowPublicMarking}
         onChangeAllowPublicMarking={setAllowPublicMarking}
-        proximityRequired={proximityRequired}
-        onChangeProximityRequired={setProximityRequired}
+        locationId={locationId}
+        onChangeLocationId={setLocationId}
         location={location}
         onChangeLocation={setLocation}
       />
