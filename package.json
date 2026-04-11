@@ -18,15 +18,15 @@
     "electron:build": "cross-env NODE_ENV=production npm run electron:tsc && vite build --config vite.renderer.config.mts",
     "build:electron": "npx electron-builder --config electron-builder.yml --dir",
     "package": "npx electron-builder --config electron-builder.yml",
-    "publish:supabase": "node release/scripts/publish-supabase.js",
-    "publish:github": "node release/scripts/publish-github.js",
+    "publish:supabase": "node release/scripts/publish-supabase.cjs",
+    "publish:github": "node release/scripts/publish-github.cjs",
     "build:only": "cross-env NODE_ENV=production npm run electron:tsc && vite build --config vite.renderer.config.mts",
     "package:only": "npx electron-builder --config electron-builder.yml",
     "git:tag": "node -e \"const config = require('./release/release-config'); const { execSync } = require('child_process'); execSync(`git tag v${config.version}`); console.log(`Tagged v${config.version}`);\"",
     "git:push": "git push && git push --tags",
-    "release": "node release/scripts/release.js",
-    "release:status": "node release/scripts/release-manifest.js status",
-    "release:manifest": "node release/scripts/release-manifest.js"
+    "release": "node release/scripts/release.cjs",
+    "release:status": "node release/scripts/release-manifest.cjs status",
+    "release:manifest": "node release/scripts/release-manifest.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -99,6 +99,7 @@
     "slate-history": "^0.113.1",
     "slate-react": "^0.119.0",
     "sonner": "^2.0.7",
+    "stream-browserify": "^3.0.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.12",
     "uuid": "^13.0.0",

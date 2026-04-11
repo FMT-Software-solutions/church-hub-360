@@ -280,7 +280,7 @@ export function PublicAttendanceMarking() {
       if (markError) {
         if (markError.code === '23505') { // Unique violation
           await auditLog(memberId, 'failed', 'already_marked', distance, currentLoc);
-          throw new Error('You have already marked your attendance for this session.');
+          throw new Error('Your attendance for this session has already been marked.');
         }
         throw markError;
       }

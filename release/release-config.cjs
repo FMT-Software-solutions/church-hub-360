@@ -8,16 +8,19 @@
 
 module.exports = {
   // Version information
-  version: "1.2.3",
-  
+  version: "1.3.0",
+
   // Release notes in markdown format
-  releaseNotes: `### New Features
+  releaseNotes: `
+### New Features
+- Communication section
+- SMS integration
+- Member Pin feature
 
 ### Bug Fixes
 
 ### Enhancements
-- Enabled Trial usage for new users
-- Edit request enhancements
+- Link QR code generation for attendance session 
 `,
 
 
@@ -88,7 +91,7 @@ module.exports = {
     createCommit: true,
     createTag: true,
     pushChanges: true, // Set to true to automatically push
-    commitMessage: "Release v1.2.3"
+    commitMessage: "Release v1.3.0"
   },
 
   // Validation rules

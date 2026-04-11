@@ -41,30 +41,30 @@ const log = {
 
 function findInstallerFiles(config) {
   const installerFiles = {};
-  
+
   Object.keys(config.platforms).forEach(platform => {
     const platformConfig = config.platforms[platform];
     const searchPath = path.join(process.cwd(), platformConfig.installerPath);
-    
+
     if (fs.existsSync(searchPath)) {
       const pattern = path.join(searchPath, platformConfig.installerPattern);
       const files = glob.sync(pattern);
-      
+
       if (files.length > 0) {
         installerFiles[platform] = files[0]; // Take the first match
       }
     }
   });
-  
+
   return installerFiles;
 }
 
 function execCommand(command, options = {}) {
   try {
-    const result = execSync(command, { 
-      encoding: 'utf8', 
+    const result = execSync(command, {
+      encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
-      ...options 
+      ...options
     });
     return result;
   } catch (error) {
@@ -76,10 +76,10 @@ async function deleteGitTag(tagName) {
   try {
     log.info(`Removing local git tag: ${tagName}`);
     execCommand(`git tag -d ${tagName}`, { silent: true });
-    
+
     log.info(`Removing remote git tag: ${tagName}`);
     execCommand(`git push origin :refs/tags/${tagName}`, { silent: true });
-    
+
     log.success(`Git tag ${tagName} removed successfully`);
   } catch (error) {
     log.warning(`Failed to remove git tag ${tagName}: ${error.message}`);
@@ -93,7 +93,7 @@ async function createGitHubRelease(config, installerFiles) {
   }
 
   log.step('Creating GitHub release...');
-  
+
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   if (!token) {
     throw new Error('GH_TOKEN environment variable is required for GitHub releases');
@@ -102,7 +102,7 @@ async function createGitHubRelease(config, installerFiles) {
   const octokit = new Octokit({ auth: token });
   const tagName = `v${config.version}`;
   let releaseCreated = false;
-  
+
   try {
     // Create the release
     const releaseResponse = await octokit.rest.repos.createRelease({
@@ -122,11 +122,11 @@ async function createGitHubRelease(config, installerFiles) {
     // Upload assets if configured and available
     if (config.github.uploadAssets && Object.keys(installerFiles).length > 0) {
       log.step('Uploading release assets...');
-      
+
       for (const [platform, filePath] of Object.entries(installerFiles)) {
         const fileName = path.basename(filePath);
         const fileContent = fs.readFileSync(filePath);
-        
+
         try {
           await octokit.rest.repos.uploadReleaseAsset({
             owner: config.github.owner,
@@ -135,7 +135,7 @@ async function createGitHubRelease(config, installerFiles) {
             name: fileName,
             data: fileContent
           });
-          
+
           log.success(`Uploaded ${fileName} for ${platform}`);
         } catch (uploadError) {
           log.error(`Failed to upload ${fileName}: ${uploadError.message}`);
@@ -146,11 +146,11 @@ async function createGitHubRelease(config, installerFiles) {
     } else if (config.github.uploadAssets && Object.keys(installerFiles).length === 0) {
       log.info('Asset upload is enabled but no installer files found. Release created without assets.');
     }
-    
+
     return releaseResponse.data;
   } catch (error) {
     log.error(`GitHub release failed: ${error.message}`);
-    
+
     // Only clean up if release creation itself failed, not just asset uploads
     if (!releaseCreated) {
       // Clean up git tag only if release creation failed
@@ -158,7 +158,7 @@ async function createGitHubRelease(config, installerFiles) {
     } else {
       log.info('Release was created successfully despite asset upload issues.');
     }
-    
+
     throw error;
   }
 }
@@ -166,23 +166,23 @@ async function createGitHubRelease(config, installerFiles) {
 async function main() {
   try {
     log.header('GitHub Release Publisher');
-    
+
     // Load configuration
-    const config = require('../release-config');
-    
+    const config = require('../release-config.cjs');
+
     if (!config.github.enabled) {
       log.info('GitHub publishing is disabled in configuration');
       return;
     }
-    
+
     // Validate required environment variables
     if (!(process.env.GH_TOKEN || process.env.GITHUB_TOKEN)) {
       throw new Error('GH_TOKEN or GITHUB_TOKEN environment variable is required');
     }
-    
+
     // Find installer files
     const installerFiles = findInstallerFiles(config);
-    
+
     if (Object.keys(installerFiles).length === 0) {
       log.warning('No installer files found. Release will be created without assets.');
       log.info('Installer files can be uploaded manually later if needed.');
@@ -192,15 +192,15 @@ async function main() {
         log.info(`  ${platform}: ${path}`);
       });
     }
-    
+
     // Create GitHub release
     const githubRelease = await createGitHubRelease(config, installerFiles);
-    
+
     if (githubRelease) {
       log.success('GitHub release published successfully!');
       log.info(`Release URL: ${githubRelease.html_url}`);
     }
-    
+
   } catch (error) {
     log.error(`GitHub publishing failed: ${error.message}`);
     process.exit(1);

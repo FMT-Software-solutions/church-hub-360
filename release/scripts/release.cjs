@@ -18,7 +18,7 @@ if (fs.existsSync(envLocalPath)) {
 }
 
 // Load release configuration
-const releaseConfig = require('../release-config');
+const releaseConfig = require('../release-config.cjs');
 
 // ANSI color codes for console output
 const colors = {
@@ -73,7 +73,7 @@ function validateReleaseConfig(config) {
     if (!config.github.owner || !config.github.repo) {
       errors.push('GitHub owner and repo must be specified for GitHub releases');
     }
-    
+
     if (config.github.uploadAssets && !process.env.GH_TOKEN) {
       errors.push('GH_TOKEN environment variable is required for GitHub releases');
     }
@@ -84,11 +84,11 @@ function validateReleaseConfig(config) {
     if (!config.supabase.edgeFunction) {
       errors.push('Supabase edge function name is required when publishing is enabled');
     }
-    
+
     if (!process.env.VITE_SUPABASE_URL) {
       errors.push('VITE_SUPABASE_URL environment variable is required for Supabase publishing');
     }
-    
+
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       errors.push('SUPABASE_SERVICE_ROLE_KEY environment variable is required for Supabase publishing');
     }
@@ -123,7 +123,7 @@ function validateReleaseConfig(config) {
     try {
       const packagePath = path.join(process.cwd(), 'package.json');
       const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-      
+
       if (!packageJson.scripts || !packageJson.scripts.build) {
         errors.push('Build script not found in package.json');
       }
@@ -139,7 +139,7 @@ function validateVersionIncrement(newVersion, currentVersion) {
   if (!validateVersionFormat(newVersion) || !validateVersionFormat(currentVersion)) {
     throw new Error('Invalid version format for comparison');
   }
-  
+
   const parseVersion = (v) => v.split('.').map(Number);
   const [newMajor, newMinor, newPatch] = parseVersion(newVersion);
   const [curMajor, curMinor, curPatch] = parseVersion(currentVersion);
@@ -147,14 +147,14 @@ function validateVersionIncrement(newVersion, currentVersion) {
   if (newMajor > curMajor) return true;
   if (newMajor === curMajor && newMinor > curMinor) return true;
   if (newMajor === curMajor && newMinor === curMinor && newPatch > curPatch) return true;
-  
+
   return false;
 }
 
 function validateInstallerFiles(config) {
   const errors = [];
   const installerFiles = findInstallerFiles(config);
-  
+
   if (config.validation.requireInstallerFiles) {
     if (Object.keys(installerFiles).length === 0) {
       errors.push('No installer files found. Build the application first.');
@@ -174,21 +174,21 @@ function validateInstallerFiles(config) {
       });
     }
   }
-  
+
   return errors;
 }
 
 function validateEnvironment() {
   const errors = [];
   const warnings = [];
-  
+
   // Check for git repository
   try {
     execSync('git rev-parse --git-dir', { stdio: 'ignore' });
   } catch (error) {
     errors.push('Not in a git repository. Git operations will fail.');
   }
-  
+
   // Check for uncommitted changes
   try {
     const status = execSync('git status --porcelain', { encoding: 'utf8' });
@@ -198,42 +198,42 @@ function validateEnvironment() {
   } catch (error) {
     // Git status failed, already handled above
   }
-  
+
   // Check for package.json
   const packagePath = path.join(process.cwd(), 'package.json');
   if (!fs.existsSync(packagePath)) {
     errors.push('package.json not found in current directory');
   }
-  
+
   return { errors, warnings };
 }
 
 function findInstallerFiles(config) {
   const installerFiles = {};
-  
+
   Object.keys(config.platforms).forEach(platform => {
     const platformConfig = config.platforms[platform];
     const searchPath = path.join(process.cwd(), platformConfig.installerPath);
-    
+
     if (fs.existsSync(searchPath)) {
       const pattern = path.join(searchPath, platformConfig.installerPattern);
       const files = glob.sync(pattern);
-      
+
       if (files.length > 0) {
         installerFiles[platform] = files[0]; // Take the first match
       }
     }
   });
-  
+
   return installerFiles;
 }
 
 function execCommand(command, options = {}) {
   try {
-    const result = execSync(command, { 
-      encoding: 'utf8', 
+    const result = execSync(command, {
+      encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
-      ...options 
+      ...options
     });
     return result;
   } catch (error) {
@@ -259,7 +259,7 @@ function updatePackageVersion(newVersion) {
 async function updateChangelog(config) {
   const changelogPath = path.join(process.cwd(), 'CHANGELOG.md');
   let changelog = '';
-  
+
   if (fs.existsSync(changelogPath)) {
     changelog = fs.readFileSync(changelogPath, 'utf8');
   } else {
@@ -272,16 +272,16 @@ async function updateChangelog(config) {
   }
 
   const date = config.releaseDate || new Date().toISOString().split('T')[0];
-  
+
   // Format release notes from structured config
   let formattedReleaseNotes = '';
-  
+
   if (typeof config.releaseNotes === 'string') {
     formattedReleaseNotes = config.releaseNotes;
   } else if (typeof config.releaseNotes === 'object') {
     // Handle structured release notes
     const sections = ['added', 'changed', 'deprecated', 'removed', 'fixed', 'security'];
-    
+
     sections.forEach(section => {
       if (config.releaseNotes[section] && config.releaseNotes[section].length > 0) {
         const sectionTitle = section.charAt(0).toUpperCase() + section.slice(1);
@@ -293,15 +293,15 @@ async function updateChangelog(config) {
       }
     });
   }
-  
+
   const newEntry = `## [${config.version}] - ${date}\n\n${formattedReleaseNotes}\n`;
-  
+
   // Insert after the header
   const lines = changelog.split('\n');
   const insertIndex = lines.findIndex(line => line.startsWith('## ['));
   const actualInsertIndex = insertIndex !== -1 ? insertIndex : 4;
   lines.splice(actualInsertIndex, 0, ...newEntry.split('\n'));
-  
+
   fs.writeFileSync(changelogPath, lines.join('\n'));
 }
 
@@ -329,7 +329,7 @@ async function createGitCommitAndTag(config) {
   }
 
   log.step('Creating git commit and tag...');
-  
+
   // Check if tag already exists
   if (config.git.createTag) {
     try {
@@ -345,17 +345,17 @@ async function createGitCommitAndTag(config) {
   }
 
   if (config.git.createCommit) {
-    execCommand('git add package.json CHANGELOG.md release/release-config.js');
+    execCommand('git add package.json CHANGELOG.md release/release-config.cjs');
     const commitMessage = config.git.commitMessage.replace('{version}', config.version);
     execCommand(`git commit -m "${commitMessage}"`);
     log.success(`Git commit created: ${commitMessage}`);
   }
-  
+
   if (config.git.createTag) {
     execCommand(`git tag v${config.version}`);
     log.success(`Git tag v${config.version} created`);
   }
-  
+
   if (config.git.pushChanges) {
     log.step('Pushing changes to remote...');
     execCommand('git push');
@@ -368,13 +368,13 @@ async function createGitCommitAndTag(config) {
 
 async function publishToSupabase(version, releaseNotes) {
   log.step('Publishing to Supabase...');
-  
+
   try {
     // Get the built files
     const releaseDir = path.join(process.cwd(), 'release', 'build');
     const files = fs.readdirSync(releaseDir);
     const setupFile = files.find(file => file.includes('setup') && file.endsWith('.exe'));
-    
+
     if (!setupFile) {
       throw new Error('Setup file not found in release/build directory');
     }
@@ -398,17 +398,17 @@ async function publishToSupabase(version, releaseNotes) {
     // Save to release manifest
     const manifestPath = path.join(process.cwd(), 'release', 'release-manifest.json');
     let manifest = { releases: [] };
-    
+
     if (fs.existsSync(manifestPath)) {
       manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     }
-    
+
     manifest.releases.unshift(releaseData);
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
     // Run the Supabase publish script
     execCommand('npm run publish:supabase');
-    
+
     log.success('Published to Supabase as draft');
   } catch (error) {
     log.warning(`Failed to publish to Supabase: ${error.message}`);
@@ -419,7 +419,7 @@ async function publishToSupabase(version, releaseNotes) {
 async function main() {
   try {
     log.header('Church Hub 360 Release Script');
-    
+
     // Validate environment first
     const envValidation = validateEnvironment();
     if (envValidation.errors.length > 0) {
@@ -427,12 +427,12 @@ async function main() {
       envValidation.errors.forEach(error => log.error(`  - ${error}`));
       throw new Error('Environment validation failed');
     }
-    
+
     if (envValidation.warnings.length > 0) {
       log.warning('Environment warnings:');
       envValidation.warnings.forEach(warning => log.warning(`  - ${warning}`));
     }
-    
+
     // Load and validate configuration
     const config = releaseConfig;
     const configValidationErrors = validateReleaseConfig(config);
@@ -441,18 +441,18 @@ async function main() {
       configValidationErrors.forEach(error => log.error(`  - ${error}`));
       throw new Error('Configuration validation failed');
     }
-    
+
     log.success('Configuration validated successfully');
-    
+
     // Get current version and validate increment
     const currentVersion = getCurrentVersion();
     log.info(`Current version: ${currentVersion}`);
     log.info(`Target version: ${config.version}`);
-    
+
     if (!validateVersionIncrement(config.version, currentVersion)) {
       throw new Error(`New version ${config.version} is not higher than current version ${currentVersion}`);
     }
-    
+
     // Build application first (before modifying any files)
     if (config.build.enabled) {
       if (!config.build.skipBuild) {
@@ -461,22 +461,22 @@ async function main() {
         log.info('Skipping build (done manually)');
       }
     }
-    
+
     // Update package.json (after successful build)
     updatePackageVersion(config.version);
     log.success('Updated package.json');
-    
+
     // Update changelog
     await updateChangelog(config);
     log.success('Updated CHANGELOG.md');
-    
+
     // Package application with updated version
     if (config.build.enabled && !config.build.skipPackage) {
       await packageElectron();
     } else if (config.build.enabled) {
       log.info('Skipping packaging');
     }
-    
+
     // Validate installer files after building
     const installerValidationErrors = validateInstallerFiles(config);
     if (installerValidationErrors.length > 0) {
@@ -484,7 +484,7 @@ async function main() {
       installerValidationErrors.forEach(error => log.error(`  - ${error}`));
       throw new Error('Installer file validation failed');
     }
-    
+
     // Find installer files
     const installerFiles = findInstallerFiles(config);
     if (Object.keys(installerFiles).length > 0) {
@@ -493,14 +493,14 @@ async function main() {
         log.info(`  ${platform}: ${path}`);
       });
     }
-    
+
     // Create git commit and tag
     await createGitCommitAndTag(config);
-    
+
     // Publish to GitHub automatically
     if (config.github.enabled && config.github.createRelease) {
       try {
-        const { createGitHubRelease } = require('./publish-github');
+        const { createGitHubRelease } = require('./publish-github.cjs');
         const githubRelease = await createGitHubRelease(config, installerFiles);
         if (githubRelease) {
           log.success(`GitHub release created: ${githubRelease.html_url}`);
@@ -510,7 +510,7 @@ async function main() {
         log.info('You can retry with: npm run publish:github');
       }
     }
-    
+
     // Publish to Supabase automatically
     if (config.supabase && config.supabase.enabled) {
       try {
@@ -521,13 +521,13 @@ async function main() {
         log.info('You can retry with: npm run publish:supabase');
       }
     }
-    
+
     log.success('Release completed successfully!');
-    
+
     log.info('Backup commands available:');
     log.info('- npm run publish:github (if GitHub publishing failed)');
     log.info('- npm run publish:supabase (if Supabase publishing failed)');
-    
+
   } catch (error) {
     log.error(`Release failed: ${error.message}`);
     process.exit(1);

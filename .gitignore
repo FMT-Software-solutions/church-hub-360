@@ -12,6 +12,8 @@ dist
 release/build
 dist-ssr
 *.local
+*.env.development
+*.env.production
 .env
 
 # Editor directories and files
