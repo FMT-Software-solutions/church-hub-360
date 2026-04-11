@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@radix-ui/react-scroll-area';
 import { SingleBranchSelector } from '@/components/shared/BranchSelector';
+import { baseUrl } from '@/constants/urls';
 
 export default function Announcements() {
   const navigate = useNavigate();
@@ -80,7 +81,7 @@ export default function Announcements() {
       setFormBranchId(undefined);
       setSaving(false);
       navigate(`/announcements/${created.id}`);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -167,7 +168,7 @@ export default function Announcements() {
             await deleteAnnouncement.mutateAsync(selected.id);
             setIsDeleteOpen(false);
             setSelected(null);
-          } catch {}
+          } catch { }
         }}
         title="Delete Announcement"
         description="Are you sure you want to delete this announcement?"
@@ -188,13 +189,13 @@ export default function Announcements() {
                 <div className="flex items-center gap-2">
                   <Input
                     readOnly
-                    value={`${window.location.origin}${window.location.pathname}#/present/announcements/${selected.id}`}
+                    value={`${baseUrl}/#/present/announcements/${selected.id}`}
                   />
                   <Button
                     variant="outline"
                     onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}#/present/announcements/${selected.id}`;
-                      navigator.clipboard?.writeText(url).catch(() => {});
+                      const url = `${baseUrl}/#/present/announcements/${selected.id}`;
+                      navigator.clipboard?.writeText(url).catch(() => { });
                     }}
                   >
                     <LinkIcon className="h-4 w-4 mr-2" /> Copy
@@ -206,7 +207,7 @@ export default function Announcements() {
                 <div className="flex gap-2">
                   <Button
                     onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}#/present/announcements/${selected.id}`;
+                      const url = `${baseUrl}/#/present/announcements/${selected.id}`;
                       const wa = `https://wa.me/?text=${encodeURIComponent(
                         url
                       )}`;
@@ -218,7 +219,7 @@ export default function Announcements() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}#/present/announcements/${selected.id}`;
+                      const url = `${baseUrl}/#/present/announcements/${selected.id}`;
                       const waWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(
                         url
                       )}`;

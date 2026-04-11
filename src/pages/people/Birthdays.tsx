@@ -16,6 +16,7 @@ import { useUserBranches } from '@/hooks/useBranchQueries'
 import { useUrlShortener } from '@/modules/url-shortener'
 import { QuickSmsDialog } from '@/components/shared/sms/QuickSmsDialog'
 import { Copy, MessageSquare, Loader2 } from 'lucide-react'
+import { baseUrl } from '@/constants/urls'
 
 function daysUntilBirthday(dobIso: string) {
   const now = new Date()
@@ -47,7 +48,7 @@ function BirthdayActions({ member }: { member: MemberSummary }) {
 
     setIsShortening(true);
     try {
-      const longUrl = `${window.location.origin}${window.location.pathname}#/present/birthday/${member.id}`;
+      const longUrl = `${baseUrl}/#/present/birthday/${member.id}`;
       const result = await shortenUrlMutation.mutateAsync({
         longUrl,
         organizationId: currentOrganization!.id,

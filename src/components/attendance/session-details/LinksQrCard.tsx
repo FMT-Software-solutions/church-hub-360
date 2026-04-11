@@ -51,7 +51,7 @@ export function LinksQrCard({ session, eligibleMembers }: LinksQrCardProps) {
 
     setIsGenerating(true);
     try {
-      const longUrl = `${baseUrl}/${window.location.pathname}#/p/attendance/${session.id}`;
+      const longUrl = `${baseUrl}/#/p/attendance/${session.id}`;
       const result = await shortenUrlMutation.mutateAsync({
         longUrl,
         organizationId: currentOrganization.id,

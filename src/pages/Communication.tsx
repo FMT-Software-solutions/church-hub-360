@@ -34,8 +34,6 @@ import { sendSmsMessage } from '@/services/sms.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 
-// Mock data removed in favor of real db values
-
 export function Communication() {
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();

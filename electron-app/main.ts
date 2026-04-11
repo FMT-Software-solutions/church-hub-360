@@ -5,8 +5,8 @@ import https from 'https';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { generateUpdateFileName, getPlatformInfo, getVisibleInstallerArgsWithRestart } from './platformUtils';
-import updateConfigManager from './updateConfigManager';
+import { generateUpdateFileName, getPlatformInfo, getVisibleInstallerArgsWithRestart } from './platformUtils.js';
+import updateConfigManager from './updateConfigManager.js';
 
 // Polyfill __dirname and __filename for ES modules
 const __filename = fileURLToPath(import.meta.url);
