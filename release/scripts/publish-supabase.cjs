@@ -16,7 +16,7 @@ if (fs.existsSync(envLocalPath)) {
   console.warn('Warning: No .env.local or .env file found');
 }
 // Load release configuration
-const releaseConfig = require('../release-config');
+const releaseConfig = require('../release-config.cjs');
 
 const colors = {
   reset: '\x1b[0m',
@@ -45,7 +45,7 @@ function validateEnvironment() {
   if (!supabaseUrl) {
     throw new Error('VITE_SUPABASE_URL environment variable is required');
   }
-  
+
   if (!supabaseServiceKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable is required for publishing');
   }
@@ -55,33 +55,33 @@ function validateEnvironment() {
 
 function validateReleaseData(config) {
   const errors = [];
-  
+
   if (!config.version) {
     errors.push('Version is required');
   }
-  
+
   if (!config.releaseNotes) {
     errors.push('Release notes are required');
   }
-  
+
   if (!config.supabase.enabled) {
     errors.push('Supabase publishing is not enabled in configuration');
   }
-  
+
   if (!config.supabase.edgeFunction) {
     errors.push('Edge function name is required');
   }
-  
+
   return errors;
 }
 
 async function callEdgeFunction(config, releaseData) {
   const { supabaseUrl, supabaseServiceKey } = validateEnvironment();
-  
+
   const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${config.supabase.edgeFunction}`;
-  
+
   log.step(`Calling Edge Function: ${config.supabase.edgeFunction}`);
-  
+
   const response = await fetch(edgeFunctionUrl, {
     method: 'POST',
     headers: {
@@ -91,12 +91,12 @@ async function callEdgeFunction(config, releaseData) {
     },
     body: JSON.stringify(releaseData)
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Edge Function call failed (${response.status}): ${errorText}`);
   }
-  
+
   const result = await response.json();
   return result;
 }
@@ -104,12 +104,12 @@ async function callEdgeFunction(config, releaseData) {
 async function publishToSupabase(version, releaseNotes) {
   try {
     log.header('📤 Publishing to Supabase via Edge Function');
-    
+
     // Use provided parameters or fall back to config
     const config = releaseConfig;
     const targetVersion = version || config.version;
     const targetReleaseNotes = releaseNotes || config.releaseNotes;
-    
+
     // Validate configuration
     const validationErrors = validateReleaseData(config);
     if (validationErrors.length > 0) {
@@ -117,9 +117,9 @@ async function publishToSupabase(version, releaseNotes) {
       validationErrors.forEach(error => log.error(`  - ${error}`));
       throw new Error('Invalid configuration');
     }
-    
+
     log.info(`Publishing version ${targetVersion}...`);
-    
+
     // Prepare platforms array for Edge Function
     const platforms = [];
     Object.entries(config.platforms).forEach(([platformName, platformConfig]) => {
@@ -134,41 +134,41 @@ async function publishToSupabase(version, releaseNotes) {
       });
       log.info(`  - ${platformName} (${platformConfig.architecture}) [${platformConfig.status || 'published'}]`);
     });
-    
+
     // Prepare release data for Edge Function
     const releaseData = {
       version: targetVersion,
       release_notes: targetReleaseNotes,
-      platforms: platforms 
+      platforms: platforms
     };
-    
+
     // Call the Edge Function
     const result = await callEdgeFunction(config, releaseData);
-    
+
     if (result.success) {
       log.success(`Version ${targetVersion} published successfully`);
-      
+
       if (result.data) {
         if (result.data.created) {
           log.info(`Created new release record with ID: ${result.data.id}`);
         } else {
           log.info(`Updated existing release record with ID: ${result.data.id}`);
         }
-        
+
         if (result.data.status) {
           log.info(`Release status: ${result.data.status}`);
         }
       }
-      
+
       if (result.message) {
         log.info(result.message);
       }
     } else {
       throw new Error(result.error || 'Unknown error from Edge Function');
     }
-    
+
     log.success('Release published to Supabase successfully');
-    
+
   } catch (error) {
     log.error(`Failed to publish to Supabase: ${error.message}`);
     throw error;
@@ -190,7 +190,7 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { 
+module.exports = {
   publishToSupabase,
   validateEnvironment,
   validateReleaseData,

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-04-11
+
+
+### New Features
+- Communication section
+- SMS integration
+- Member Pin feature
+
+### Bug Fixes
+
+### Enhancements
+- Link QR code generation for attendance session 
+
+
 ## [1.2.3] - 2025-12-24
 
 ### New Features
